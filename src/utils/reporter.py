@@ -608,54 +608,6 @@ def save_dashboard(
       background: rgba(20, 93, 245, 0.12);
       color: var(--accent);
     }}
-    .dashboard-view-tabs {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: flex-start;
-      margin-bottom: 18px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }}
-    .dashboard-view-tab {{
-      border: 0;
-      background: transparent;
-      color: var(--ink);
-      padding: 8px 14px;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      position: relative;
-    }}
-    .dashboard-view-tab.is-active {{
-      border-bottom-color: var(--accent);
-      color: var(--accent);
-      background: rgba(79, 172, 255, 0.08);
-    }}
-    .news-filter-row {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      margin-top: 12px;
-    }}
-    .news-filter-row input,
-    .news-filter-row select {{
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 0;
-      padding: 8px 10px;
-      background: rgba(255, 255, 255, 0.92);
-      font: inherit;
-    }}
-    .news-table-caption {{
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 14px;
-      gap: 10px;
-      flex-wrap: wrap;
-    }}
     .bucket-panel[hidden] {{
       display: none !important;
     }}
@@ -994,17 +946,6 @@ def save_dashboard(
 </head>
 <body>
   <div class="wrap">
-    <div class="dashboard-view-tabs">
-      <button type="button" class="dashboard-view-tab is-active" data-dashboard-tab="jobs">
-        Job board
-        <span class="tab-count" id="dashboard-tab-count-jobs">{stats["total_jobs"]}</span>
-      </button>
-      <button type="button" class="dashboard-view-tab" data-dashboard-tab="news">
-        News
-        <span class="tab-count" id="dashboard-tab-count-news">0</span>
-      </button>
-    </div>
-    <div id="dashboard-panel-jobs">
     <section class="hero">
       <h1>Job Watch Stats</h1>
       <section class="runtime-panel">
@@ -1215,46 +1156,6 @@ def save_dashboard(
           <tbody id="bucket-rejected"></tbody>
         </table>
       </div>
-    </section>
-    </div>
-    <section id="dashboard-panel-news" class="card bucket-panel" hidden>
-      <h2>뉴스</h2>
-      <p class="meta">수집한 뉴스 기사를 표로 정리하고, 출처와 날짜를 한 번에 확인할 수 있습니다.</p>
-      <div class="news-filter-row">
-        <input id="dashboard-news-search" type="search" placeholder="기사 제목·내용·출처 검색">
-        <select id="dashboard-news-source">
-          <option value="">전체 출처</option>
-          <option value="rss_igaming_business">🎮 iGaming Business</option>
-          <option value="rss_fintech_uae">💰 Fintech News UAE</option>
-          <option value="rss_intergame_news">🎲 InterGame News</option>
-          <option value="rss_intergame_crypto">₿ InterGame Crypto</option>
-          <option value="rss_intergame_all">🎰 InterGame All</option>
-          <option value="rss_intergame_abbrev">📰 InterGame Abbrev</option>
-          <option value="rss_finextra_headlines">📈 FinExtra Headlines</option>
-          <option value="rss_finextra_payments">💳 FinExtra Payments</option>
-          <option value="rss_finextra_crypto">🔗 FinExtra Crypto</option>
-          <option value="rss_player_pragmatic">👤 Player Feed</option>
-        </select>
-      </div>
-      <div class="news-table-caption">
-        <span class="meta">총 <span id="dashboard-news-total">0</span>건</span>
-        <span id="dashboard-news-loader" class="meta" hidden>로딩 중…</span>
-      </div>
-      <div id="dashboard-news-error" class="meta" hidden style="color:#f87171;">뉴스를 불러오는 중 오류가 발생했습니다.</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>제목</th>
-              <th>출처</th>
-              <th>날짜</th>
-              <th>요약</th>
-            </tr>
-          </thead>
-          <tbody id="dashboard-news-body"></tbody>
-        </table>
-      </div>
-      <p id="dashboard-news-empty" class="meta" hidden>조건에 맞는 뉴스 기사가 없습니다.</p>
     </section>
   </div>
   <script>
@@ -1642,126 +1543,468 @@ def save_dashboard(
     applyTableFilters();
     setActiveTab('inbox');
     syncRejectFeedback();
+    loadRuntimeState();
+  </script>
+</body>
+</html>
+"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html_text, encoding="utf-8")
 
-    const newsSourceMap = {{
-      "rss_igaming_business": "🎮 iGaming Business",
-      "rss_fintech_uae": "💰 Fintech News UAE",
-      "rss_intergame_news": "🎲 InterGame News",
-      "rss_intergame_crypto": "₿ InterGame Crypto",
-      "rss_intergame_all": "🎰 InterGame All",
-      "rss_intergame_abbrev": "📰 InterGame Abbrev",
-      "rss_finextra_headlines": "📈 FinExtra Headlines",
-      "rss_finextra_payments": "💳 FinExtra Payments",
-      "rss_finextra_crypto": "🔗 FinExtra Crypto",
-      "rss_player_pragmatic": "👤 Player Feed"
+
+def save_news_dashboard(path: Path) -> None:
+    """Generate standalone news dashboard HTML with filters and pagination."""
+    html_text = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News Dashboard - Job Watch</title>
+  <style>
+    :root {{
+      --bg: #0d1117;
+      --surface: #161b22;
+      --glass: rgba(255, 255, 255, 0.05);
+      --accent: #60a5fa;
+      --accent-dark: #3b82f6;
+      --text-primary: #f0f6fc;
+      --text-muted: #8b949e;
+      --border: rgba(255, 255, 255, 0.1);
+      --success: #3fb950;
+      --error: #f85149;
+    }}
+
+    * {{
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }}
+
+    html, body {{
+      height: 100%;
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }}
+
+    .wrap {{
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }}
+
+    .page-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }}
+
+    .page-header h1 {{
+      font-size: 32px;
+      font-weight: 700;
+    }}
+
+    .back-link {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+      font-weight: 500;
+    }}
+
+    .back-link:hover {{
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--accent);
+    }}
+
+    .filter-card {{
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }}
+
+    .filter-row {{
+      display: grid;
+      grid-template-columns: 1fr 220px auto;
+      gap: 12px;
+      margin-bottom: 16px;
+    }}
+
+    @media (max-width: 768px) {{
+      .filter-row {{
+        grid-template-columns: 1fr;
+      }}
+    }}
+
+    .filter-row input,
+    .filter-row select {{
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+    }}
+
+    .filter-row input::placeholder {{
+      color: var(--text-muted);
+    }}
+
+    .filter-row input:focus,
+    .filter-row select:focus {{
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(96, 165, 250, 0.05);
+    }}
+
+    .filter-row button {{
+      padding: 10px 18px;
+      background: var(--accent);
+      border: 0;
+      border-radius: 6px;
+      color: #0d1117;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }}
+
+    .filter-row button:hover {{
+      background: var(--accent-dark);
+    }}
+
+    .stats-row {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }}
+
+    .table-card {{
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+      overflow-x: auto;
+    }}
+
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+    }}
+
+    thead {{
+      border-bottom: 2px solid var(--border);
+    }}
+
+    th {{
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 13px;
+    }}
+
+    tbody tr {{
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }}
+
+    tbody tr:hover {{
+      background: rgba(96, 165, 250, 0.05);
+    }}
+
+    td {{
+      padding: 12px 8px;
+      vertical-align: top;
+      font-size: 13px;
+    }}
+
+    td a {{
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-word;
+    }}
+
+    td a:hover {{
+      text-decoration: underline;
+    }}
+
+    .loader {{
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }}
+
+    .error-msg {{
+      padding: 16px;
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 6px;
+      color: #ff7f7f;
+      margin-bottom: 16px;
+    }}
+
+    #news-empty {{
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }}
+
+    .pagination {{
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }}
+
+    .pagination button {{
+      padding: 8px 14px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }}
+
+    .pagination button:hover:not(:disabled) {{
+      background: rgba(96, 165, 250, 0.1);
+      border-color: var(--accent);
+    }}
+
+    .pagination button.active {{
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }}
+
+    .pagination button:disabled {{
+      opacity: 0.5;
+      cursor: not-allowed;
+    }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-header">
+      <h1>📰 News Dashboard</h1>
+      <a href="/job_stats_dashboard.html" class="back-link">← Job Board</a>
+    </header>
+
+    <section class="filter-card">
+      <div class="filter-row">
+        <input id="news-search" type="search" placeholder="기사 제목·내용·검색" >
+        <select id="news-source">
+          <option value="">전체 출처</option>
+          <option value="rss_igaming_business">🎮 iGaming Business</option>
+          <option value="rss_fintech_uae">💰 Fintech News UAE</option>
+          <option value="rss_intergame_news">🎲 InterGame News</option>
+          <option value="rss_intergame_crypto">₿ InterGame Crypto</option>
+          <option value="rss_intergame_all">🎰 InterGame All</option>
+          <option value="rss_intergame_abbrev">📰 InterGame Abbrev</option>
+          <option value="rss_finextra_headlines">📈 FinExtra Headlines</option>
+          <option value="rss_finextra_payments">💳 FinExtra Payments</option>
+          <option value="rss_finextra_crypto">🔗 FinExtra Crypto</option>
+          <option value="rss_player_pragmatic">👤 Player Feed</option>
+        </select>
+        <button id="search-btn">검색</button>
+      </div>
+      <div class="stats-row">
+        <span id="news-stats-text">로딩 중...</span>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <div id="news-loader" class="loader">로딩 중…</div>
+      <div id="news-error" hidden class="error-msg"></div>
+      <table id="news-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>제목</th>
+            <th>출처</th>
+            <th>날짜</th>
+            <th>요약</th>
+          </tr>
+        </thead>
+        <tbody id="news-body"></tbody>
+      </table>
+      <p id="news-empty" hidden>조건에 맞는 기사가 없습니다.</p>
+    </section>
+
+    <nav id="news-pagination" class="pagination"></nav>
+  </div>
+
+  <script>
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
+    let currentSource = '';
+    let currentSearch = '';
+    let totalArticles = 0;
+
+    const formatDate = (val) => {{
+      if (!val) return "-";
+      try {{
+        const parsed = new Date(val);
+        if (isNaN(parsed)) return val.substring(0, 16);
+        return parsed.toLocaleDateString("en-US", {{ month: "short", day: "numeric", year: "numeric" }});
+      }} catch {{
+        return val.substring(0, 16);
+      }}
     }};
 
-    const newsTabButtons = document.querySelectorAll("[data-dashboard-tab]");
-    const panelJobs = document.getElementById("dashboard-panel-jobs");
-    const panelNews = document.getElementById("dashboard-panel-news");
+    async function loadNews(page = 1) {{
+      const loader = document.getElementById('news-loader');
+      const error = document.getElementById('news-error');
+      const empty = document.getElementById('news-empty');
+      const table = document.getElementById('news-table');
+      const tbody = document.getElementById('news-body');
+      const statsTxt = document.getElementById('news-stats-text');
 
-    const setDashboardView = (target) => {{
-      newsTabButtons.forEach((btn) => {{
-        btn.classList.toggle("is-active", btn.dataset.dashboardTab === target);
-      }});
-      if (panelJobs) panelJobs.hidden = target !== "jobs";
-      if (panelNews) panelNews.hidden = target !== "news";
-    }};
-
-    const formatNewsDate = (value) => {{
-      if (!value) return "-";
-      const parsed = Date.parse(value);
-      if (Number.isNaN(parsed)) return value.substring(0, 16);
-      return new Date(parsed).toLocaleString("en-US", {{ dateStyle: "medium", timeStyle: "short" }});
-    }};
-
-    const loadNewsTable = async () => {{
-      const body = document.getElementById("dashboard-news-body");
-      const loader = document.getElementById("dashboard-news-loader");
-      const error = document.getElementById("dashboard-news-error");
-      const empty = document.getElementById("dashboard-news-empty");
-      const totalEl = document.getElementById("dashboard-news-total");
-      const tabCount = document.getElementById("dashboard-tab-count-news");
-      if (!body) return;
-
-      const searchValue = document.getElementById("dashboard-news-search")?.value.trim() || "";
-      const sourceValue = document.getElementById("dashboard-news-source")?.value || "";
       loader.hidden = false;
       error.hidden = true;
       empty.hidden = true;
-      body.innerHTML = "";
+      table.style.display = 'none';
+      tbody.innerHTML = '';
 
       try {{
-        const params = new URLSearchParams({{ limit: "80", offset: "0" }});
-        if (sourceValue) params.set("source", sourceValue);
-        if (searchValue) params.set("q", searchValue);
+        const offset = (page - 1) * PAGE_SIZE;
+        const params = new URLSearchParams({{ limit: PAGE_SIZE.toString(), offset: offset.toString() }});
+        if (currentSource) params.set('source', currentSource);
+        if (currentSearch) params.set('q', currentSearch);
+
         const response = await fetch(`/api/all-news?${{params.toString()}}`);
         if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+
         const data = await response.json();
         const articles = data.articles || [];
-        const total = Number.isFinite(data.total) ? data.total : articles.length;
-        if (totalEl) totalEl.textContent = total;
-        if (tabCount) tabCount.textContent = total;
+        totalArticles = data.total || 0;
+
+        statsTxt.textContent = `총 ${{totalArticles}}건 · 페이지 ${{page}}/${{Math.ceil(totalArticles / PAGE_SIZE)}}`;
+
         if (!articles.length) {{
           empty.hidden = false;
+          loader.hidden = true;
           return;
         }}
 
-        articles.forEach((article) => {{
-          const row = document.createElement("tr");
-          const titleCell = document.createElement("td");
-          const link = document.createElement("a");
-          link.href = article.url || "#";
-          link.target = "_blank";
-          link.rel = "noreferrer";
-          link.textContent = article.title || "No title";
+        articles.forEach(article => {{
+          const row = document.createElement('tr');
+
+          const titleCell = document.createElement('td');
+          const link = document.createElement('a');
+          link.href = article.url || '#';
+          link.target = '_blank';
+          link.rel = 'noreferrer';
+          link.textContent = article.title || 'No title';
           titleCell.appendChild(link);
 
-          const sourceCell = document.createElement("td");
-          sourceCell.textContent = newsSourceMap[article.source] || article.source || "news";
+          const sourceCell = document.createElement('td');
+          sourceCell.textContent = article.source_label || article.source || '-';
 
-          const dateCell = document.createElement("td");
-          dateCell.textContent = formatNewsDate(article.published_at || article.date || "");
+          const dateCell = document.createElement('td');
+          dateCell.textContent = formatDate(article.published_at || article.date);
 
-          const summaryCell = document.createElement("td");
-          const summary = (article.summary || "").replace(/\\s+/g, " ").trim();
-          const truncated = summary.length > 120 ? `${{summary.slice(0, 120)}}...` : summary;
+          const summaryCell = document.createElement('td');
+          const summary = (article.summary || '').replace(/\\s+/g, ' ').trim();
+          const truncated = summary.length > 100 ? summary.slice(0, 100) + '...' : summary;
           summaryCell.textContent = truncated;
 
           row.append(titleCell, sourceCell, dateCell, summaryCell);
-          body.appendChild(row);
+          tbody.appendChild(row);
         }});
+
+        table.style.display = 'table';
+        renderPagination(totalArticles, page);
       }} catch (err) {{
-        error.textContent = `뉴스를 불러오는 중 오류가 발생했습니다: ${{err.message}}`;
+        error.textContent = `오류: ${{err.message}}`;
         error.hidden = false;
       }} finally {{
         loader.hidden = true;
       }}
-    }};
+    }}
 
-    newsTabButtons.forEach((btn) => {{
-      btn.addEventListener("click", () => {{
-        const target = btn.dataset.dashboardTab;
-        setDashboardView(target);
-        if (target === "news") {{
-          loadNewsTable();
-        }}
+    function renderPagination(total, currentPageNum) {{
+      const nav = document.getElementById('news-pagination');
+      nav.innerHTML = '';
+
+      const totalPages = Math.ceil(total / PAGE_SIZE);
+      if (totalPages <= 1) return;
+
+      // Previous button
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← 이전';
+      prevBtn.disabled = currentPageNum === 1;
+      prevBtn.addEventListener('click', () => {{
+        if (currentPageNum > 1) loadNews(currentPageNum - 1);
       }});
+      nav.appendChild(prevBtn);
+
+      // Page numbers
+      const startPage = Math.max(1, currentPageNum - 2);
+      const endPage = Math.min(totalPages, currentPageNum + 2);
+
+      for (let i = startPage; i <= endPage; i++) {{
+        const btn = document.createElement('button');
+        btn.textContent = i.toString();
+        btn.className = i === currentPageNum ? 'active' : '';
+        btn.addEventListener('click', () => loadNews(i));
+        nav.appendChild(btn);
+      }}
+
+      // Next button
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = '다음 →';
+      nextBtn.disabled = currentPageNum === totalPages;
+      nextBtn.addEventListener('click', () => {{
+        if (currentPageNum < totalPages) loadNews(currentPageNum + 1);
+      }});
+      nav.appendChild(nextBtn);
+    }}
+
+    // Event listeners
+    document.getElementById('search-btn').addEventListener('click', () => {{
+      currentSearch = document.getElementById('news-search').value.trim();
+      currentSource = document.getElementById('news-source').value;
+      currentPage = 1;
+      loadNews(1);
     }});
 
-    document.getElementById("dashboard-news-search")?.addEventListener("input", () => {{
-      if (panelNews && !panelNews.hidden) {{
-        loadNewsTable();
-      }}
-    }});
-    document.getElementById("dashboard-news-source")?.addEventListener("change", () => {{
-      if (panelNews && !panelNews.hidden) {{
-        loadNewsTable();
-      }}
+    document.getElementById('news-search').addEventListener('keydown', (e) => {{
+      if (e.key === 'Enter') document.getElementById('search-btn').click();
     }});
 
-    setDashboardView("jobs");
-    loadRuntimeState();
+    document.getElementById('news-source').addEventListener('change', () => {{
+      currentSource = document.getElementById('news-source').value;
+      currentSearch = document.getElementById('news-search').value.trim();
+      currentPage = 1;
+      loadNews(1);
+    }});
+
+    // Initial load
+    loadNews(1);
   </script>
 </body>
 </html>

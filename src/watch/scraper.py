@@ -47,7 +47,7 @@ from utils.notifications import (
     source_daily_counts,
     source_total_counts,
 )
-from utils.reporter import save_csv, save_dashboard, save_dashboard_data, save_json, save_markdown
+from utils.reporter import save_csv, save_dashboard, save_dashboard_data, save_json, save_markdown, save_news_dashboard
 from utils.scoring import (
     annotate_records,
     calculate_match_score,
@@ -245,6 +245,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             all_jobs_annotated,
             bool(resume_text),
         )
+
+    # Generate news dashboard HTML only if it doesn't exist
+    news_dashboard_path = OUTPUT_DIR / "all_news.html"
+    if not news_dashboard_path.exists():
+        logger.info("Generating news dashboard HTML template...")
+        save_news_dashboard(news_dashboard_path)
 
     # Update dashboard data (JSON) on every run
     save_dashboard_data(
