@@ -1,0 +1,4 @@
+New UAE job matches: {{ new_count }}
+{% for job in top_jobs -%}
+- <a href="{{ job.url }}">{{ job.label }}</a>
+{% endfor %}

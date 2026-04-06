@@ -1,0 +1,8 @@
+New jobs in last {{ hours }}h: {{ job_count }}
+{% if source_counts %}
+
+{{ source_line }}
+{% endif %}
+{% for job in jobs -%}
+- <a href="{{ job.url }}">{{ job.label }}</a>
+{% endfor %}

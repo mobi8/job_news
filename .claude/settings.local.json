@@ -71,7 +71,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(pkill -f \"serve_dashboard\")",
-      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=2\")"
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=2\")",
+      "Bash(pip3 install:*)"
     ]
   }
 }

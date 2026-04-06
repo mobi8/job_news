@@ -232,17 +232,18 @@ class Database:
     def normalize_linkedin_urls(self) -> int:
         rows = self.conn.execute(
             """
-            SELECT fingerprint, url, source_job_id
+            SELECT fingerprint, url, source_job_id, source
             FROM jobs
-            WHERE source = 'linkedin_public'
+            WHERE source IN ('linkedin_public', 'linkedin_georgia')
             """
         ).fetchall()
         updated = 0
         for row in rows:
             current_url = row["url"]
             current_source_job_id = row["source_job_id"]
+            source = row["source"]
             normalized_url = normalize_linkedin_url(current_url)
-            normalized_source_job_id = normalize_linkedin_identifier("linkedin_public", current_source_job_id)
+            normalized_source_job_id = normalize_linkedin_identifier(source, current_source_job_id)
             if normalized_url != current_url or normalized_source_job_id != current_source_job_id:
                 self.conn.execute(
                     "UPDATE jobs SET url = ?, source_job_id = ? WHERE fingerprint = ?",

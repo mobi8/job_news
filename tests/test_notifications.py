@@ -24,6 +24,7 @@ from utils.notifications import (
     source_total_counts,
 )
 from utils.utils import utc_now
+from utils.template_renderer import render_template
 
 
 class TestSourceTotalCounts:
@@ -349,6 +350,132 @@ class TestMaybeSendTelegram:
             # Message should contain job information
             assert isinstance(message, str)
             assert len(message) > 0
+
+
+class TestTemplateRenderer:
+    """Tests for template rendering functions"""
+
+    def test_render_job_alert_template(self):
+        """Test rendering job alert template"""
+        context = {
+            "new_count": 5,
+            "top_jobs": [
+                {"label": "Corp1 | Developer", "url": "https://example.com/1"},
+                {"label": "Corp2 | Engineer", "url": "https://example.com/2"},
+            ]
+        }
+        result = render_template("telegram/job_alert.txt", context)
+        assert "New UAE job matches: 5" in result
+        assert "Corp1 | Developer" in result
+        assert "https://example.com/1" in result
+
+    def test_render_incremental_summary_template(self):
+        """Test rendering incremental summary template"""
+        context = {
+            "hours": 3,
+            "job_count": 2,
+            "source_counts": True,
+            "source_line": "Indeed UAE 2 | LinkedIn 1",
+            "jobs": [
+                {"label": "Corp1 | Developer", "url": "https://example.com/1"},
+            ]
+        }
+        result = render_template("telegram/incremental_summary.txt", context)
+        assert "New jobs in last 3h: 2" in result
+        assert "Indeed UAE 2 | LinkedIn 1" in result
+
+    def test_render_daily_summary_template(self):
+        """Test rendering daily summary template"""
+        context = {
+            "new_count": 3,
+            "source_today": [
+                {"label": "Indeed UAE", "count": 2},
+                {"label": "LinkedIn", "count": 1},
+            ],
+            "source_total": [
+                {"label": "Indeed UAE", "count": 10},
+                {"label": "LinkedIn", "count": 5},
+            ],
+            "jobs": [
+                {"label": "Corp1 | Developer", "url": "https://example.com/1"},
+                {"label": "Corp2 | Engineer", "url": "https://example.com/2"},
+            ]
+        }
+        result = render_template("telegram/daily_summary.txt", context)
+        assert "🆕 Daily Jobs (3 new)" in result
+        assert "Corp1 | Developer" in result
+
+    def test_render_news_summary_template(self):
+        """Test rendering full news summary template"""
+        context = {
+            "total_articles": 10,
+            "topics": [
+                {
+                    "label_ko": "블록체인 뉴스",
+                    "article_count": 5,
+                    "articles": [
+                        {"title": "Bitcoin rises", "url": "https://example.com/1"},
+                        {"title": "Ethereum update", "url": "https://example.com/2"},
+                    ]
+                },
+                {
+                    "label_ko": "핀테크 뉴스",
+                    "article_count": 5,
+                    "articles": [
+                        {"title": "PayPal news", "url": "https://example.com/3"},
+                    ]
+                }
+            ],
+            "showing_partial": False,
+            "shown_count": 3,
+        }
+        result = render_template("telegram/news_summary.txt", context)
+        assert "📈 Industry News Summary (10 articles)" in result
+        assert "블록체인 뉴스" in result
+        assert "Bitcoin rises" in result
+
+    def test_render_news_summary_simplified_template(self):
+        """Test rendering simplified news summary template"""
+        context = {
+            "total_articles": 10,
+            "topics": [
+                {
+                    "label_ko": "블록체인 뉴스",
+                    "article_count": 5,
+                    "articles": [
+                        {"title": "Bitcoin rises", "url": "https://example.com/1"},
+                        {"title": "Ethereum update", "url": "https://example.com/2"},
+                    ]
+                }
+            ]
+        }
+        result = render_template("telegram/news_summary_simplified.txt", context)
+        assert "📈 Industry News (10 articles)" in result
+        assert "블록체인 뉴스" in result
+
+    def test_render_template_with_html_escaping(self):
+        """Test template rendering with HTML-escaped content"""
+        context = {
+            "new_count": 1,
+            "top_jobs": [
+                {"label": "Corp &amp; Co | Dev &lt;&gt;", "url": "https://example.com/1?x=1&y=2"},
+            ]
+        }
+        result = render_template("telegram/job_alert.txt", context)
+        # HTML entities should be preserved as passed in context
+        assert "Corp &amp; Co | Dev &lt;&gt;" in result
+
+    def test_render_template_zero_items(self):
+        """Test rendering with zero items"""
+        context = {
+            "hours": 3,
+            "job_count": 0,
+            "source_counts": False,
+            "source_line": "",
+            "jobs": []
+        }
+        result = render_template("telegram/incremental_summary.txt", context)
+        assert "New jobs in last 3h: 0" in result
 
 
 class TestIntegration:

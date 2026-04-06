@@ -22,6 +22,7 @@ from .utils import (
     utc_now,
 )
 from .logger import notifications_logger
+from .template_renderer import render_template
 
 logger = notifications_logger
 
@@ -97,11 +98,20 @@ def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
         return
 
     top_jobs = unsent_jobs[:3]
-    message_lines = [f"New UAE job matches: {len(unsent_jobs)}", ""]
-    for job in top_jobs:
-        label = html.escape(f"{job.company} | {job.title}")
-        message_lines.append(f'- <a href="{html.escape(job.url, quote=True)}">{label}</a>')
-    send_telegram_text("\n".join(message_lines))
+    context = {
+        "new_count": len(unsent_jobs),
+        "top_jobs": [
+            {
+                "label": html.escape(f"{job.company} | {job.title}"),
+                "url": html.escape(job.url, quote=True),
+            }
+            for job in top_jobs
+        ],
+    }
+
+    message_text = render_template("telegram/job_alert.txt", context)
+    logger.debug("Rendered job_alert template: %s", message_text)
+    send_telegram_text(message_text)
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()
@@ -123,41 +133,58 @@ def send_incremental_summary(
         new_jobs = [job for job in new_jobs if job["source"] in allowed_sources]
     unsent_jobs = [job for job in new_jobs if notification_key(job) not in sent_history]
     if new_jobs and not unsent_jobs:
-        lines = [f"New jobs in last {hours}h: 0", "", "Previously sent jobs already notified."]
-        send_telegram_text("\n".join(lines))
+        context = {"hours": hours, "job_count": 0}
+        message_text = render_template("telegram/incremental_summary.txt", context)
+        logger.debug("Rendered incremental_summary (no new unsent): %s", message_text)
+        send_telegram_text(message_text)
         save_telegram_sent_history(sent_history)
         logger.info("Skipped duplicate Telegram jobs for the last %s hours.", hours)
         return
     new_jobs = unsent_jobs
     if not new_jobs:
-        lines = [f"New jobs in last {hours}h: 0"]
+        source_line = ""
         if allowed_sources:
-            lines.extend(
-                [
-                    "",
-                    " | ".join(
-                        f"{source_label(source)} 0"
-                        for source in sorted(allowed_sources, key=source_label)
-                    ),
-                ]
+            source_line = " | ".join(
+                f"{source_label(source)} 0"
+                for source in sorted(allowed_sources, key=source_label)
             )
-        send_telegram_text("\n".join(lines))
+        context = {
+            "hours": hours,
+            "job_count": 0,
+            "source_counts": bool(source_line),
+            "source_line": source_line,
+            "jobs": [],
+        }
+        message_text = render_template("telegram/incremental_summary.txt", context)
+        logger.debug("Rendered incremental_summary (no jobs): %s", message_text)
+        send_telegram_text(message_text)
         logger.info("No new jobs for the last %s hours. Sent zero-update Telegram summary.", hours)
         return
 
     source_counts = source_total_counts(new_jobs)
-    lines = [f"New jobs in last {hours}h: {len(new_jobs)}", ""]
-
+    source_line = ""
     if source_counts:
-        counts_line = " | ".join(f"{source_label(item['source'])} {item['jobs']}" for item in source_counts)
-        lines.append(counts_line)
-        lines.append("")
+        source_line = " | ".join(
+            f"{source_label(item['source'])} {item['jobs']}" for item in source_counts
+        )
 
-    for job in new_jobs[:limit]:
-        label = html.escape(f"{job['company']} | {job['title']}")
-        lines.append(f'- <a href="{html.escape(job["url"], quote=True)}">{label}</a>')
+    context = {
+        "hours": hours,
+        "job_count": len(new_jobs),
+        "source_counts": bool(source_counts),
+        "source_line": source_line,
+        "jobs": [
+            {
+                "label": html.escape(f"{job['company']} | {job['title']}"),
+                "url": html.escape(job["url"], quote=True),
+            }
+            for job in new_jobs[:limit]
+        ],
+    }
+    message_text = render_template("telegram/incremental_summary.txt", context)
+    logger.debug("Rendered incremental_summary: %s", message_text)
+    send_telegram_text(message_text)
 
-    send_telegram_text("\n".join(lines))
     sent_at = utc_now().isoformat()
     for job in new_jobs:
         sent_history[notification_key(job)] = sent_at
@@ -181,32 +208,28 @@ def send_daily_summary(db: Database, limit: int = 10) -> None:
     source_today = source_total_counts(unsent_today)
     source_total = source_total_counts(all_focused)
 
-    lines = [
-        f"<b>🆕 Daily Jobs ({len(unsent_today)} new)</b>",
-        "",
-    ]
+    context = {
+        "new_count": len(unsent_today),
+        "source_today": [
+            {"label": source_label(item["source"]), "count": item["jobs"]}
+            for item in source_today
+        ],
+        "source_total": [
+            {"label": source_label(item["source"]), "count": item["jobs"]}
+            for item in source_total
+        ],
+        "jobs": [
+            {
+                "label": html.escape(f"{job['company']} | {job['title']}"),
+                "url": html.escape(job["url"], quote=True),
+            }
+            for job in unsent_today[:limit]
+        ],
+    }
 
-    # 새 공고 소스별 현황
-    if source_today:
-        lines.append("<b>By Source (new):</b>")
-        for item in source_today:
-            lines.append(f"  {source_label(item['source'])}: {item['jobs']}")
-        lines.append("")
-
-    # 전체 추적 현황
-    if source_total:
-        lines.append("<b>Tracked Totals:</b>")
-        for item in source_total:
-            lines.append(f"  {source_label(item['source'])}: {item['jobs']}")
-        lines.append("")
-
-    # 신규 매칭 공고
-    lines.append("<b>Top Matches:</b>")
-    for i, job in enumerate(unsent_today[:limit], 1):
-        label = html.escape(f"{job['company']} | {job['title']}")
-        lines.append(f"{i}. <a href=\"{html.escape(job['url'], quote=True)}\">{label}</a>")
-
-    send_telegram_text("\n".join(lines))
+    message_text = render_template("telegram/daily_summary.txt", context)
+    logger.debug("Rendered daily_summary: %s", message_text)
+    send_telegram_text(message_text)
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()
@@ -253,7 +276,7 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
     """
     Send topic-based news summary via Telegram.
     If db is provided, uses compute_news_topics(). Otherwise sends raw news items.
-    
+
     Parameters:
     - limit: 최대 보낼 기사 수 (기본값 100)
     """
@@ -267,39 +290,22 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
         logger.info("All news items already sent. Skipping Telegram news summary.")
         return
 
-    # 발송 제한: 실제로 보낼 최대 기사 수
-    actual_limit = min(limit, len(unsent))
-    
-    # 소스 라벨 매핑
-    source_labels = {
-        "rss_igaming_business": "🎮 iGaming Business",
-        "rss_fintech_uae": "💰 Fintech UAE",
-        "rss_intergame_news": "🎲 InterGame News",
-        "rss_intergame_crypto": "₿ InterGame Crypto",
-        "rss_intergame_all": "🎰 InterGame All",
-        "rss_intergame_abbrev": "📰 InterGame Abbrev",
-        "rss_finextra_headlines": "📈 FinExtra Headlines",
-        "rss_finextra_payments": "💳 FinExtra Payments",
-        "rss_finextra_crypto": "🔗 FinExtra Crypto",
-    }
-
     if db is None:
-        # 단순 리스트 형식으로 모든 기사 보내기
+        # Simple list format for raw news items
         lines = [f"<b>📰 Industry News ({len(unsent)} new)</b>", ""]
         for item in unsent[:limit]:
             title = html.escape(item.title[:80])
             url = html.escape(item.url, quote=True)
             lines.append(f"• <a href=\"{url}\">{title}</a>")
-        
-        # 텔레그램 메시지 길이 제한(4096자) 확인
+
         message_text = "\n".join(lines)
         if len(message_text) > 4000:
             logger.warning("Telegram message too long (%d chars), truncating.", len(message_text))
-            # 메시지를 분할하거나 줄임
-            lines = lines[:15]  # 처음 15개만 보냄
+            lines = lines[:15]
             lines.append(f"\n... and {len(unsent) - 15} more articles")
             message_text = "\n".join(lines)
-        
+
+        logger.debug("Rendered simple news_summary: %s", message_text)
         send_telegram_text(message_text)
     else:
         # Topic-based approach
@@ -315,7 +321,7 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
             topic_unsent = [a for a in topic["articles"] if a["url"] in unsent_urls]
             if not topic_unsent:
                 continue
-            topic["articles"] = topic_unsent[:15]  # 주제당 최대 15개
+            topic["articles"] = topic_unsent[:15]
             topic["article_count"] = len(topic_unsent)
             topics_with_unsent.append(topic)
 
@@ -323,54 +329,58 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
             logger.info("No new articles in any topic. Skipping Telegram news summary.")
             return
 
-        # Build telegram message - 최대 5개 주제, 주제당 최대 10개 기사
-        lines = [f"<b>📈 Industry News Summary ({len(unsent)} articles)</b>", ""]
-        total_sent_count = 0
-        max_topics = min(len(topics_with_unsent), 5)  # 최대 5개 주제
-        
-        for topic_idx, topic in enumerate(topics_with_unsent[:max_topics]):
-            label = html.escape(topic["label_ko"])
-            lines.append(f"<b>{label} ({topic['article_count']} articles)</b>")
-            
-            # 주제당 최대 10개 기사
-            max_articles_per_topic = min(len(topic["articles"]), 10)
-            for idx, article in enumerate(topic["articles"][:max_articles_per_topic], 1):
-                title = html.escape(article["title"][:70])
-                url = html.escape(article["url"], quote=True)
-                lines.append(f"  {idx}. <a href=\"{url}\">{title}</a>")
-                total_sent_count += 1
-            
-            lines.append("")
-        
-        # 전체 요약 추가
-        if total_sent_count < len(unsent):
-            lines.append(f"<i>Showing {total_sent_count} of {len(unsent)} total articles</i>")
-        
-        # 텔레그램 메시지 길이 제한 확인
-        message_text = "\n".join(lines)
+        # Build context for full version
+        max_topics = min(len(topics_with_unsent), 5)
+        total_sent_count = sum(
+            min(len(t["articles"]), 10) for t in topics_with_unsent[:max_topics]
+        )
+
+        context_full = {
+            "total_articles": len(unsent),
+            "topics": [
+                {
+                    "label_ko": html.escape(topic["label_ko"]),
+                    "article_count": topic["article_count"],
+                    "articles": [
+                        {
+                            "title": html.escape(a["title"][:70]),
+                            "url": html.escape(a["url"], quote=True),
+                        }
+                        for a in topic["articles"][:10]
+                    ],
+                }
+                for topic in topics_with_unsent[:max_topics]
+            ],
+            "showing_partial": total_sent_count < len(unsent),
+            "shown_count": total_sent_count,
+        }
+
+        message_text = render_template("telegram/news_summary.txt", context_full)
+        logger.debug("Rendered news_summary (full): %s", message_text)
+
+        # Check length and use simplified version if needed
         if len(message_text) > 4000:
-            logger.warning("Telegram message too long (%d chars), sending simplified version.", len(message_text))
-            # 간소화된 버전 보내기
-            lines = [
-                f"<b>📈 Industry News ({len(unsent)} articles)</b>",
-                "",
-                f"<b>Topics:</b>"
-            ]
-            for topic in topics_with_unsent[:3]:
-                label = html.escape(topic["label_ko"])
-                lines.append(f"• {label}: {topic['article_count']} articles")
-            
-            lines.append("")
-            lines.append("<b>Top Articles:</b>")
-            # 각 주제별 상위 2개 기사
-            for topic in topics_with_unsent[:3]:
-                for article in topic["articles"][:2]:
-                    title = html.escape(article["title"][:60])
-                    url = html.escape(article["url"], quote=True)
-                    lines.append(f"• <a href=\"{url}\">{title}</a>")
-            
-            message_text = "\n".join(lines)
-        
+            logger.warning("Telegram message too long (%d chars), using simplified version.", len(message_text))
+            context_simple = {
+                "total_articles": len(unsent),
+                "topics": [
+                    {
+                        "label_ko": html.escape(topic["label_ko"]),
+                        "article_count": topic["article_count"],
+                        "articles": [
+                            {
+                                "title": html.escape(a["title"][:60]),
+                                "url": html.escape(a["url"], quote=True),
+                            }
+                            for a in topic["articles"][:2]
+                        ],
+                    }
+                    for topic in topics_with_unsent[:3]
+                ],
+            }
+            message_text = render_template("telegram/news_summary_simplified.txt", context_simple)
+            logger.debug("Rendered news_summary (simplified): %s", message_text)
+
         send_telegram_text(message_text)
 
     # Update sent_history

@@ -53,9 +53,8 @@ def normalize_linkedin_url(url: str) -> str:
     normalized_path = parsed.path.rstrip("/") + "/"
     return urllib.parse.urlunparse(("https", "www.linkedin.com", normalized_path, "", "", ""))
 
-
 def normalize_linkedin_identifier(source: str, value: str) -> str:
-    if source == "linkedin_public":
+    if source in ["linkedin_public", "linkedin_georgia"]:
         return normalize_linkedin_url(value)
     return value
 
