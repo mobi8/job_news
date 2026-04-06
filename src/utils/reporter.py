@@ -947,7 +947,10 @@ def save_dashboard(
 <body>
   <div class="wrap">
     <section class="hero">
-      <h1>Job Watch Stats</h1>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h1>Job Watch Stats</h1>
+        <a href="/all-news.html" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#60a5fa;text-decoration:none;cursor:pointer;transition:all 0.2s;font-size:13px;font-weight:500;" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='#60a5fa';" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)';">News →</a>
+      </div>
       <section class="runtime-panel">
         <h3>실행 상태</h3>
         <div class="runtime-topline">
