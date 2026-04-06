@@ -68,7 +68,10 @@
       "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?source=rss_igaming_business&limit=5\")",
       "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?q=crypto&limit=5\")",
       "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=1&offset=0\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pkill -f \"serve_dashboard\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=2\")"
     ]
   }
 }
