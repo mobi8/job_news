@@ -313,7 +313,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
     elif mode == "daily":
-        send_daily_summary(db)
+        send_daily_summary(db, limit=100)
         # Send news summary only in daily mode (if news items exist)
         send_news_summary(all_news_items, db=db)
 

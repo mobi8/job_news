@@ -191,7 +191,7 @@ def send_incremental_summary(
     save_telegram_sent_history(prune_telegram_sent_history(sent_history))
 
 
-def send_daily_summary(db: Database, limit: int = 10) -> None:
+def send_daily_summary(db: Database, limit: int = 100) -> None:
     resume_text = load_resume_text()
     new_today = focus_records(db.jobs_first_seen_since(24), resume_text)
     all_focused = focus_records(db.fetch_all_jobs(), resume_text)
