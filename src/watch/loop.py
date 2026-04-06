@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.db import Database
 from utils.logger import watch_logger
 
-# Updated path: scraper.py is now in src/core/
+# Updated path: scraper.py is in src/watch/
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"

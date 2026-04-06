@@ -17,35 +17,35 @@ cat > resume.md << 'EOF'
 EOF
 ```
 
-### 스크래퍼 실행 (src/core/scraper.py)
+### 스크래퍼 실행 (src/watch/scraper.py)
 ```bash
-python3 src/core/scraper.py collect       # 전체 소스 전체 수집
-python3 src/core/scraper.py incremental   # 마지막 실행 이후 신규 공고만 수집
-python3 src/core/scraper.py daily         # 최근 24시간 내 공고 + 뉴스 분석
+python3 src/watch/scraper.py collect       # 전체 소스 전체 수집
+python3 src/watch/scraper.py incremental   # 마지막 실행 이후 신규 공고만 수집
+python3 src/watch/scraper.py daily         # 최근 24시간 내 공고 + 뉴스 분석
 ```
 
 ### 시스템 시작/중지 (추천)
 ```bash
-./start_all.sh  # 대시보드 + job_watch_loop 동시 실행
+./start_all.sh  # 대시보드 + loop 동시 실행
 ./stop_all.sh   # 모든 서비스 중지
 ```
 
 ### 개별 서비스 실행 (고급)
 ```bash
-python3 src/core/job_watch_loop.py         # 주기적 폴링 (60분 간격)
+python3 src/watch/loop.py         # 주기적 폴링 (60분 간격)
 python3 src/services/serve_dashboard.py    # 대시보드 http://127.0.0.1:8765
 python3 src/services/telegram_test_loop.py # 텔레그램 테스트 (한 번만)
 ```
 
 ### 배치 스케줄링 (선택 사항)
 ```bash
-python3 src/core/batch_scheduler.py  # 안전한 순차 배치 (충돌 방지)
+python3 src/watch/batch_scheduler.py  # 안전한 순차 배치 (충돌 방지)
 ```
 
 ### 데이터베이스 정리 및 재채점
 ```bash
-python3 src/core/db_cleanup_and_rescore.py  # 오래된 공고 삭제 + 미채점 공고 재채점
-python3 src/core/db_rescore_direct.py       # 직접 SQLite 재채점 (더 빠름)
+python3 src/watch/db_cleanup_and_rescore.py  # 오래된 공고 삭제 + 미채점 공고 재채점
+python3 src/watch/db_rescore_direct.py       # 직접 SQLite 재채점 (더 빠름)
 ```
 
 ### 테스트
@@ -85,7 +85,7 @@ pytest -x                       # 첫 실패에서 중단
 [RSS 뉴스 피드] ─┼→ [scrapers.py] ──→ [scoring.py] ──→ [db.py] ──→ [reporter.py] ──→ [outputs/]
 [Telegram 채널] ─┘                   (점수/필터)      (저장)      (JSON/CSV/MD)
 
-[job_watch_loop.py] (60분 간격)
+[loop.py] (60분 간격)
    └─→ scraper.py "daily" 모드 ──→ [notifications.py] ──→ Telegram 알림
 
 [batch_scheduler.py] (수동 실행)
@@ -141,7 +141,7 @@ pytest -x                       # 첫 실패에서 중단
 - **중복 제거** — SHA1(title+company+location) 지문으로 공고 식별; `upsert_jobs()`가 재발견 시 `last_seen_at` 갱신
 - **플러그인식 소스** — 각 소스는 독립적인 파싱 함수; 새 소스 추가 시 `scrapers.py`에 파서만 추가하면 됨
 - **단순 알림 흐름** (2026-03-30 정리):
-  - `job_watch_loop.py` (60분) → `scraper.py daily` 1회 호출 → 필요 시 Telegram 1~2개 메시지만 발송
+  - `loop.py` (60분) → `scraper.py daily` 1회 호출 → 필요 시 Telegram 1~2개 메시지만 발송
   - 이전의 중복 알림 로직 제거됨
 - **뉴스 & AI 인사이트** (선택 사항):
   - `fetch_all_rss_news()` + `fetch_all_player_rss_news()` → `NewsItem` 객체
@@ -157,7 +157,7 @@ pytest -x                       # 첫 실패에서 중단
 - 각 모듈은 단일 책임 원칙 준수
 
 ### 배치/알림 정리 (2026-03-30)
-- `job_watch_loop.py`의 중복 알림 로직 제거
+- `loop.py`의 중복 알림 로직 제거
 - `notifications.py` 미사용 함수 5개 제거 (342줄 → 281줄)
 - **뉴스 발송 최적화**: daily 모드에서만 발송 (60분마다 중복 메시지 방지)
 - 명확한 흐름: daily 모드 1회 실행 = Telegram 1~2개 메시지만
@@ -181,7 +181,7 @@ pytest -x                       # 첫 실패에서 중단
 
 ### start_all.sh 개선 (편의 기능)
 ```bash
-# 대시보드 + job_watch_loop 동시 실행
+# 대시보드 + loop 동시 실행
 ./stop_all.sh   # 모든 서비스 중지
 ```
 - telegram_test_loop은 자동 실행에서 제거 (필요할 때만 수동 실행)
@@ -189,7 +189,7 @@ pytest -x                       # 첫 실패에서 중단
 ### 구조화된 로깅 시스템 구현 (2026-04-03)
 - `src/utils/logger.py` 신규 생성 (중앙화된 로거 설정)
 - 모든 모듈에서 **JSON 형식** 로깅 적용
-  - `job_watch_loop.py`: print() → logger.info/debug/error
+  - `loop.py`: print() → logger.info/debug/error
   - `serve_dashboard.py`: HTTP 요청 로깅 + 비즈니스 로직 로깅
   - `scraper.py`, `notifications.py`: 기존 logging → 중앙 logger
 - **로그 로테이션**: 10MB 초과 시 자동 회전, 5개 백업 유지
@@ -231,7 +231,7 @@ pytest -x                        # 첫 실패에서 중단
 ./start_all.sh
 ```
 - 📊 대시보드 (http://127.0.0.1:8765)
-- 👁️ job_watch_loop (60분 간격 수집)
+- 👁️ loop (60분 간격 수집)
 - 자동으로 `.pids/` 디렉토리에 PID 저장
 
 **모든 서비스 중지**
@@ -287,10 +287,10 @@ python3 src/services/telegram_test_loop.py
 ### 데이터베이스 정리
 ```bash
 # 오래된 공고 삭제 + 미채점 공고 재채점
-python3 src/core/db_cleanup_and_rescore.py
+python3 src/watch/db_cleanup_and_rescore.py
 
 # 또는 직접 SQLite 쿼리로 재채점 (더 빠름)
-python3 src/core/db_rescore_direct.py
+python3 src/watch/db_rescore_direct.py
 ```
 
 언제 실행할 것:
@@ -315,7 +315,7 @@ pytest tests/test_scoring.py -v
 ### Telegram 알림 커스터마이징
 `notifications.py`에 새 함수 추가 후:
 1. 함수명은 `send_*` 패턴
-2. `job_watch_loop.py`나 `scraper.py`에서 호출
+2. `loop.py`나 `scraper.py`에서 호출
 3. 중복 호출 방지: 같은 조건이면 한 번만 호출하도록 설계
 
 ### 대시보드 기능 추가
@@ -349,7 +349,7 @@ pytest tests/test_scoring.py -v
 - LinkedIn 공고 점수 확인: `pytest tests/test_linkedin_scoring.py -v`
 - DB 상태 분석: `sqlite3 outputs/jobs.sqlite3` → SQL 쿼리
 - 뉴스 발송 조건: `pytest tests/test_message_debug.py -v`
-- 점수 계산 과정: `python3 src/core/db_rescore_direct.py` (로그 확인)
+- 점수 계산 과정: `python3 src/watch/db_rescore_direct.py` (로그 확인)
 
 ### 로깅 추가하기
 새 모듈에서 로깅을 사용하려면:

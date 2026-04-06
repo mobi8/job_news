@@ -8,7 +8,7 @@
 
 | 파일 | 모듈 | 용도 |
 |------|------|------|
-| `logs/watch_loop.log` | job_watch_loop.py | 주기적 수집 루프 |
+| `logs/watch_loop.log` | loop.py | 주기적 수집 루프 |
 | `logs/dashboard.log` | serve_dashboard.py | 대시보드 서버 & HTTP 요청 |
 | `logs/scraper.log` | scraper.py | 스크래퍼 실행 로그 |
 | `logs/notifications.log` | notifications.py | Telegram 알림 발송 |

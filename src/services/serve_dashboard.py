@@ -8,6 +8,7 @@ import os
 import subprocess
 import socketserver
 import sys
+import urllib.parse
 from pathlib import Path
 
 # Add src/ to path for imports
@@ -21,8 +22,8 @@ FEEDBACK_PATH = OUTPUT_DIR / "reject_feedback.json"
 WATCH_SETTINGS_PATH = OUTPUT_DIR / "watch_settings.json"
 SCRAPE_STATE_PATH = OUTPUT_DIR / "scrape_state.json"
 DASHBOARD_DATA_PATH = OUTPUT_DIR / "job_stats_data.json"
-# Updated path: scraper.py is now in src/core/
-SCRAPER_PATH = str(Path(__file__).parent.parent / "core" / "scraper.py")
+# Updated path: scraper.py is now in src/watch/
+SCRAPER_PATH = str(Path(__file__).parent.parent / "watch" / "scraper.py")
 
 
 class ReusableTCPServer(socketserver.TCPServer):
@@ -91,17 +92,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404, "Not found")
 
     def do_GET(self):
-        if self.path == "/watch-settings":
+        parsed_url = urllib.parse.urlparse(self.path)
+        base_path = parsed_url.path
+
+        if base_path == "/watch-settings":
             self._send_json(self._load_json(WATCH_SETTINGS_PATH, self._default_settings()))
             return
-        if self.path == "/scrape-state":
+        if base_path == "/scrape-state":
             self._send_json(self._load_json(SCRAPE_STATE_PATH, {}))
             return
-        if self.path == "/api/services-status":
+        if base_path == "/api/services-status":
             from services_status import get_all_status
             self._send_json(get_all_status())
             return
-        if self.path == "/api/recent-news":
+        if base_path == "/api/recent-news":
             dashboard_data = self._load_json(DASHBOARD_DATA_PATH, {})
             topics = dashboard_data.get("topics", [])
             player_mentions = dashboard_data.get("player_mentions", {})
@@ -113,7 +117,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "ai_insights": ai_insights,
             })
             return
-        if self.path == "/api/all-news":
+        if base_path == "/api/all-news":
             # 모든 뉴스 기사 조회 API
             try:
                 db_path = OUTPUT_DIR / "jobs.sqlite3"
@@ -122,16 +126,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     return
                     
                 import sqlite3
-                import urllib.parse
                 from datetime import datetime, timedelta
                 
                 conn = sqlite3.connect(str(db_path))
                 cursor = conn.cursor()
                 
                 # 쿼리 파라미터 처리
-                from urllib.parse import urlparse, parse_qs
-                parsed_url = urlparse(self.path)
-                query_params = parse_qs(parsed_url.query)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
                 source_filter = query_params.get('source', [None])[0]
                 search_query = query_params.get('q', [None])[0]
                 limit = int(query_params.get('limit', ['50'])[0])
@@ -340,12 +341,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
         
         if self.path == "/all-news.html":
-            # 모든 뉴스 보기 페이지
+            html_path = OUTPUT_DIR / "all_news.html"
+            if not html_path.exists():
+                self.send_error(404, "All news dashboard missing")
+                return
+
+            content = html_path.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Content-Length", str(len(content)))
             self.end_headers()
-            
-            html = '''
+            self.wfile.write(content)
+            return
+
         return super().do_GET()
 
     def _default_settings(self):
@@ -761,7 +770,7 @@ async function loadAllNews(page = 1, source = 'all', search = '') {
     const data = await res.json();
     
     // 통계 표시
-    stats.innerHTML = `<strong>${data.total}개 기사</strong> (${Object.entries(data.source_stats).map(([k,v]) => \`\${k}: \${v}\`).join(', ')})`;
+    stats.innerHTML = `<strong>${data.total}개 기사</strong> (${Object.entries(data.source_stats).map(([k,v]) => `${k}: ${v}`).join(', ')})`;
     
     // 기사 목록 표시
     if (data.articles.length === 0) {

@@ -28,4 +28,4 @@ fi
 # 혹시 남은 프로세스 확인
 echo ""
 echo "남은 프로세스 확인:"
-ps aux | grep -E "serve_dashboard|job_watch_loop" | grep -v grep || echo "실행 중인 프로세스 없음"
+ps aux | grep -E "serve_dashboard|loop\\.py" | grep -v grep || echo "실행 중인 프로세스 없음"

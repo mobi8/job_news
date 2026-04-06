@@ -184,14 +184,14 @@ python3 -c "from src.utils.config import FOCUS_LOCATION_TERMS, INDEED_SEARCH_URL
 ### 2. 스크래퍼 실행 테스트
 ```bash
 cd /Users/lewis/Desktop/agent
-python3 src/core/scraper.py collect 2>&1 | head -30
+python3 src/watch/scraper.py collect 2>&1 | head -30
 ```
 
 ### 3. 특정 소스만 테스트
 ```bash
 # 환경 변수로 특정 소스만 테스트
 cd /Users/lewis/Desktop/agent
-JOB_WATCH_SOURCES="indeed_new_country,linkedin_new_country" python3 src/core/scraper.py collect
+JOB_WATCH_SOURCES="indeed_new_country,linkedin_new_country" python3 src/watch/scraper.py collect
 ```
 
 ## 주의사항

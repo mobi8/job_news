@@ -56,7 +56,19 @@
       "Bash(/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python src/core/job_watch_loop.py)",
       "Bash(bash:*)",
       "Bash(wc:*)",
-      "Bash(kill 21379)"
+      "Bash(kill 21379)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill -f \"src/services/serve_dashboard.py\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=3\")",
+      "Bash(curl -i \"http://127.0.0.1:8765/api/all-news?limit=3\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?source=rss_igaming_business&limit=2\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?q=crypto&limit=1\")",
+      "Bash(pkill -f \"src/watch/loop.py\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=20&offset=0\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?source=rss_igaming_business&limit=5\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?q=crypto&limit=5\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=1&offset=0\")",
+      "Bash(git add:*)"
     ]
   }
 }

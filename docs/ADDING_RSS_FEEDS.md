@@ -32,7 +32,7 @@ NEWS_RSS_FEEDS = [
 - `source`: 내부 소스 식별자 (접두사 `rss_` 권장)
 - `label`: 대시보드에 표시될 이름
 
-### 2. 소스 정보 추가 (`src/core/scraper.py`)
+### 2. 소스 정보 추가 (`src/watch/scraper.py`)
 
 #### A. `source_info` 딕셔너리에 새 소스 정보 추가
 ```python
@@ -101,7 +101,7 @@ except Exception as e:
 cd /Users/lewis/Desktop/agent
 
 # 스크래퍼 실행 (뉴스 수집 테스트)
-python3 src/core/scraper.py collect 2>&1 | grep -A5 -B5 "Fetching RSS feed"
+python3 src/watch/scraper.py collect 2>&1 | grep -A5 -B5 "Fetching RSS feed"
 
 # 대시보드 시작
 python3 src/services/serve_dashboard.py &

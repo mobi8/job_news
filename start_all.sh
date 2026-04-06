@@ -20,7 +20,7 @@ echo "   PID: $DASHBOARD_PID"
 
 # 2. 주기적 폴링 (watch_settings.json 기준으로 실행)
 echo "👁️  주기적 수집 시작..."
-python3 src/core/job_watch_loop.py > logs/watch_loop.log 2>&1 &
+python3 src/watch/loop.py > logs/watch_loop.log 2>&1 &
 WATCH_PID=$!
 echo "   PID: $WATCH_PID"
 
@@ -32,7 +32,7 @@ echo ""
 echo "✅ 모든 서비스 시작 완료!"
 echo ""
 echo "📋 실행 중인 프로세스:"
-ps aux | grep -E "serve_dashboard|job_watch_loop" | grep -v grep
+ps aux | grep -E "serve_dashboard|loop\\.py" | grep -v grep
 echo ""
 echo "📁 로그 파일:"
 echo "   - logs/dashboard.log"

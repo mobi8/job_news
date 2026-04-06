@@ -608,6 +608,54 @@ def save_dashboard(
       background: rgba(20, 93, 245, 0.12);
       color: var(--accent);
     }}
+    .dashboard-view-tabs {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-start;
+      margin-bottom: 18px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }}
+    .dashboard-view-tab {{
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 8px 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      position: relative;
+    }}
+    .dashboard-view-tab.is-active {{
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+      background: rgba(79, 172, 255, 0.08);
+    }}
+    .news-filter-row {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }}
+    .news-filter-row input,
+    .news-filter-row select {{
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 0;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.92);
+      font: inherit;
+    }}
+    .news-table-caption {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }}
     .bucket-panel[hidden] {{
       display: none !important;
     }}
@@ -942,10 +990,21 @@ def save_dashboard(
         grid-template-columns: 1fr;
       }}
     }}
-  </style>
+ </style>
 </head>
 <body>
   <div class="wrap">
+    <div class="dashboard-view-tabs">
+      <button type="button" class="dashboard-view-tab is-active" data-dashboard-tab="jobs">
+        Job board
+        <span class="tab-count" id="dashboard-tab-count-jobs">{stats["total_jobs"]}</span>
+      </button>
+      <button type="button" class="dashboard-view-tab" data-dashboard-tab="news">
+        News
+        <span class="tab-count" id="dashboard-tab-count-news">0</span>
+      </button>
+    </div>
+    <div id="dashboard-panel-jobs">
     <section class="hero">
       <h1>Job Watch Stats</h1>
       <section class="runtime-panel">
@@ -1156,6 +1215,46 @@ def save_dashboard(
           <tbody id="bucket-rejected"></tbody>
         </table>
       </div>
+    </section>
+    </div>
+    <section id="dashboard-panel-news" class="card bucket-panel" hidden>
+      <h2>뉴스</h2>
+      <p class="meta">수집한 뉴스 기사를 표로 정리하고, 출처와 날짜를 한 번에 확인할 수 있습니다.</p>
+      <div class="news-filter-row">
+        <input id="dashboard-news-search" type="search" placeholder="기사 제목·내용·출처 검색">
+        <select id="dashboard-news-source">
+          <option value="">전체 출처</option>
+          <option value="rss_igaming_business">🎮 iGaming Business</option>
+          <option value="rss_fintech_uae">💰 Fintech News UAE</option>
+          <option value="rss_intergame_news">🎲 InterGame News</option>
+          <option value="rss_intergame_crypto">₿ InterGame Crypto</option>
+          <option value="rss_intergame_all">🎰 InterGame All</option>
+          <option value="rss_intergame_abbrev">📰 InterGame Abbrev</option>
+          <option value="rss_finextra_headlines">📈 FinExtra Headlines</option>
+          <option value="rss_finextra_payments">💳 FinExtra Payments</option>
+          <option value="rss_finextra_crypto">🔗 FinExtra Crypto</option>
+          <option value="rss_player_pragmatic">👤 Player Feed</option>
+        </select>
+      </div>
+      <div class="news-table-caption">
+        <span class="meta">총 <span id="dashboard-news-total">0</span>건</span>
+        <span id="dashboard-news-loader" class="meta" hidden>로딩 중…</span>
+      </div>
+      <div id="dashboard-news-error" class="meta" hidden style="color:#f87171;">뉴스를 불러오는 중 오류가 발생했습니다.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>제목</th>
+              <th>출처</th>
+              <th>날짜</th>
+              <th>요약</th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-news-body"></tbody>
+        </table>
+      </div>
+      <p id="dashboard-news-empty" class="meta" hidden>조건에 맞는 뉴스 기사가 없습니다.</p>
     </section>
   </div>
   <script>
@@ -1543,6 +1642,125 @@ def save_dashboard(
     applyTableFilters();
     setActiveTab('inbox');
     syncRejectFeedback();
+
+    const newsSourceMap = {{
+      "rss_igaming_business": "🎮 iGaming Business",
+      "rss_fintech_uae": "💰 Fintech News UAE",
+      "rss_intergame_news": "🎲 InterGame News",
+      "rss_intergame_crypto": "₿ InterGame Crypto",
+      "rss_intergame_all": "🎰 InterGame All",
+      "rss_intergame_abbrev": "📰 InterGame Abbrev",
+      "rss_finextra_headlines": "📈 FinExtra Headlines",
+      "rss_finextra_payments": "💳 FinExtra Payments",
+      "rss_finextra_crypto": "🔗 FinExtra Crypto",
+      "rss_player_pragmatic": "👤 Player Feed"
+    }};
+
+    const newsTabButtons = document.querySelectorAll("[data-dashboard-tab]");
+    const panelJobs = document.getElementById("dashboard-panel-jobs");
+    const panelNews = document.getElementById("dashboard-panel-news");
+
+    const setDashboardView = (target) => {{
+      newsTabButtons.forEach((btn) => {{
+        btn.classList.toggle("is-active", btn.dataset.dashboardTab === target);
+      }});
+      if (panelJobs) panelJobs.hidden = target !== "jobs";
+      if (panelNews) panelNews.hidden = target !== "news";
+    }};
+
+    const formatNewsDate = (value) => {{
+      if (!value) return "-";
+      const parsed = Date.parse(value);
+      if (Number.isNaN(parsed)) return value.substring(0, 16);
+      return new Date(parsed).toLocaleString("en-US", {{ dateStyle: "medium", timeStyle: "short" }});
+    }};
+
+    const loadNewsTable = async () => {{
+      const body = document.getElementById("dashboard-news-body");
+      const loader = document.getElementById("dashboard-news-loader");
+      const error = document.getElementById("dashboard-news-error");
+      const empty = document.getElementById("dashboard-news-empty");
+      const totalEl = document.getElementById("dashboard-news-total");
+      const tabCount = document.getElementById("dashboard-tab-count-news");
+      if (!body) return;
+
+      const searchValue = document.getElementById("dashboard-news-search")?.value.trim() || "";
+      const sourceValue = document.getElementById("dashboard-news-source")?.value || "";
+      loader.hidden = false;
+      error.hidden = true;
+      empty.hidden = true;
+      body.innerHTML = "";
+
+      try {{
+        const params = new URLSearchParams({{ limit: "80", offset: "0" }});
+        if (sourceValue) params.set("source", sourceValue);
+        if (searchValue) params.set("q", searchValue);
+        const response = await fetch(`/api/all-news?${{params.toString()}}`);
+        if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+        const data = await response.json();
+        const articles = data.articles || [];
+        const total = Number.isFinite(data.total) ? data.total : articles.length;
+        if (totalEl) totalEl.textContent = total;
+        if (tabCount) tabCount.textContent = total;
+        if (!articles.length) {{
+          empty.hidden = false;
+          return;
+        }}
+
+        articles.forEach((article) => {{
+          const row = document.createElement("tr");
+          const titleCell = document.createElement("td");
+          const link = document.createElement("a");
+          link.href = article.url || "#";
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = article.title || "No title";
+          titleCell.appendChild(link);
+
+          const sourceCell = document.createElement("td");
+          sourceCell.textContent = newsSourceMap[article.source] || article.source || "news";
+
+          const dateCell = document.createElement("td");
+          dateCell.textContent = formatNewsDate(article.published_at || article.date || "");
+
+          const summaryCell = document.createElement("td");
+          const summary = (article.summary || "").replace(/\\s+/g, " ").trim();
+          const truncated = summary.length > 120 ? `${{summary.slice(0, 120)}}...` : summary;
+          summaryCell.textContent = truncated;
+
+          row.append(titleCell, sourceCell, dateCell, summaryCell);
+          body.appendChild(row);
+        }});
+      }} catch (err) {{
+        error.textContent = `뉴스를 불러오는 중 오류가 발생했습니다: ${{err.message}}`;
+        error.hidden = false;
+      }} finally {{
+        loader.hidden = true;
+      }}
+    }};
+
+    newsTabButtons.forEach((btn) => {{
+      btn.addEventListener("click", () => {{
+        const target = btn.dataset.dashboardTab;
+        setDashboardView(target);
+        if (target === "news") {{
+          loadNewsTable();
+        }}
+      }});
+    }});
+
+    document.getElementById("dashboard-news-search")?.addEventListener("input", () => {{
+      if (panelNews && !panelNews.hidden) {{
+        loadNewsTable();
+      }}
+    }});
+    document.getElementById("dashboard-news-source")?.addEventListener("change", () => {{
+      if (panelNews && !panelNews.hidden) {{
+        loadNewsTable();
+      }}
+    }});
+
+    setDashboardView("jobs");
     loadRuntimeState();
   </script>
 </body>
