@@ -1547,6 +1547,41 @@ def save_dashboard(
     setActiveTab('inbox');
     syncRejectFeedback();
     loadRuntimeState();
+
+    // 동적 통계 갱신: 페이지 로드 시 즉시 + 5분 간격
+    async function fetchAndUpdateStats() {{
+      try {{
+        const data = await fetch('/job_stats_data.json').then(r => r.json());
+        if (!data.filtered_jobs) return;
+        const filteredJobs = data.filtered_jobs || [];
+        const counts = {{
+          inbox: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed).length,
+          inbox_high: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed && j.pass === 'yes').length,
+          inbox_low: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed && j.pass !== 'yes').length,
+          applied: filteredJobs.filter(j => j.applied && !j.removed).length,
+          viewed: filteredJobs.filter(j => j.viewed && !j.applied && !j.removed).length,
+          rejected: filteredJobs.filter(j => j.removed).length,
+        }};
+        const mapping = {{
+          inbox: 'bucket-count-inbox',
+          inbox_high: 'bucket-count-inbox-high',
+          inbox_low: 'bucket-count-inbox-low',
+          applied: 'bucket-count-applied',
+          viewed: 'bucket-count-viewed',
+          rejected: 'bucket-count-rejected',
+        }};
+        Object.entries(mapping).forEach(([key, id]) => {{
+          const el = document.getElementById(id);
+          if (el) el.textContent = String(counts[key] || 0);
+          const tabEl = document.getElementById(id.replace('bucket-count', 'tab-count'));
+          if (tabEl) tabEl.textContent = String(counts[key] || 0);
+        }});
+      }} catch (e) {{
+        console.error('Failed to fetch stats:', e);
+      }}
+    }}
+    fetchAndUpdateStats();
+    setInterval(fetchAndUpdateStats, 5 * 60 * 1000);
   </script>
 </body>
 </html>
