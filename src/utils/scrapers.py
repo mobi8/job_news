@@ -679,6 +679,23 @@ def fetch_rss_news(feed_url: str, source: str) -> List[NewsItem]:
                     # Try RFC 2822 (RSS pubDate)
                     dt = parsedate_to_datetime(pub_elem.text)
                     published_at = dt.isoformat()
+                    
+                    # 날짜 검증: 미래 날짜 방지
+                    # Finextra 등 이벤트 페이지는 미래 날짜를 게시할 수 있음
+                    # 현재 시간보다 1일 이상 미래면 현재 시간으로 대체
+                    from datetime import datetime, timezone, timedelta
+                    now = datetime.now(timezone.utc)
+                    # Timezone-naive datetime을 UTC로 정규화
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if dt > now + timedelta(days=1):
+                        # 이벤트 페이지 필터링 (URL에 event-info 포함)
+                        if "event-info" not in link:
+                            # 일반 기사가 1일 이상 미래 날짜면 문제 있음, 현재 시간으로
+                            published_at = utc_now().isoformat()
+                        else:
+                            # 이벤트 페이지는 미래 날짜가 정상
+                            published_at = dt.isoformat()
                 except (TypeError, ValueError):
                     try:
                         # Try ISO 8601 (Atom published)
@@ -697,6 +714,11 @@ def fetch_rss_news(feed_url: str, source: str) -> List[NewsItem]:
             summary = clean_text(desc_elem.text or "") if desc_elem is not None else ""
             summary = summary[:150]  # Trim to 150 chars
 
+            # 이벤트 페이지 필터링 (Finextra event-info)
+            if "finextra.com" in link and "event-info" in link:
+                logger.debug(f"Skipping event page: {title[:50]}...")
+                continue
+                    
             items.append(
                 NewsItem(
                     source=source,

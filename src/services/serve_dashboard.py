@@ -383,11 +383,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             if last_at:
                 try:
-                    from datetime import datetime
+                    from datetime import datetime, timezone, timedelta
+                    
+                    # UTC 시간 파싱
                     last_dt = datetime.fromisoformat(last_at.replace("Z", "+00:00"))
-                    now = datetime.utcnow()
-                    if last_dt.tzinfo:
-                        last_dt = last_dt.replace(tzinfo=None)
+                    now = datetime.now(timezone.utc)
+                    
+                    # 시간 차이 계산
                     elapsed = now - last_dt
                     hours = int(elapsed.total_seconds() // 3600)
                     minutes = int((elapsed.total_seconds() % 3600) // 60)
@@ -395,7 +397,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         elapsed_str = f"{hours}h {minutes}m"
                     else:
                         elapsed_str = f"{minutes}m"
-                    batch_time = last_dt.strftime("%H:%M")
+                    
+                    # UTC → 두바이 시간 변환 (UTC+4)
+                    dubai_time = last_dt + timedelta(hours=4)
+                    batch_time = dubai_time.strftime("%H:%M")
                 except Exception:
                     elapsed_str = "—"
                     batch_time = "—"
