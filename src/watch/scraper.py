@@ -232,19 +232,18 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         inserted,
         [source for source, _ in sources],
     )
-    # Generate HTML template only if it doesn't exist (preserve user customizations)
+    # Generate/update dashboard HTML on every run
     dashboard_html_path = OUTPUT_DIR / "job_stats_dashboard.html"
-    if not dashboard_html_path.exists():
-        logger.info("Generating dashboard HTML template...")
-        save_dashboard(
-            dashboard_html_path,
-            stats,
-            source_total,
-            source_daily,
-            tracked_jobs,
-            all_jobs_annotated,
-            bool(resume_text),
-        )
+    logger.info("Updating dashboard HTML...")
+    save_dashboard(
+        dashboard_html_path,
+        stats,
+        source_total,
+        source_daily,
+        tracked_jobs,
+        all_jobs_annotated,
+        bool(resume_text),
+    )
 
     # Generate news dashboard HTML only if it doesn't exist
     news_dashboard_path = OUTPUT_DIR / "all_news.html"
