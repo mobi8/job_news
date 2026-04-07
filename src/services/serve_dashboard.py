@@ -105,6 +105,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             from services_status import get_all_status
             self._send_json(get_all_status())
             return
+        if base_path == "/job_stats_data.json":
+            self._send_json(self._load_json(DASHBOARD_DATA_PATH, {}))
+            return
         if base_path == "/api/recent-news":
             dashboard_data = self._load_json(DASHBOARD_DATA_PATH, {})
             topics = dashboard_data.get("topics", [])
@@ -290,25 +293,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/job_stats_dashboard.html":
             html_path = OUTPUT_DIR / "job_stats_dashboard.html"
             if html_path.exists():
-                html_content = html_path.read_text(encoding="utf-8")
-
-                # 1) 배치 상태 + 서비스 상태를 hero 아래에 좌우 2열로 삽입 (접을 수 있도록)
-                combined_status = self._render_batch_and_services_html()
-                if combined_status and '<section class="hero">' in html_content:
-                    hero_end = html_content.find('</section>', html_content.find('<section class="hero">'))
-                    if hero_end > 0:
-                        html_content = (
-                            html_content[:hero_end+10] +
-                            combined_status +
-                            html_content[hero_end+10:]
-                        )
-
+                content = html_path.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-                self.send_header("Content-Length", str(len(html_content.encode("utf-8"))))
+                self.send_header("Content-Length", str(len(content)))
                 self.end_headers()
-                self.wfile.write(html_content.encode("utf-8"))
+                self.wfile.write(content)
                 return
             else:
                 self.send_error(404, "Dashboard HTML not found")
