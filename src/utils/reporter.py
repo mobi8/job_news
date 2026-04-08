@@ -205,7 +205,7 @@ def save_dashboard(
         compact_meta = html.escape(" · ".join([job["company"], job["location"]]) if job.get("location") else job["company"])
         all_rows.append(
             f"""
-            <tr class="job-row" data-source="{html.escape(job['source'], quote=True)}" data-recruiter="{'yes' if job.get('recruiter') else 'no'}" data-pass="{'yes' if job.get('qualifies') else 'no'}" data-auto-reject="{'yes' if job.get('auto_reject_exec') else 'no'}" data-tags="{safe_tags.lower()}" data-title="{safe_title.lower()}" data-company="{safe_company.lower()}" data-location="{safe_location.lower()}" data-seen-ts="{safe_seen_raw}">
+            <tr class="job-row" data-source="{html.escape(job['source'], quote=True)}" data-recruiter="{'yes' if job.get('recruiter') else 'no'}" data-pass="{'yes' if job.get('qualifies') else 'no'}" data-auto-reject="{'yes' if job.get('auto_reject_exec') else 'no'}" data-tags="{safe_tags.lower()}" data-title="{safe_title.lower()}" data-company="{safe_company.lower()}" data-location="{safe_location.lower()}" data-seen-ts="{safe_seen_raw}" data-score="{job.get('match_score', 0)}">
               <td>
                 <a href="{safe_url}" target="_blank" rel="noreferrer">{safe_title}</a>
                 {"<div class=\"job-meta-line job-tags\">" + safe_tags + "</div>" if safe_tags else ""}
