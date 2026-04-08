@@ -1601,43 +1601,71 @@ def save_dashboard(
     loadRuntimeState();
 
     // 동적 통계 갱신: 페이지 로드 시 즉시 + 5분 간격
+    const LOCAL_JOB_STATE_PREFIX = "job_state:";
+
+    const loadStoredJobStates = () => {{
+      const map = new Map();
+      try {{
+        Object.keys(localStorage).forEach((key) => {{
+          if (!key.startsWith(LOCAL_JOB_STATE_PREFIX)) return;
+          try {{
+            const value = JSON.parse(localStorage.getItem(key) || "{{}}");
+            map.set(key.slice(LOCAL_JOB_STATE_PREFIX.length), value);
+          }} catch (error) {{
+            console.warn("Failed to parse job state", key, error);
+          }}
+        }});
+      }} catch (error) {{
+        console.warn("Failed to load job states from localStorage", error);
+      }}
+      return map;
+    }};
+
+    const getBucketFromState = (state = {{}}) => {{
+      if (state.removed) return "rejected";
+      if (state.applied) return "applied";
+      if (state.viewed) return "viewed";
+      return null;
+    }};
+
     async function fetchAndUpdateStats() {{
       try {{
         const data = await fetch('/job_stats_data.json').then(r => r.json());
         if (!data.filtered_jobs) return;
         const filteredJobs = data.filtered_jobs || [];
 
-        // localStorage에서 job 상태 읽기
-        const jobStatusMap = new Map();
-        try {{
-          const rawStatus = localStorage.getItem('job_status');
-          if (rawStatus) {{
-            const statusObj = JSON.parse(rawStatus);
-            Object.entries(statusObj).forEach(([key, status]) => {{
-              jobStatusMap.set(key, status);
-            }});
-          }}
-        }} catch (e) {{
-          console.warn('Failed to parse job status from localStorage:', e);
-        }}
-
+        const storedStates = loadStoredJobStates();
         const counts = {{
-          inbox: filteredJobs.filter(j => {{
-            const status = jobStatusMap.get(j.dashboard_key);
-            return !status || (status !== 'applied' && status !== 'viewed' && status !== 'removed');
-          }}).length,
-          inbox_high: filteredJobs.filter(j => {{
-            const status = jobStatusMap.get(j.dashboard_key);
-            return (!status || (status !== 'applied' && status !== 'viewed' && status !== 'removed')) && j.match_score >= 75;
-          }}).length,
-          inbox_low: filteredJobs.filter(j => {{
-            const status = jobStatusMap.get(j.dashboard_key);
-            return (!status || (status !== 'applied' && status !== 'viewed' && status !== 'removed')) && j.match_score < 75;
-          }}).length,
-          applied: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'applied').length,
-          viewed: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'viewed').length,
-          rejected: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'removed').length,
+          inbox: 0,
+          inbox_high: 0,
+          inbox_low: 0,
+          applied: 0,
+          viewed: 0,
+          rejected: 0,
         }};
+        filteredJobs.forEach((job) => {{
+          const state = storedStates.get(job.dashboard_key) || {{}};
+          const bucket = getBucketFromState(state);
+          if (bucket === 'rejected') {{
+            counts.rejected += 1;
+            return;
+          }}
+          if (bucket === 'applied') {{
+            counts.applied += 1;
+            return;
+          }}
+          if (bucket === 'viewed') {{
+            counts.viewed += 1;
+            return;
+          }}
+          const qualifies = Boolean(job.qualifies);
+          counts.inbox += 1;
+          if (qualifies) {{
+            counts.inbox_high += 1;
+          }} else {{
+            counts.inbox_low += 1;
+          }}
+        }});
         const mapping = {{
           inbox: 'bucket-count-inbox',
           inbox_high: 'bucket-count-inbox-high',
