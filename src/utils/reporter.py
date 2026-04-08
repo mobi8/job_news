@@ -1080,6 +1080,12 @@ def save_dashboard(
           <label class="filter-check"><input id="filter-applied" type="checkbox"> 지원한 것만</label>
           <label class="filter-check"><input id="filter-show-removed" type="checkbox"> 제거한 것 보기</label>
         </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+          <label style="font-size: 14px; white-space: nowrap;">최소 스코어:</label>
+          <input type="range" id="inbox-score-filter" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
+          <span id="inbox-score-display" style="font-weight: 600; min-width: 35px;">50</span>
+          <span style="font-size: 12px; color: #9ca3af;">(<span id="inbox-filtered-count">0</span>/<span id="inbox-total-count">0</span>)</span>
+        </div>
         <div id="filter-meta" class="filter-meta"></div>
       </div>
     </section>
@@ -1098,16 +1104,6 @@ def save_dashboard(
     <section class="card bucket-panel" data-tab-panel="inbox">
       <h2>아직안본 공고 <span id="bucket-count-inbox" class="summary-chip">0</span></h2>
       <p class="meta">아직 지원하지 않았고 제거하지 않은 공고입니다. 여기서 추천과 우선순위 낮음을 한 번 더 나눠 봅니다.</p>
-      <div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 6px;">
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-          <label style="font-weight: 500; color: #4b5563; white-space: nowrap;">최소 스코어:</label>
-          <input type="range" id="inbox-score-filter" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
-          <span id="inbox-score-display" style="font-weight: 600; color: #3b82f6; min-width: 35px;">50</span>
-        </div>
-        <div style="font-size: 12px; color: #9ca3af;">
-          <span id="inbox-filtered-count">0</span> / <span id="inbox-total-count">0</span> 공고
-        </div>
-      </div>
       <div class="tab-row" style="margin-top: 14px; margin-bottom: 10px;">
         <button type="button" class="tab-btn is-active" data-subtab-target="inbox-high">추천 <span id="bucket-count-inbox-high" class="tab-count">0</span></button>
         <button type="button" class="tab-btn" data-subtab-target="inbox-low">우선순위 낮음 <span id="bucket-count-inbox-low" class="tab-count">0</span></button>
