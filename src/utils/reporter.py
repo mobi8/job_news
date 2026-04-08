@@ -1554,13 +1554,37 @@ def save_dashboard(
         const data = await fetch('/job_stats_data.json').then(r => r.json());
         if (!data.filtered_jobs) return;
         const filteredJobs = data.filtered_jobs || [];
+
+        // localStorage에서 job 상태 읽기
+        const jobStatusMap = new Map();
+        try {{
+          const rawStatus = localStorage.getItem('job_status');
+          if (rawStatus) {{
+            const statusObj = JSON.parse(rawStatus);
+            Object.entries(statusObj).forEach(([key, status]) => {{
+              jobStatusMap.set(key, status);
+            }});
+          }}
+        }} catch (e) {{
+          console.warn('Failed to parse job status from localStorage:', e);
+        }}
+
         const counts = {{
-          inbox: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed).length,
-          inbox_high: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed && j.pass === 'yes').length,
-          inbox_low: filteredJobs.filter(j => !j.viewed && !j.applied && !j.removed && j.pass !== 'yes').length,
-          applied: filteredJobs.filter(j => j.applied && !j.removed).length,
-          viewed: filteredJobs.filter(j => j.viewed && !j.applied && !j.removed).length,
-          rejected: filteredJobs.filter(j => j.removed).length,
+          inbox: filteredJobs.filter(j => {{
+            const status = jobStatusMap.get(j.dashboard_key);
+            return !status || (status !== 'applied' && status !== 'viewed' && status !== 'removed');
+          }}).length,
+          inbox_high: filteredJobs.filter(j => {{
+            const status = jobStatusMap.get(j.dashboard_key);
+            return (!status || (status !== 'applied' && status !== 'viewed' && status !== 'removed')) && j.match_score >= 75;
+          }}).length,
+          inbox_low: filteredJobs.filter(j => {{
+            const status = jobStatusMap.get(j.dashboard_key);
+            return (!status || (status !== 'applied' && status !== 'viewed' && status !== 'removed')) && j.match_score < 75;
+          }}).length,
+          applied: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'applied').length,
+          viewed: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'viewed').length,
+          rejected: filteredJobs.filter(j => jobStatusMap.get(j.dashboard_key) === 'removed').length,
         }};
         const mapping = {{
           inbox: 'bucket-count-inbox',
