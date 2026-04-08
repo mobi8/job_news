@@ -64,19 +64,245 @@ def auto_category_for_record(record: Dict[str, Any]) -> str:
         ]
     ).lower()
 
-    if any(term in text_blob for term in ["product manager", "product owner", "head of product", "it product", "platform"]):
-        if any(term in text_blob for term in ["crypto", "web3", "blockchain", "digital asset", "stablecoin", "custody", "wallet"]):
-            return "crypto_product"
-    if any(term in text_blob for term in ["payment", "payments", "psp", "mto", "settlement", "fintech"]):
+    # =========================================================
+    # Job Category Classification
+    # =========================================================
+
+
+    # ---------------------------------------------------------
+    # Crypto / Web3
+    # ---------------------------------------------------------
+    # - Crypto exchange
+    # - Web3 infra
+    # - Wallet / custody
+    # - DeFi / trading
+    # - Stablecoin / onchain infra
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in [
+
+        # Core crypto keywords
+        "crypto", "web3", "blockchain", "digital asset", "stablecoin",
+        "custody", "wallet", "defi", "token", "tokenization",
+        "smart contract", "on-chain", "off-chain",
+        "dex", "cex", "exchange", "crypto exchange",
+        "layer 1", "layer 2", "l2", "l3",
+        "evm", "solana", "ethereum", "bitcoin",
+        "custodial", "non-custodial",
+
+        # Wallet / custody infra
+        "crypto wallet", "digital wallet", "custodian",
+        "mpc", "multi party computation", "multisig",
+        "private key", "key management",
+        "fireblocks", "bitgo", "coinbase custody",
+
+        # Trading / exchange infra
+        "trading", "spot trading", "margin trading",
+        "derivatives", "perpetual", "futures",
+        "order book", "market maker",
+        "matching engine", "trading platform",
+
+        # DeFi / onchain infra
+        "yield", "staking", "restaking",
+        "liquidity pool", "amm",
+        "bridge", "cross-chain", "cross chain",
+        "oracle", "vrf",
+
+        # Token standards
+        "erc20", "erc721", "erc1155",
+        "nft", "nfts",
+
+        # Crypto payments
+        "on-ramp", "on ramp",
+        "off-ramp", "off ramp",
+        "crypto payment", "crypto payments",
+        "fiat to crypto", "crypto to fiat",
+
+        # Stablecoins
+        "usdt", "usdc", "dai",
+
+        # Node / infra
+        "rpc", "node", "validator",
+        "rollup", "zk"
+    ]):
+        return "crypto_product"
+
+
+
+    # ---------------------------------------------------------
+    # Payments / Fintech
+    # ---------------------------------------------------------
+    # - Payment infra
+    # - PSP / gateway
+    # - Cross-border payments
+    # - Card issuing / acquiring
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in [
+
+        # Core payments
+        "payment", "payments", "psp", "settlement", "fintech",
+        "remittance", "payout", "payouts",
+        "payin", "pay-in", "pay-out",
+
+        # Merchant / gateway
+        "merchant", "gateway", "payment gateway",
+        "payment processing", "payment infrastructure",
+
+        # Treasury / settlement
+        "cross-border", "treasury", "reconciliation",
+        "acquirer", "issuer",
+
+        # Payment infra
+        "payment processor", "payment provider",
+        "payment orchestration", "payment routing",
+        "payment rails", "transaction processing",
+
+        # Card payments
+        "credit card", "debit card",
+        "visa", "mastercard", "amex",
+        "issuing", "acquiring",
+
+        # Banking rails
+        "bank transfer", "sepa", "swift", "iban",
+
+        # Fintech infra
+        "embedded finance", "embedded payments",
+        "banking as a service", "baas",
+        "open banking",
+
+        # Merchant flow
+        "merchant acquiring", "merchant onboarding",
+        "checkout", "subscription billing",
+
+        # Risk / disputes
+        "chargeback", "dispute",
+
+        # Cross-border FX
+        "fx", "foreign exchange",
+        "currency conversion",
+        "multi-currency", "multi currency"
+    ]):
         return "payments"
-    if any(term in text_blob for term in ["casino", "sportsbook", "live casino", "gaming platform", "betting", "igaming"]):
+
+
+
+    # ---------------------------------------------------------
+    # Casino / iGaming
+    # ---------------------------------------------------------
+    # - Casino operators
+    # - Game providers
+    # - iGaming platforms
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in [
+
+        # Core iGaming
+        "casino", "sportsbook", "live casino",
+        "betting", "igaming", "gambling",
+
+        # Game providers
+        "game provider",
+        "slot", "roulette", "blackjack",
+        "poker", "lottery", "rgs",
+
+        # Casino platforms
+        "white label casino",
+        "casino platform",
+
+        # Game types
+        "sports betting",
+        "live dealer",
+        "table games",
+        "virtual sports",
+        "jackpot",
+
+        # Player systems
+        "player management",
+        "pam",
+        "player account",
+
+        # Aggregators / studios
+        "game aggregation",
+        "casino aggregator",
+        "game studio",
+
+        # Casino operations roles
+        "affiliate manager",
+        "vip manager",
+
+        # Platform / backend
+        "turnkey",
+        "casino solution",
+        "gaming solution",
+        "casino backoffice",
+        "gaming wallet"
+    ]):
         return "casino"
-    if any(term in text_blob for term in ["account manager", "business development", "sales", "affiliate", "country manager", "commercial"]):
+
+
+
+    # ---------------------------------------------------------
+    # Commercial / Business / BD
+    # ---------------------------------------------------------
+    # - Sales
+    # - Partnerships
+    # - Business Development
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in [
+
+        # Account / BD roles
+        "account manager",
+        "business development",
+        "business development manager",
+
+        # Sales roles
+        "sales manager",
+
+        # Regional roles
+        "country manager",
+
+        # Commercial roles
+        "commercial",
+        "partnership manager",
+
+        # Client roles
+        "client manager",
+        "customer success",
+        "relationship manager"
+    ]):
         return "commercial"
-    if any(term in text_blob for term in ["adgm", "vara", "vera", "fsra", "compliance", "regulatory"]):
+
+
+
+    # ---------------------------------------------------------
+    # Compliance / Regulatory
+    # ---------------------------------------------------------
+    # - Crypto compliance
+    # - Gaming compliance
+    # - Regulatory roles
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in [
+
+        # UAE regulators
+        "adgm", "vara", "fsra", "gcgra", "sca", "dfsa",
+
+        # Compliance keywords
+        "compliance", "regulatory",
+        "licensing", "regulated",
+        "regulation",
+
+        # Risk / AML
+        "kyc", "aml", "kyb",
+        "risk management",
+
+        # Governance
+        "governance",
+        "audit"
+    ]):
         return "compliance"
-    if any(term in text_blob for term in RECRUITER_COMPANIES):
-        return "recruiter"
+
+
+    # ---------------------------------------------------------
+    # Default
+    # ---------------------------------------------------------
     return ""
 
 
