@@ -143,6 +143,11 @@ NEWS_RSS_FEEDS = [
         "source": "rss_finextra_crypto",
         "label": "FinExtra Crypto",
     },
+    {
+        "url": "https://focusgn.com/feed/",
+        "source": "rss_focusgn",
+        "label": "FocusGN",
+    },
 ]
 
 # Player Official RSS Feeds (verified working)
