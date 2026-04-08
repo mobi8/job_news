@@ -1098,6 +1098,16 @@ def save_dashboard(
     <section class="card bucket-panel" data-tab-panel="inbox">
       <h2>아직안본 공고 <span id="bucket-count-inbox" class="summary-chip">0</span></h2>
       <p class="meta">아직 지원하지 않았고 제거하지 않은 공고입니다. 여기서 추천과 우선순위 낮음을 한 번 더 나눠 봅니다.</p>
+      <div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 6px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+          <label style="font-weight: 500; color: #4b5563; white-space: nowrap;">최소 스코어:</label>
+          <input type="range" id="inbox-score-filter" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
+          <span id="inbox-score-display" style="font-weight: 600; color: #3b82f6; min-width: 35px;">50</span>
+        </div>
+        <div style="font-size: 12px; color: #9ca3af;">
+          <span id="inbox-filtered-count">0</span> / <span id="inbox-total-count">0</span> 공고
+        </div>
+      </div>
       <div class="tab-row" style="margin-top: 14px; margin-bottom: 10px;">
         <button type="button" class="tab-btn is-active" data-subtab-target="inbox-high">추천 <span id="bucket-count-inbox-high" class="tab-count">0</span></button>
         <button type="button" class="tab-btn" data-subtab-target="inbox-low">우선순위 낮음 <span id="bucket-count-inbox-low" class="tab-count">0</span></button>
@@ -1354,6 +1364,7 @@ def save_dashboard(
       const passOnly = Boolean(document.getElementById("filter-pass")?.checked);
       const appliedOnly = Boolean(document.getElementById("filter-applied")?.checked);
       const showRemoved = Boolean(document.getElementById("filter-show-removed")?.checked);
+      const inboxScoreMin = Number(document.getElementById("inbox-score-filter")?.value || 0);
 
       const textBlob = [
         row.dataset.title || "",
@@ -1381,6 +1392,13 @@ def save_dashboard(
         const keywords = trackMatchers[trackValue] || [];
         if (!keywords.some((keyword) => textBlob.includes(keyword))) return false;
       }}
+
+      // inbox 섹션에서 스코어 필터 적용
+      if ((bucket === "inbox_high" || bucket === "inbox_low") && !viewed && !applied && !removed) {{
+        const score = Number(row.dataset.score || 0);
+        if (score < inboxScoreMin) return false;
+      }}
+
       return true;
     }};
 
@@ -1522,6 +1540,44 @@ def save_dashboard(
       if (!el) return;
       el.addEventListener(id === 'filter-search' ? 'input' : 'change', applyTableFilters);
     }});
+
+    // 스코어 게이지 필터 이벤트
+    const scoreFilter = document.getElementById("inbox-score-filter");
+    const scoreDisplay = document.getElementById("inbox-score-display");
+    if (scoreFilter) {{
+      scoreFilter.addEventListener("input", () => {{
+        scoreDisplay.textContent = scoreFilter.value;
+        updateInboxScoreStats();
+        preserveScroll(() => applyTableFilters());
+      }});
+    }}
+
+    // inbox 스코어 통계 업데이트
+    const updateInboxScoreStats = () => {{
+      const rows = Array.from(document.querySelectorAll(".job-row"));
+      const inboxScoreMin = Number(document.getElementById("inbox-score-filter")?.value || 0);
+      const inboxRows = rows.filter((row) => {{
+        const bucket = rowBucket(row);
+        const viewed = Boolean(row.querySelector('input[data-field="viewed"]')?.checked);
+        const applied = Boolean(row.querySelector('input[data-field="applied"]')?.checked);
+        const removed = Boolean(row.querySelector('input[data-field="removed"]')?.checked);
+        return (bucket === "inbox_high" || bucket === "inbox_low") && !viewed && !applied && !removed;
+      }});
+
+      const filteredCount = inboxRows.filter((row) => {{
+        const score = Number(row.dataset.score || 0);
+        return score >= inboxScoreMin;
+      }}).length;
+
+      const totalCount = inboxRows.length;
+      const filteredEl = document.getElementById("inbox-filtered-count");
+      const totalEl = document.getElementById("inbox-total-count");
+      if (filteredEl) filteredEl.textContent = String(filteredCount);
+      if (totalEl) totalEl.textContent = String(totalCount);
+    }};
+
+    // 초기 통계 업데이트
+    updateInboxScoreStats();
     const setSubActiveTab = (tabKey) => {{
       document.querySelectorAll('[data-subtab-target]').forEach((btn) => {{
         btn.classList.toggle('is-active', btn.dataset.subtabTarget === tabKey);
