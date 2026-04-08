@@ -5,15 +5,17 @@
 {% for item in source_today -%}
   {{ item.label }}: {{ item.count }}
 {% endfor %}
-
 {% endif -%}
+
+{#
 {% if source_total -%}
 <b>Tracked Totals:</b>
 {% for item in source_total -%}
   {{ item.label }}: {{ item.count }}
 {% endfor %}
-
 {% endif -%}
+#}
+
 <b>Top Matches:</b>
 {% for job in jobs -%}
 {{ loop.index }}. <a href="{{ job.url }}">{{ job.label }}</a>

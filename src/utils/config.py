@@ -510,6 +510,11 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "workforce manager",
     "security agent",
     "downtime specialist",
+    "construction",
+    "construction worker",
+    "field worker",
+    "site worker",
+    "offline",
 ]
 
 NON_COMMERCIAL_ROLE_TERMS = [

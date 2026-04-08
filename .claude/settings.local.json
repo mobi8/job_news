@@ -72,7 +72,12 @@
       "Bash(git commit:*)",
       "Bash(pkill -f \"serve_dashboard\")",
       "Bash(curl -s \"http://127.0.0.1:8765/api/all-news?limit=2\")",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(node:*)",
+      "Bash(git push:*)",
+      "Bash(ls -lh /Users/lewis/Desktop/agent/outputs/*.json)",
+      "Bash(tail -100 /Users/lewis/Desktop/agent/logs/scraper_*.log)",
+      "Bash(git checkout:*)"
     ]
   }
 }
