@@ -234,17 +234,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     )
     # Generate/update dashboard HTML on every run
     dashboard_html_path = OUTPUT_DIR / "job_stats_dashboard.html"
-    logger.info("Updating dashboard HTML...")
-    save_dashboard(
-        dashboard_html_path,
-        stats,
-        source_total,
-        source_daily,
-        tracked_jobs,
-        all_jobs_annotated,
-        bool(resume_text),
-    )
-
     # Generate news dashboard HTML only if it doesn't exist
     news_dashboard_path = OUTPUT_DIR / "all_news.html"
     if not news_dashboard_path.exists():
