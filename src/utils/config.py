@@ -62,10 +62,10 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Saudi%20Arabia",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Qatar",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Bahrain",
-    # 조지아 검색 추가
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Georgia",
+    # 조지아 (나라) 검색 추가 - Tbilisi만 사용하여 미국 조지아 제외
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Tbilisi%2C%20Georgia",
     "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Tbilisi%2C%20Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Tbilisi%2C%20Georgia",
 ]
 RECRUITER_COMPANIES = [
     "robert walters",
@@ -527,6 +527,15 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "Room",
     "print"
 
+]
+
+# 위치 기반 제외 (미국 조지아 등)
+HARD_EXCLUDE_LOCATION_PATTERNS = [
+    r"georgia.*usa",
+    r"georgia.*us\b",
+    r"georgia.*united\s+states",
+    r"atlanta",
+    r"savannah.*georgia",
 ]
 
 NON_COMMERCIAL_ROLE_TERMS = [

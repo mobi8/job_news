@@ -14,6 +14,7 @@ from .config import (
     FOCUS_ROLE_TERMS,
     GENERIC_FINANCE_TERMS,
     GENERIC_PAYMENT_TERMS,
+    HARD_EXCLUDE_LOCATION_PATTERNS,
     HARD_EXCLUDE_TITLE_TERMS,
     NEGATIVE_ROLE_TERMS,
     NON_COMMERCIAL_ROLE_TERMS,
@@ -38,7 +39,19 @@ def is_language_filtered_out(text: str) -> bool:
 
 def is_hard_excluded_job(title: str, company: str = "", location: str = "", description: str = "") -> bool:
     text_blob = " ".join([title, company, location, description]).lower()
-    return any(term in text_blob for term in HARD_EXCLUDE_TITLE_TERMS)
+
+    # Check title/company/description terms
+    if any(term in text_blob for term in HARD_EXCLUDE_TITLE_TERMS):
+        return True
+
+    # Check location patterns (e.g., "Georgia, USA")
+    if location:
+        location_lower = location.lower()
+        for pattern in HARD_EXCLUDE_LOCATION_PATTERNS:
+            if re.search(pattern, location_lower):
+                return True
+
+    return False
 
 
 def is_exec_tech_reject_job(title: str, company: str = "", location: str = "", description: str = "") -> bool:
