@@ -78,7 +78,8 @@
       "Bash(ls -lh /Users/lewis/Desktop/agent/outputs/*.json)",
       "Bash(tail -100 /Users/lewis/Desktop/agent/logs/scraper_*.log)",
       "Bash(git checkout:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(crontab -l)"
     ]
   }
 }
