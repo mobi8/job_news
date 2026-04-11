@@ -80,6 +80,7 @@ RECRUITER_COMPANIES = [
     "ap executive",
     "crypto recruit",
     "blockchain talent",
+    "Hyphen Connect",
 ]
 RECRUITER_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=Robert%20Walters%20crypto%20OR%20web3%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -95,6 +96,7 @@ RECRUITER_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=Crypto%20Recruit%20web3%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=Blockchain%20Talent%20web3%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
 ]
+
 
 NEWS_RSS_FEEDS = [
     {
@@ -515,6 +517,16 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "field worker",
     "site worker",
     "offline",
+    "Surveillance",
+    "food",
+    "3D",
+    "frontend",
+    "backend",
+    "DevOps",
+    "Developer",
+    "Room",
+    "print"
+
 ]
 
 NON_COMMERCIAL_ROLE_TERMS = [

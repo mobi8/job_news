@@ -464,7 +464,7 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=120,
+                timeout=240,
             )
         except (subprocess.SubprocessError, FileNotFoundError) as exc:
             logger.warning("Skipping Telegram channel %s: %s", channel["url"], exc)

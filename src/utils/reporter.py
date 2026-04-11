@@ -1029,8 +1029,6 @@ def save_dashboard(
     </section>
 
     <section class="card">
-      <h2>보기 설정</h2>
-      <p class="meta">정렬과 필터를 먼저 정한 뒤 아래 검토 보드에서 바로 처리하면 됩니다.</p>
       <div class="section-toggle-row">
         <button id="view-settings-toggle" class="section-toggle filter-toggle" type="button" aria-expanded="false" aria-controls="view-settings-panel" aria-label="보기 설정 접기/펼치기">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
