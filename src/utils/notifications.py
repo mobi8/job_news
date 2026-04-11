@@ -229,7 +229,14 @@ def send_daily_summary(db: Database, limit: int = 100) -> None:
 
     message_text = render_template("telegram/daily_summary.txt", context)
     logger.debug("Rendered daily_summary: %s", message_text)
-    send_telegram_text(message_text)
+    if len(message_text) <= 4000:
+        send_telegram_text(message_text)
+    else:
+        logger.warning(
+            "Daily summary (%d chars) exceeds Telegram limit; chunking into shorter messages.",
+            len(message_text),
+        )
+        send_telegram_messages_chunked(message_text.splitlines())
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()
@@ -398,4 +405,3 @@ def _news_source_label(source: str) -> str:
         "rss_fintech_uae": "Fintech News UAE",
     }
     return mapping.get(source, source)
-
