@@ -405,6 +405,8 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
         score += 22
     elif "georgia" in text_blob or "tbilisi" in text_blob or "batumi" in text_blob or "조지아" in text_blob:
         score += 20  # 조지아 점수 추가
+    elif "malta" in text_blob or "valletta" in text_blob or "몰타" in text_blob:
+        score += 20  # 몰타 점수 추가
     elif is_remote and remote_gcc_tags:
         score += 16
     elif telegram_remote_ok or telegram_korea_ok:
@@ -446,12 +448,19 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
 
     score = max(0, min(score, 100))
     tags = unique_preserve_order(location_tags + domain_tags + recruiter_company_tags + commercial_role_tags + product_role_tags + role_tags + resume_tags)
-    role_path_ok = bool(commercial_role_tags) or (bool(product_role_tags) and bool(strong_domain_tags))
+    role_path_ok = bool(commercial_role_tags) or bool(product_role_tags)
+    has_domain_signal = bool(domain_tags) or bool(generic_payment_tags)
     qualifies = (
         location_ok
         and role_path_ok
         and not negative_tags
-        and (bool(strong_domain_tags) or bool(commercial_role_tags) or bool(product_role_tags) or (bool(generic_payment_tags) and score >= 55))
+        and has_domain_signal
+        and (
+            bool(strong_domain_tags)
+            or bool(product_role_tags)
+            or (bool(commercial_role_tags) and bool(domain_tags))
+            or (bool(generic_payment_tags) and score >= 55)
+        )
     )
 
     return {
@@ -543,6 +552,7 @@ def source_label(source: str) -> str:
         "indeed_georgia": "Indeed Georgia",
         "linkedin_public": "LinkedIn",
         "linkedin_georgia": "LinkedIn Georgia",
+        "linkedin_malta": "LinkedIn Malta",
         "jobrapido_uae": "Jobrapido",
         "jobleads": "JobLeads",
         "telegram_job_crypto_uae": "TG Jobs UAE",

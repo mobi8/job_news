@@ -54,7 +54,7 @@ def normalize_linkedin_url(url: str) -> str:
     return urllib.parse.urlunparse(("https", "www.linkedin.com", normalized_path, "", "", ""))
 
 def normalize_linkedin_identifier(source: str, value: str) -> str:
-    if source in ["linkedin_public", "linkedin_georgia"]:
+    if source in ["linkedin_public", "linkedin_georgia", "linkedin_malta"]:
         return normalize_linkedin_url(value)
     return value
 
@@ -389,6 +389,7 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "indeed_uae": "indeed_uae",
         "linkedin": "linkedin_public",
         "linkedin_public": "linkedin_public",
+        "linkedin_malta": "linkedin_malta",
         "jobrapido": "jobrapido_uae",
         "jobrapido_uae": "jobrapido_uae",
         "jobleads": "jobleads",

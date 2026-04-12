@@ -597,7 +597,10 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
             # URL에 따라 소스 구분
             source_name = "linkedin_public"
-            if "georgia" in search_url.lower() or "tbilisi" in search_url.lower():
+            search_lower = search_url.lower()
+            if "malta" in search_lower or "valletta" in search_lower:
+                source_name = "linkedin_malta"
+            elif "georgia" in search_lower or "tbilisi" in search_lower:
                 source_name = "linkedin_georgia"
             
             jobs.append(

@@ -7,6 +7,7 @@ import logging
 import os
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -25,6 +26,83 @@ from .logger import notifications_logger
 from .template_renderer import render_template
 
 logger = notifications_logger
+
+SOURCE_COUNTRY_OVERRIDES = {
+    "jobvite_pragmaticplay": "UAE",
+    "smartrecruitment": "UAE",
+    "igamingrecruitment": "UAE",
+    "jobrapido_uae": "UAE",
+    "jobleads": "UAE",
+    "telegram_job_crypto_uae": "UAE",
+    "telegram_cryptojobslist": "UAE",
+    "indeed_uae": "UAE",
+    "linkedin_public": "UAE",
+    "indeed_georgia": "Georgia",
+    "linkedin_georgia": "Georgia",
+    "linkedin_malta": "Malta",
+}
+
+
+def _job_attr(job: Any, name: str) -> str:
+    if isinstance(job, dict):
+        return str(job.get(name, "") or "")
+    return str(getattr(job, name, "") or "")
+
+
+def detect_country_from_location(location: str) -> str:
+    if not location:
+        return ""
+    location_lower = location.lower()
+    if "malta" in location_lower or "valletta" in location_lower:
+        return "Malta"
+    if "georgia" in location_lower or "tbilisi" in location_lower or "batumi" in location_lower:
+        return "Georgia"
+    if "dubai" in location_lower or "united arab emirates" in location_lower or "uae" in location_lower:
+        return "UAE"
+    return ""
+
+
+def country_label_for_job(job: Any) -> str:
+    source = _job_attr(job, "source").lower()
+    if not source:
+        return ""
+    country = SOURCE_COUNTRY_OVERRIDES.get(source)
+    if country:
+        return country
+    location = _job_attr(job, "location")
+    return detect_country_from_location(location)
+
+
+def country_line_for_jobs(jobs: List[Any]) -> str:
+    counts: Dict[str, int] = {}
+    for job in jobs:
+        label = country_label_for_job(job)
+        if not label:
+            continue
+        counts[label] = counts.get(label, 0) + 1
+    if not counts:
+        return ""
+    sorted_counts = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return " | ".join(f"{label} {count}" for label, count in sorted_counts)
+
+
+def build_job_template_items(jobs: List[Any], limit: int | None = None) -> List[Dict[str, str]]:
+    trimmed = jobs[:limit] if isinstance(limit, int) else list(jobs)
+    items: List[Dict[str, str]] = []
+    for job in trimmed:
+        label = html.escape(f"{_job_attr(job, 'company')} | {_job_attr(job, 'title')}")
+        url = html.escape(_job_attr(job, "url"), quote=True)
+        country = country_label_for_job(job) or "Other"
+        items.append({"label": label, "url": url, "country": country})
+    return items
+
+
+def group_job_items_by_country(items: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    grouped: OrderedDict[str, List[Dict[str, str]]] = OrderedDict()
+    for item in items:
+        country = item.get("country") or "Other"
+        grouped.setdefault(country, []).append(item)
+    return [{"country": country, "jobs": jobs} for country, jobs in grouped.items()]
 
 
 def source_total_counts(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -97,16 +175,13 @@ def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
         logger.info("All jobs already sent in previous notifications, skipping.")
         return
 
-    top_jobs = unsent_jobs[:3]
+    country_line = country_line_for_jobs(unsent_jobs)
+    job_items = build_job_template_items(unsent_jobs, limit=3)
+    country_groups = group_job_items_by_country(job_items)
     context = {
         "new_count": len(unsent_jobs),
-        "top_jobs": [
-            {
-                "label": html.escape(f"{job.company} | {job.title}"),
-                "url": html.escape(job.url, quote=True),
-            }
-            for job in top_jobs
-        ],
+        "country_line": country_line,
+        "country_groups": country_groups,
     }
 
     message_text = render_template("telegram/job_alert.txt", context)
@@ -133,7 +208,15 @@ def send_incremental_summary(
         new_jobs = [job for job in new_jobs if job["source"] in allowed_sources]
     unsent_jobs = [job for job in new_jobs if notification_key(job) not in sent_history]
     if new_jobs and not unsent_jobs:
-        context = {"hours": hours, "job_count": 0}
+        context = {
+            "hours": hours,
+            "job_count": 0,
+            "country_line": "",
+            "source_counts": False,
+            "source_line": "",
+            "jobs": [],
+            "country_groups": [],
+        }
         message_text = render_template("telegram/incremental_summary.txt", context)
         logger.debug("Rendered incremental_summary (no new unsent): %s", message_text)
         send_telegram_text(message_text)
@@ -153,6 +236,7 @@ def send_incremental_summary(
             "job_count": 0,
             "source_counts": bool(source_line),
             "source_line": source_line,
+            "country_line": "",
             "jobs": [],
         }
         message_text = render_template("telegram/incremental_summary.txt", context)
@@ -167,19 +251,19 @@ def send_incremental_summary(
         source_line = " | ".join(
             f"{source_label(item['source'])} {item['jobs']}" for item in source_counts
         )
+    country_line = country_line_for_jobs(new_jobs)
+
+    job_items = build_job_template_items(new_jobs, limit=limit)
+    country_groups = group_job_items_by_country(job_items)
 
     context = {
         "hours": hours,
         "job_count": len(new_jobs),
         "source_counts": bool(source_counts),
         "source_line": source_line,
-        "jobs": [
-            {
-                "label": html.escape(f"{job['company']} | {job['title']}"),
-                "url": html.escape(job["url"], quote=True),
-            }
-            for job in new_jobs[:limit]
-        ],
+        "country_line": country_line,
+        "country_groups": country_groups,
+        "jobs": job_items,
     }
     message_text = render_template("telegram/incremental_summary.txt", context)
     logger.debug("Rendered incremental_summary: %s", message_text)

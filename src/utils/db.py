@@ -11,6 +11,9 @@ from .config import EXCLUDED_LANGUAGE_TERMS, HARD_EXCLUDE_TITLE_TERMS
 from .models import JobPosting, NewsItem
 from .utils import normalize_linkedin_identifier, normalize_linkedin_url, utc_now
 
+LINKEDIN_SOURCE_NAMES = ("linkedin_public", "linkedin_georgia", "linkedin_malta")
+LINKEDIN_SOURCES = set(LINKEDIN_SOURCE_NAMES)
+
 
 class Database:
     def __init__(self, path: Path):
@@ -60,7 +63,7 @@ class Database:
         inserted = 0
 
         for job in jobs:
-            if job.source == "linkedin_public":
+            if job.source in LINKEDIN_SOURCES:
                 job.url = normalize_linkedin_url(job.url)
                 job.source_job_id = normalize_linkedin_identifier(job.source, job.source_job_id)
             row = self.conn.execute(
@@ -231,11 +234,12 @@ class Database:
 
     def normalize_linkedin_urls(self) -> int:
         rows = self.conn.execute(
-            """
+            f"""
             SELECT fingerprint, url, source_job_id, source
             FROM jobs
-            WHERE source IN ('linkedin_public', 'linkedin_georgia')
-            """
+            WHERE source IN ({','.join('?' for _ in LINKEDIN_SOURCE_NAMES)})
+            """,
+            LINKEDIN_SOURCE_NAMES,
         ).fetchall()
         updated = 0
         for row in rows:
@@ -265,9 +269,9 @@ class Database:
         ).fetchall()
         items = [dict(row) for row in rows]
         for item in items:
-            if item.get("source") == "linkedin_public":
+            if item.get("source") in LINKEDIN_SOURCES:
                 item["url"] = normalize_linkedin_url(item.get("url", ""))
-                item["source_job_id"] = normalize_linkedin_identifier("linkedin_public", item.get("source_job_id", ""))
+                item["source_job_id"] = normalize_linkedin_identifier(item["source"], item.get("source_job_id", ""))
         return items
 
     def stats(self) -> Dict[str, Any]:
@@ -308,9 +312,9 @@ class Database:
         ).fetchall()
         items = [dict(row) for row in rows]
         for item in items:
-            if item.get("source") == "linkedin_public":
+            if item.get("source") in LINKEDIN_SOURCES:
                 item["url"] = normalize_linkedin_url(item.get("url", ""))
-                item["source_job_id"] = normalize_linkedin_identifier("linkedin_public", item.get("source_job_id", ""))
+                item["source_job_id"] = normalize_linkedin_identifier(item["source"], item.get("source_job_id", ""))
         return items
 
     def source_new_counts(self, hours: int) -> List[Dict[str, Any]]:
@@ -417,4 +421,3 @@ class Database:
             self.conn.commit()
 
         return len(fingerprints_to_remove)
-

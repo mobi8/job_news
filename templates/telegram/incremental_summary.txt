@@ -1,8 +1,14 @@
 New jobs in last {{ hours }}h: {{ job_count }}
+{% if country_line %}
+{{ country_line }}
+{% endif %}
 {% if source_counts %}
 
 {{ source_line }}
 {% endif %}
-{% for job in jobs -%}
+{% for group in country_groups -%}
+{{ group.country }}:
+{% for job in group.jobs -%}
 - <a href="{{ job.url }}">{{ job.label }}</a>
+{% endfor %}
 {% endfor %}

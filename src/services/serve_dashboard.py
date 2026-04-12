@@ -460,6 +460,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "telegram_cryptojobslist": "RSS",
                 "indeed_uae": "Playwright",
                 "linkedin_public": "Playwright",
+                "linkedin_georgia": "Playwright",
+                "linkedin_malta": "Playwright",
             }
 
             job_sources = [
@@ -472,6 +474,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 ("telegram_cryptojobslist", "Telegram (CryptoJobsList)"),
                 ("indeed_uae", "Indeed UAE"),
                 ("linkedin_public", "LinkedIn"),
+                ("linkedin_georgia", "LinkedIn Georgia"),
+                ("linkedin_malta", "LinkedIn Malta"),
             ]
 
             for src_key, src_name in job_sources:
@@ -618,6 +622,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 ("jobleads", "JobLeads"),
                 ("indeed_uae", "Indeed UAE"),
                 ("linkedin_public", "LinkedIn"),
+                ("linkedin_georgia", "LinkedIn Georgia"),
+                ("linkedin_malta", "LinkedIn Malta"),
             ]
 
             job_lines = []

@@ -359,15 +359,22 @@ class TestTemplateRenderer:
         """Test rendering job alert template"""
         context = {
             "new_count": 5,
-            "top_jobs": [
-                {"label": "Corp1 | Developer", "url": "https://example.com/1"},
-                {"label": "Corp2 | Engineer", "url": "https://example.com/2"},
-            ]
+            "country_line": "UAE 5",
+            "country_groups": [
+                {
+                    "country": "UAE",
+                    "jobs": [
+                        {"label": "Corp1 | Developer", "url": "https://example.com/1"},
+                        {"label": "Corp2 | Engineer", "url": "https://example.com/2"},
+                    ],
+                }
+            ],
         }
         result = render_template("telegram/job_alert.txt", context)
-        assert "New UAE job matches: 5" in result
+        assert "New job matches: 5" in result
         assert "Corp1 | Developer" in result
         assert "https://example.com/1" in result
+        assert "UAE:" in result
 
     def test_render_incremental_summary_template(self):
         """Test rendering incremental summary template"""
@@ -376,6 +383,15 @@ class TestTemplateRenderer:
             "job_count": 2,
             "source_counts": True,
             "source_line": "Indeed UAE 2 | LinkedIn 1",
+            "country_line": "UAE 2",
+            "country_groups": [
+                {
+                    "country": "UAE",
+                    "jobs": [
+                        {"label": "Corp1 | Developer", "url": "https://example.com/1"},
+                    ],
+                }
+            ],
             "jobs": [
                 {"label": "Corp1 | Developer", "url": "https://example.com/1"},
             ]
@@ -383,6 +399,7 @@ class TestTemplateRenderer:
         result = render_template("telegram/incremental_summary.txt", context)
         assert "New jobs in last 3h: 2" in result
         assert "Indeed UAE 2 | LinkedIn 1" in result
+        assert "UAE:" in result
 
     def test_render_daily_summary_template(self):
         """Test rendering daily summary template"""
@@ -457,9 +474,15 @@ class TestTemplateRenderer:
         """Test template rendering with HTML-escaped content"""
         context = {
             "new_count": 1,
-            "top_jobs": [
-                {"label": "Corp &amp; Co | Dev &lt;&gt;", "url": "https://example.com/1?x=1&y=2"},
-            ]
+            "country_line": "",
+            "country_groups": [
+                {
+                    "country": "UAE",
+                    "jobs": [
+                        {"label": "Corp &amp; Co | Dev &lt;&gt;", "url": "https://example.com/1?x=1&y=2"},
+                    ],
+                }
+            ],
         }
         result = render_template("telegram/job_alert.txt", context)
         # HTML entities should be preserved as passed in context

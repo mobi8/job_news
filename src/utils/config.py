@@ -66,6 +66,10 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Tbilisi%2C%20Georgia",
     "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Tbilisi%2C%20Georgia",
     "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Tbilisi%2C%20Georgia",
+    # 몰타 검색 추가
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Valletta%2C%20Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Malta",
 ]
 RECRUITER_COMPANIES = [
     "robert walters",
@@ -271,6 +275,9 @@ FOCUS_LOCATION_TERMS = [
     "tbilisi",           # 트빌리시 (수도)
     "batumi",            # 바투미 (도시)
     "조지아",            # 한국어
+    "malta",             # 몰타 추가
+    "valletta",          # 수도
+    "몰타",
 ]
 REMOTE_GCC_LOCATION_TERMS = [
     "bahrain",

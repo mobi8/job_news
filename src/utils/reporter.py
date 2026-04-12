@@ -1046,6 +1046,7 @@ def save_dashboard(
           <select id="filter-source">
             <option value="">전체 출처</option>
             <option value="linkedin_public">LinkedIn</option>
+            <option value="linkedin_malta">LinkedIn Malta</option>
             <option value="indeed_uae">Indeed UAE</option>
             <option value="jobvite_pragmaticplay">Jobvite</option>
             <option value="smartrecruitment">SmartRecruitment</option>

@@ -387,6 +387,32 @@ class TestEvaluateFit:
         assert "qualifies" in fit
         assert isinstance(fit["qualifies"], bool)
 
+    @patch("utils.scoring.FOCUS_LOCATION_TERMS", ["dubai"])
+    @patch("utils.scoring.FOCUS_DOMAIN_TERMS", [])
+    @patch("utils.scoring.STRONG_DOMAIN_TERMS", [])
+    @patch("utils.scoring.FOCUS_ROLE_TERMS", [])
+    @patch("utils.scoring.COMMERCIAL_ROLE_TERMS", ["sales", "manager"])
+    @patch("utils.scoring.PRODUCT_ROLE_TERMS", [])
+    @patch("utils.scoring.GENERIC_PAYMENT_TERMS", [])
+    @patch("utils.scoring.RECRUITER_COMPANIES", [])
+    @patch("utils.scoring.RESUME_SKILL_LEXICON", [])
+    @patch("utils.scoring.NEGATIVE_ROLE_TERMS", [])
+    @patch("utils.scoring.NON_COMMERCIAL_ROLE_TERMS", [])
+    @patch("utils.scoring.GENERIC_FINANCE_TERMS", [])
+    @patch("utils.scoring.REMOTE_GCC_LOCATION_TERMS", [])
+    def test_evaluate_fit_rejects_non_domain(self, *mocks):
+        """Commercial roles without domain keywords should not qualify"""
+        record = {
+            "title": "Sales Manager",
+            "company": "Marine Company",
+            "location": "Dubai",
+            "description": "Marine industry sales",
+            "source": "indeed_uae"
+        }
+        fit = evaluate_fit(record, "sales")
+        assert fit["score"] >= 0
+        assert fit["qualifies"] is False
+
 
 class TestCalculateMatchScore:
     """Tests for calculate_match_score function"""
@@ -606,6 +632,10 @@ class TestSourceLabel:
         """Test label for linkedin"""
         assert source_label("linkedin_public") == "LinkedIn"
 
+    def test_source_label_linkedin_malta(self):
+        """Test label for LinkedIn Malta"""
+        assert source_label("linkedin_malta") == "LinkedIn Malta"
+
     def test_source_label_unknown(self):
         """Test unknown source returns source as-is"""
         assert source_label("unknown_source") == "unknown_source"
@@ -618,6 +648,8 @@ class TestSourceLabel:
             "igamingrecruitment",
             "indeed_uae",
             "linkedin_public",
+            "linkedin_georgia",
+            "linkedin_malta",
             "jobrapido_uae",
             "jobleads",
             "telegram_job_crypto_uae",

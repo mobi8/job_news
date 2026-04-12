@@ -1,4 +1,10 @@
-New UAE job matches: {{ new_count }}
-{% for job in top_jobs -%}
+New job matches: {{ new_count }}
+{% if country_line %}
+{{ country_line }}
+{% endif %}
+{% for group in country_groups -%}
+{{ group.country }}:
+{% for job in group.jobs -%}
 - <a href="{{ job.url }}">{{ job.label }}</a>
+{% endfor %}
 {% endfor %}
