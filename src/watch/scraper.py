@@ -232,8 +232,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         inserted,
         [source for source, _ in sources],
     )
-    # Generate/update dashboard HTML on every run
-    dashboard_html_path = OUTPUT_DIR / "job_stats_dashboard.html"
     # Generate news dashboard HTML only if it doesn't exist
     news_dashboard_path = OUTPUT_DIR / "all_news.html"
     if not news_dashboard_path.exists():
