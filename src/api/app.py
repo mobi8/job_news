@@ -73,7 +73,7 @@ def job_matches_filters(
         return False
 
     if country:
-        job_country = detect_country(job)
+        job_country = job.get("country") or detect_country(job)
         if job_country.lower() != country.lower():
             return False
 
