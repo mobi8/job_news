@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from utils.config import OUTPUT_DIR
 from utils.scoring import source_label
@@ -28,6 +30,8 @@ app.add_middleware(
 
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 STATS_DATA_PATH = OUTPUT_DIR / "job_stats_data.json"
+REJECT_FEEDBACK_PATH = OUTPUT_DIR / "reject_feedback.json"
+JOB_STATUSES_PATH = OUTPUT_DIR / "job_statuses.json"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -47,6 +51,38 @@ def load_jobs_data() -> Dict[str, Any]:
 @lru_cache(maxsize=1)
 def load_stats_data() -> Dict[str, Any]:
     return read_json(STATS_DATA_PATH)
+
+
+def load_rejected_jobs_keys() -> set[str]:
+    """Load rejected job keys from reject_feedback.json"""
+    if not REJECT_FEEDBACK_PATH.exists():
+        return set()
+    try:
+        data = json.loads(REJECT_FEEDBACK_PATH.read_text(encoding="utf-8"))
+        return {job["key"] for job in data.get("rejected_jobs", [])}
+    except Exception:
+        return set()
+
+
+class JobStatusRequest(BaseModel):
+    job_key: str
+    status: str  # "unseen", "viewed", "applied", "removed"
+    title: str = ""
+    company: str = ""
+    location: str = ""
+    source: str = ""
+    note: str = ""
+
+
+def load_job_statuses() -> Dict[str, str]:
+    """Load all job statuses from job_statuses.json"""
+    if not JOB_STATUSES_PATH.exists():
+        return {}
+    try:
+        data = json.loads(JOB_STATUSES_PATH.read_text(encoding="utf-8"))
+        return data.get("statuses", {})
+    except Exception:
+        return {}
 
 
 def detect_country(job: Dict[str, Any]) -> str:
@@ -124,6 +160,11 @@ def get_jobs(
     jobs_data = load_jobs_data()
     # Use all_tracked_jobs which contains the full historical data
     all_jobs = jobs_data.get("all_tracked_jobs", jobs_data.get("filtered_jobs", []))
+
+    # Filter out rejected jobs
+    rejected_keys = load_rejected_jobs_keys()
+    all_jobs = [job for job in all_jobs if job.get("dashboard_key") not in rejected_keys]
+
     filtered = [
         job
         for job in all_jobs
@@ -196,6 +237,68 @@ def get_topics() -> Dict[str, Any]:
 def get_player_mentions() -> Dict[str, Any]:
     stats = load_stats_data()
     return {"player_mentions": stats.get("player_mentions", {})}
+
+
+@app.get("/api/job-statuses")
+def get_job_statuses() -> Dict[str, Any]:
+    """Get all job statuses"""
+    statuses = load_job_statuses()
+    return {"statuses": statuses}
+
+
+@app.post("/api/job-status")
+def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
+    """Update a job's status (viewed, applied, removed, unseen)"""
+    try:
+        # Load existing statuses
+        if JOB_STATUSES_PATH.exists():
+            data = json.loads(JOB_STATUSES_PATH.read_text(encoding="utf-8"))
+        else:
+            data = {"statuses": {}}
+
+        statuses: Dict[str, str] = data.get("statuses", {})
+
+        # Update or set the status
+        if request.status == "unseen":
+            # Remove from tracking if set back to unseen
+            statuses.pop(request.job_key, None)
+        else:
+            statuses[request.job_key] = request.status
+
+        data["statuses"] = statuses
+        data["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # Also update reject_feedback.json if removing
+        if request.status == "removed":
+            if REJECT_FEEDBACK_PATH.exists():
+                reject_data = json.loads(REJECT_FEEDBACK_PATH.read_text(encoding="utf-8"))
+            else:
+                reject_data = {"rejected_jobs": []}
+
+            rejected_jobs: List[Dict[str, Any]] = reject_data.get("rejected_jobs", [])
+            existing = next((j for j in rejected_jobs if j["key"] == request.job_key), None)
+
+            if not existing:
+                rejected_jobs.append({
+                    "key": request.job_key,
+                    "title": request.title,
+                    "company": request.company,
+                    "location": request.location,
+                    "source": request.source,
+                    "remove_reason": "",
+                    "note": request.note,
+                })
+                reject_data["rejected_jobs"] = rejected_jobs
+                reject_data["synced_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                REJECT_FEEDBACK_PATH.write_text(json.dumps(reject_data, indent=2, ensure_ascii=False))
+                load_rejected_jobs_keys.cache_clear()
+
+        # Write job statuses
+        JOB_STATUSES_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+        return {"success": True, "message": "Job status updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update job status: {str(e)}")
 
 
 @app.get("/healthz")

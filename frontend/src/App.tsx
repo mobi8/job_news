@@ -5,6 +5,8 @@ import {
   fetchJobs,
   fetchNews,
   fetchStats,
+  fetchJobStatuses,
+  updateJobStatus as apiUpdateJobStatus,
 } from "./lib/api";
 import type { JobsResponse, StatsResponse } from "./lib/api";
 import "./App.css";
@@ -524,13 +526,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<"jobs" | "news">("jobs");
   const [mainStatus, setMainStatus] = useState("unseen");
   const [subStatus, setSubStatus] = useState("");
-  const [jobStatuses, setJobStatuses] = useState<Record<string, StatusKey>>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
-    const saved = window.localStorage.getItem("jobStatuses");
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [jobStatuses, setJobStatuses] = useState<Record<string, StatusKey>>({});
   const [filters, setFilters] = useState<FilterState>({
     source: "",
     country: "",
@@ -540,6 +536,21 @@ function App() {
     status: "",
     sortBy: "date-desc",
   });
+
+  // Load job statuses from API on mount
+  useEffect(() => {
+    fetchJobStatuses()
+      .then((data) => {
+        const converted: Record<string, StatusKey> = {};
+        Object.entries(data.statuses).forEach(([key, value]) => {
+          if (["unseen", "viewed", "applied", "removed"].includes(value)) {
+            converted[key] = value as StatusKey;
+          }
+        });
+        setJobStatuses(converted);
+      })
+      .catch((err) => console.error("Failed to load job statuses:", err));
+  }, []);
 
   const statsQuery = useQuery<StatsResponse, Error, StatsResponse, ["stats"]>({
     queryKey: ["stats"],
@@ -575,12 +586,22 @@ function App() {
   });
 
   const updateJobStatus = (jobKey: string, status: StatusKey) => {
+    // Update local state immediately for UI responsiveness
     setJobStatuses((prev) => {
-      const next = { ...prev, [jobKey]: status };
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("jobStatuses", JSON.stringify(next));
+      const next = { ...prev };
+      if (status === "unseen") {
+        delete next[jobKey];
+      } else {
+        next[jobKey] = status;
       }
       return next;
+    });
+
+    // Sync with API
+    const allJobs = jobsQuery.data?.jobs || [];
+    const job = allJobs.find((j: any) => (j.dashboard_key ?? j.url) === jobKey);
+    apiUpdateJobStatus(jobKey, status, job).catch((err) => {
+      console.error("Failed to update job status:", err);
     });
   };
 
