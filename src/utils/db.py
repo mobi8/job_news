@@ -33,9 +33,10 @@ class Database:
                 title TEXT NOT NULL,
                 company TEXT NOT NULL,
                 location TEXT NOT NULL,
-                remote INTEGER NOT NULL DEFAULT 0,
                 url TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
+                remote INTEGER NOT NULL DEFAULT 0,
+                country TEXT NOT NULL DEFAULT 'UAE',
                 first_seen_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL,
                 match_score INTEGER NOT NULL DEFAULT 0
@@ -57,6 +58,14 @@ class Database:
             """
         )
         self.conn.commit()
+
+        # Migration: Add country column if it doesn't exist
+        try:
+            self.conn.execute("ALTER TABLE jobs ADD COLUMN country TEXT NOT NULL DEFAULT 'UAE'")
+            self.conn.commit()
+        except Exception:
+            # Column already exists
+            pass
 
     def upsert_jobs(self, jobs: List[JobPosting]) -> int:
         now = utc_now().isoformat()
@@ -82,17 +91,18 @@ class Database:
                 """
                 INSERT INTO jobs (
                     fingerprint, source, source_job_id, title, company, location,
-                    remote, url, description, first_seen_at, last_seen_at, match_score
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    url, description, remote, country, first_seen_at, last_seen_at, match_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fingerprint) DO UPDATE SET
                     source = excluded.source,
                     source_job_id = excluded.source_job_id,
                     title = excluded.title,
                     company = excluded.company,
                     location = excluded.location,
-                    remote = excluded.remote,
                     url = excluded.url,
                     description = excluded.description,
+                    remote = excluded.remote,
+                    country = excluded.country,
                     last_seen_at = excluded.last_seen_at,
                     match_score = excluded.match_score
                 """,
@@ -103,9 +113,10 @@ class Database:
                     job.title,
                     job.company,
                     job.location,
-                    int(job.remote),
                     job.url,
                     job.description,
+                    int(job.remote),
+                    job.country,
                     job.first_seen_at,
                     job.last_seen_at,
                     job.match_score,
