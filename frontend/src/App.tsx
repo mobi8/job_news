@@ -6,6 +6,7 @@ import {
   fetchNews,
   fetchStats,
 } from "./lib/api";
+import type { JobsResponse, StatsResponse } from "./lib/api";
 import "./App.css";
 
 const filterOptions = [
@@ -28,6 +29,7 @@ const countryOptions = [
   { label: "Malta", value: "Malta" },
 ];
 
+
 const statusOptions = [
   { label: "전체 상태", value: "" },
   { label: "안봤음", value: "unseen" },
@@ -43,7 +45,19 @@ const sortOptions = [
   { label: "점수낮음 (↑)", value: "score-asc" },
 ];
 
-const mainStatusOptions = [
+type FilterState = {
+  source: string;
+  country: string;
+  q: string;
+  qualifies: boolean;
+  min_score: number;
+  status: string;
+  sortBy: string;
+};
+
+type StatusKey = "unseen" | "viewed" | "applied" | "removed";
+
+const mainStatusOptions: { label: string; value: StatusKey }[] = [
   { label: "안봤음", value: "unseen" },
   { label: "봤음", value: "viewed" },
   { label: "지원함", value: "applied" },
@@ -78,31 +92,23 @@ function HealthStatus() {
   );
 }
 
-function StatsPanel({ stats }: any) {
+function StatsSummary({ stats }: { stats?: StatsResponse["stats"] }) {
+  const items = [
+    { label: "전체", value: stats?.total_jobs ?? "—" },
+    { label: "지난 24h", value: stats?.new_last_1_day ?? "—" },
+    { label: "지난 7일", value: stats?.new_last_7_days ?? "—" },
+    { label: "지난 30일", value: stats?.new_last_30_days ?? "—" },
+  ];
+
   return (
-    <section className="glass-panel stats-panel compact">
-      <header>
-        <h3>통계</h3>
-      </header>
-      <div className="stats-grid">
-        <div>
-          <strong>{stats?.total_jobs ?? "—"}</strong>
-          <span>전체</span>
+    <div className="stats-summary">
+      {items.map((item) => (
+        <div key={item.label} className="stats-item">
+          <span className="stats-label">{item.label}</span>
+          <strong>{item.value}</strong>
         </div>
-        <div>
-          <strong>{stats?.new_last_1_day ?? "—"}</strong>
-          <span>24h</span>
-        </div>
-        <div>
-          <strong>{stats?.new_last_7_days ?? "—"}</strong>
-          <span>7일</span>
-        </div>
-        <div>
-          <strong>{stats?.new_last_30_days ?? "—"}</strong>
-          <span>30일</span>
-        </div>
-      </div>
-    </section>
+      ))}
+    </div>
   );
 }
 
@@ -110,16 +116,20 @@ function StatsPanel({ stats }: any) {
 function CategoryTabs({
   mainStatus,
   subStatus,
+  statusCounts,
+  subStatusCounts,
   onMainStatusChange,
   onSubStatusChange,
 }: {
   mainStatus: string;
   subStatus: string;
+  statusCounts: Record<StatusKey, number>;
+  subStatusCounts: { total: number; recommended: number; reference: number };
   onMainStatusChange: (value: string) => void;
   onSubStatusChange: (value: string) => void;
 }) {
   return (
-    <section className="glass-panel category-tabs-section">
+    <div className="category-tabs-section">
       <div className="category-main-tabs">
         {mainStatusOptions.map((option) => (
           <button
@@ -130,7 +140,10 @@ function CategoryTabs({
               onSubStatusChange(""); // Reset sub-status
             }}
           >
-            {option.label}
+            <span>{option.label}</span>
+            <span className="category-count">
+              {statusCounts[option.value] ?? 0}
+            </span>
           </button>
         ))}
       </div>
@@ -140,20 +153,26 @@ function CategoryTabs({
             className={`category-sub-tab ${subStatus === "" ? "active" : ""}`}
             onClick={() => onSubStatusChange("")}
           >
-            전체
+            <span>전체</span>
+            <span className="category-count">{subStatusCounts.total}</span>
           </button>
-          {subStatusOptions.map((option) => (
-            <button
-              key={option.value}
-              className={`category-sub-tab ${subStatus === option.value ? "active" : ""}`}
-              onClick={() => onSubStatusChange(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+          <button
+            className={`category-sub-tab ${subStatus === "recommended" ? "active" : ""}`}
+            onClick={() => onSubStatusChange("recommended")}
+          >
+            <span>추천</span>
+            <span className="category-count">{subStatusCounts.recommended}</span>
+          </button>
+          <button
+            className={`category-sub-tab ${subStatus === "reference" ? "active" : ""}`}
+            onClick={() => onSubStatusChange("reference")}
+          >
+            <span>참고</span>
+            <span className="category-count">{subStatusCounts.reference}</span>
+          </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -161,12 +180,12 @@ function FilterBar({
   filters,
   onChange,
 }: {
-  filters: Record<string, any>;
-  onChange: (values: Record<string, any>) => void;
+  filters: FilterState;
+  onChange: (values: FilterState) => void;
 }) {
   return (
-    <section className="glass-panel filter-panel">
-      <div className="filter-row">
+    <div className="filter-frame">
+      <div className="filter-inputs">
         <input
           type="search"
           placeholder="제목, 회사, 위치 검색"
@@ -175,9 +194,7 @@ function FilterBar({
         />
         <select
           value={filters.source}
-          onChange={(event) =>
-            onChange({ ...filters, source: event.target.value })
-          }
+          onChange={(event) => onChange({ ...filters, source: event.target.value })}
         >
           {filterOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -187,9 +204,7 @@ function FilterBar({
         </select>
         <select
           value={filters.country}
-          onChange={(event) =>
-            onChange({ ...filters, country: event.target.value })
-          }
+          onChange={(event) => onChange({ ...filters, country: event.target.value })}
         >
           {countryOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -209,24 +224,8 @@ function FilterBar({
             </option>
           ))}
         </select>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label style={{ whiteSpace: "nowrap" }}>
-            최소 점수: {filters.min_score}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            value={filters.min_score}
-            onChange={(event) =>
-              onChange({ ...filters, min_score: parseInt(event.target.value) })
-            }
-            style={{ flex: 1 }}
-          />
-        </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -243,7 +242,7 @@ function formatTime(timestamp?: string) {
 }
 
 // Metadata Bar Component
-function MetadataBar({ jobsQuery, statsQuery }: any) {
+function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -251,7 +250,8 @@ function MetadataBar({ jobsQuery, statsQuery }: any) {
     return () => clearInterval(interval);
   }, []);
 
-  const collectedAt = jobsQuery.data?.collection_metadata?.collected_at;
+  // Always use jobsQuery as the source of truth for collection_metadata
+  const collectedAt = jobsQuery?.data?.collection_metadata?.collected_at || jobsQuery?.data?.updated_at;
   const formattedScrapTime = collectedAt
     ? new Date(collectedAt).toLocaleString("ko-KR", {
         month: "2-digit",
@@ -298,30 +298,27 @@ function JobsList({
   filters,
   mainStatus,
   subStatus,
+  jobStatuses,
+  onUpdateJobStatus,
 }: {
   jobsData?: any;
   isLoading: boolean;
   filters?: any;
   mainStatus: string;
   subStatus: string;
+  jobStatuses: Record<string, StatusKey>;
+  onUpdateJobStatus: (jobKey: string, status: StatusKey) => void;
 }) {
-  const [jobStatuses, setJobStatuses] = useState<Record<string, string>>(() => {
-    const saved = localStorage.getItem("jobStatuses");
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  const updateJobStatus = (jobKey: string, status: string) => {
-    const updated = { ...jobStatuses, [jobKey]: status };
-    setJobStatuses(updated);
-    localStorage.setItem("jobStatuses", JSON.stringify(updated));
-  };
 
   const sortedAndFiltered = useMemo(() => {
     let jobs = jobsData?.jobs || [];
+    const getJobKey = (job: any) => job.dashboard_key ?? job.url;
+    const getJobStatus = (job: any): StatusKey =>
+      jobStatuses[getJobKey(job)] || "unseen";
 
     // Filter by main status
     if (mainStatus) {
-      jobs = jobs.filter((job: any) => (job.status || "unseen") === mainStatus);
+      jobs = jobs.filter((job: any) => getJobStatus(job) === mainStatus);
     }
 
     // Filter by sub-status (only for unseen)
@@ -335,7 +332,7 @@ function JobsList({
 
     // Filter by other criteria
     if (filters?.status) {
-      jobs = jobs.filter((job: any) => (job.status || "unseen") === filters.status);
+        jobs = jobs.filter((job: any) => getJobStatus(job) === filters.status);
     }
 
     // Sort
@@ -406,27 +403,27 @@ function JobsList({
           <div className="card-status-buttons">
             <button
               className={`status-btn ${currentStatus === "unseen" ? "active" : ""}`}
-              onClick={() => updateJobStatus(jobKey, "unseen")}
+              onClick={() => onUpdateJobStatus(jobKey, "unseen")}
             >
               안봤음
             </button>
             <button
               className={`status-btn ${currentStatus === "viewed" ? "active" : ""}`}
-              onClick={() => updateJobStatus(jobKey, "viewed")}
+              onClick={() => onUpdateJobStatus(jobKey, "viewed")}
             >
-              👁️
+              봤음
             </button>
             <button
               className={`status-btn ${currentStatus === "applied" ? "active" : ""}`}
-              onClick={() => updateJobStatus(jobKey, "applied")}
+              onClick={() => onUpdateJobStatus(jobKey, "applied")}
             >
-              ✓
+              지원함
             </button>
             <button
               className={`status-btn ${currentStatus === "removed" ? "active" : ""}`}
-              onClick={() => updateJobStatus(jobKey, "removed")}
+              onClick={() => onUpdateJobStatus(jobKey, "removed")}
             >
-              ✕
+              제거
             </button>
           </div>
           <span className="time-badge">
@@ -471,6 +468,9 @@ function NewsList({
           {item.source_description && (
             <div className="card-description">{item.source_description}</div>
           )}
+          <span className="time-badge">
+            {formatTime(item.published_at || item.discovered_at || item.created_at)}
+          </span>
         </a>
       ))}
     </div>
@@ -484,53 +484,36 @@ function ContentSection({
   newsData,
   filters,
   activeTab,
-  onTabChange,
   mainStatus,
   subStatus,
+  jobStatuses,
+  onUpdateJobStatus,
 }: {
   jobsData?: any;
   jobsLoading: boolean;
   newsData?: any[];
   filters?: any;
   activeTab: "jobs" | "news";
-  onTabChange: (tab: "jobs" | "news") => void;
   mainStatus: string;
   subStatus: string;
+  jobStatuses: Record<string, StatusKey>;
+  onUpdateJobStatus: (jobKey: string, status: StatusKey) => void;
 }) {
-  const jobCount = jobsData?.total ?? 0;
-  const newsCount = newsData?.length ?? 0;
-
   return (
-    <>
-      <div className="main-tabs-container">
-        <button
-          className={`main-tab ${activeTab === "jobs" ? "active" : ""}`}
-          onClick={() => onTabChange("jobs")}
-        >
-          📋 공고 ({jobCount})
-          {jobsData?.counts && (
-            <span className="main-tab-meta">
-              {jobsData.counts.recommended} 추천
-            </span>
-          )}
-        </button>
-        <button
-          className={`main-tab ${activeTab === "news" ? "active" : ""}`}
-          onClick={() => onTabChange("news")}
-        >
-          📰 뉴스 ({newsCount})
-        </button>
-      </div>
-      <section className="glass-panel section-container">
-
-      <div className="section-content">
-        {activeTab === "jobs" && (
-          <JobsList jobsData={jobsData} isLoading={jobsLoading} filters={filters} mainStatus={mainStatus} subStatus={subStatus} />
-        )}
-        {activeTab === "news" && <NewsList newsData={newsData} />}
-      </div>
-      </section>
-    </>
+    <div className="section-content">
+      {activeTab === "jobs" && (
+        <JobsList
+          jobsData={jobsData}
+          isLoading={jobsLoading}
+          filters={filters}
+          mainStatus={mainStatus}
+          subStatus={subStatus}
+          jobStatuses={jobStatuses}
+          onUpdateJobStatus={onUpdateJobStatus}
+        />
+      )}
+      {activeTab === "news" && <NewsList newsData={newsData} />}
+    </div>
   );
 }
 
@@ -538,7 +521,14 @@ function App() {
   const [activeTab, setActiveTab] = useState<"jobs" | "news">("jobs");
   const [mainStatus, setMainStatus] = useState("unseen");
   const [subStatus, setSubStatus] = useState("");
-  const [filters, setFilters] = useState({
+  const [jobStatuses, setJobStatuses] = useState<Record<string, StatusKey>>(() => {
+    if (typeof window === "undefined") {
+      return {};
+    }
+    const saved = window.localStorage.getItem("jobStatuses");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [filters, setFilters] = useState<FilterState>({
     source: "",
     country: "",
     q: "",
@@ -548,13 +538,18 @@ function App() {
     sortBy: "date-desc",
   });
 
-  const statsQuery = useQuery({
+  const statsQuery = useQuery<StatsResponse, Error, StatsResponse, ["stats"]>({
     queryKey: ["stats"],
     queryFn: fetchStats,
-    refetchInterval: 30000, // Auto-refetch every 30s
+    refetchInterval: 30000,
   });
 
-  const jobsQuery = useQuery({
+  const jobsQuery = useQuery<
+    JobsResponse,
+    Error,
+    JobsResponse,
+    readonly ["jobs", FilterState]
+  >({
     queryKey: ["jobs", filters],
     queryFn: () =>
       fetchJobs({
@@ -563,13 +558,12 @@ function App() {
         q: filters.q || undefined,
         qualifies: filters.qualifies ? true : undefined,
         min_score: filters.min_score || 0,
-        limit: 50,
+        limit: 10000,
       }),
-    keepPreviousData: true,
-    refetchInterval: 30000, // Auto-refetch every 30s
+    refetchInterval: 30000,
   });
 
-  const newsQuery = useQuery({
+  const newsQuery = useQuery<any[], Error, any[], ["news"]>({
     queryKey: ["news"],
     queryFn: async () => {
       const { data } = await axios.get("/api/news");
@@ -577,59 +571,117 @@ function App() {
     },
   });
 
-  const countryCounts = useMemo(() => {
-    if (!jobsQuery.data) return [];
-    const counts: Record<string, number> = {};
-    jobsQuery.data.jobs.forEach((job: any) => {
-      counts[job.country || "Unknown"] = (counts[job.country || "Unknown"] || 0) + 1;
+  const updateJobStatus = (jobKey: string, status: StatusKey) => {
+    setJobStatuses((prev) => {
+      const next = { ...prev, [jobKey]: status };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("jobStatuses", JSON.stringify(next));
+      }
+      return next;
     });
-    return Object.entries(counts);
-  }, [jobsQuery.data]);
+  };
+
+
+  const jobCount = jobsQuery.data?.total ?? 0;
+  const newsCount = newsQuery.data?.length ?? 0;
+  const statusCounts = useMemo<Record<StatusKey, number>>(() => {
+    const initial: Record<StatusKey, number> = {
+      unseen: 0,
+      viewed: 0,
+      applied: 0,
+      removed: 0,
+    };
+    // Calculate status counts ONLY for jobs in current filter results
+    const jobs = jobsQuery.data?.jobs ?? [];
+    jobs.forEach((job: any) => {
+      const jobKey = job.dashboard_key ?? job.url;
+      const currentStatus: StatusKey = jobStatuses[jobKey] || "unseen";
+      initial[currentStatus] = (initial[currentStatus] || 0) + 1;
+    });
+    return initial;
+  }, [jobStatuses, jobsQuery.data?.jobs]);
+
+  const subStatusCounts = useMemo(() => {
+    // Calculate sub-status counts only for unseen jobs
+    const unseenJobs = (jobsQuery.data?.jobs || []).filter(
+      (job: any) => (jobStatuses[job.dashboard_key ?? job.url] || "unseen") === "unseen"
+    );
+    return {
+      total: unseenJobs.length,
+      recommended: unseenJobs.filter((job: any) => job.qualifies === true).length,
+      reference: unseenJobs.filter((job: any) => job.qualifies === false).length,
+    };
+  }, [jobsQuery.data?.jobs, jobStatuses]);
 
   return (
     <div className="app-shell">
-      <MetadataBar jobsQuery={jobsQuery} statsQuery={statsQuery} />
-
-      <header className="glass-panel hero">
-        <div>
-          <h1>Job Watch</h1>
-          <p>실시간 채용공고 & 뉴스 모니터링 대시보드</p>
-        </div>
-        <div className="hero-badges">
-          {countryCounts.map(([country, value]) => (
-            <span key={country} className="status-pill">
-              {country}: {value}
-            </span>
-          ))}
-        </div>
-      </header>
-
-      {activeTab === "jobs" && (
-        <StatsPanel stats={statsQuery.data?.stats ?? statsQuery.data} />
-      )}
+      <div className="main-tabs-row top-tabs">
+        <button
+          className={`main-tab ${activeTab === "jobs" ? "active" : ""}`}
+          onClick={() => setActiveTab("jobs")}
+        >
+          공고 ({jobCount})
+        </button>
+        <button
+          className={`main-tab ${activeTab === "news" ? "active" : ""}`}
+          onClick={() => setActiveTab("news")}
+        >
+          뉴스 ({newsCount})
+        </button>
+      </div>
 
       {activeTab === "jobs" && (
-        <>
-          <CategoryTabs
-            mainStatus={mainStatus}
-            subStatus={subStatus}
-            onMainStatusChange={setMainStatus}
-            onSubStatusChange={setSubStatus}
-          />
-          <FilterBar filters={filters} onChange={setFilters} />
-        </>
+        <section className="glass-panel controls-panel compact-panel">
+          <div className="controls-grid">
+            <div className="controls-card category-card">
+              <div className="category-tabs-wrapper">
+                <CategoryTabs
+                  mainStatus={mainStatus}
+                  subStatus={subStatus}
+                  statusCounts={statusCounts}
+                  subStatusCounts={subStatusCounts}
+                  onMainStatusChange={setMainStatus}
+                  onSubStatusChange={setSubStatus}
+                />
+              </div>
+              <div className="slider-panel">
+                <div className="slider-label">최소 점수: {filters.min_score}</div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={filters.min_score}
+                  onChange={(event) =>
+                    setFilters({ ...filters, min_score: parseInt(event.target.value) })
+                  }
+                />
+              </div>
+            </div>
+            <div className="controls-card filter-card">
+              <div className="filter-card-top">
+                <FilterBar filters={filters} onChange={(values) => setFilters(values)} />
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
-      <ContentSection
-        jobsData={jobsQuery.data}
-        jobsLoading={jobsQuery.isLoading}
-        newsData={newsQuery.data}
-        filters={filters}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        mainStatus={mainStatus}
-        subStatus={subStatus}
-      />
+      <MetadataBar jobsQuery={jobsQuery} newsQuery={newsQuery} activeTab={activeTab} />
+
+      <section className="glass-panel section-panel">
+        <ContentSection
+          jobsData={jobsQuery.data}
+          jobsLoading={jobsQuery.isLoading}
+          newsData={newsQuery.data}
+          filters={filters}
+          activeTab={activeTab}
+          mainStatus={mainStatus}
+          subStatus={subStatus}
+          jobStatuses={jobStatuses}
+          onUpdateJobStatus={updateJobStatus}
+        />
+      </section>
     </div>
   );
 }

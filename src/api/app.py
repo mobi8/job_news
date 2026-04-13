@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from utils.config import OUTPUT_DIR
@@ -14,6 +15,15 @@ from utils.scoring import source_label
 app = FastAPI(
     title="Job Watch API",
     description="이 API는 기존 Python 대시보드에 쓰인 stats / job 데이터를 JS 프론트엔드에서 소비할 수 있게 노출합니다.",
+)
+
+# Enable CORS for frontend dev server and production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4173", "http://localhost:5173", "http://127.0.0.1:4173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
@@ -112,7 +122,8 @@ def get_jobs(
     offset: Optional[int] = Query(0, ge=0),
 ) -> Dict[str, Any]:
     jobs_data = load_jobs_data()
-    all_jobs = jobs_data.get("filtered_jobs", [])
+    # Use all_tracked_jobs which contains the full historical data
+    all_jobs = jobs_data.get("all_tracked_jobs", jobs_data.get("filtered_jobs", []))
     filtered = [
         job
         for job in all_jobs
@@ -125,15 +136,20 @@ def get_jobs(
     for job in paged:
         job.setdefault("country", detect_country(job))
         job.setdefault("source_label", source_label(job.get("source", "")))
+    # Calculate counts based on all filtered jobs, not just paged results
+    recommended_count = sum(1 for job in filtered if job.get("qualifies"))
+    non_recommended_count = sum(1 for job in filtered if not job.get("qualifies"))
+
     return {
         "total": total,
         "limit": limit,
         "offset": offset,
         "jobs": paged,
         "counts": {
-            "recommended": sum(1 for job in filtered if job.get("qualifies")),
-            "non_recommended": sum(1 for job in filtered if not job.get("qualifies")),
+            "recommended": recommended_count,
+            "non_recommended": non_recommended_count,
         },
+        "collection_metadata": jobs_data.get("collection_metadata"),
     }
 
 
@@ -163,7 +179,11 @@ def get_recommendations(limit: int = Query(10, gt=0, le=50)) -> Dict[str, Any]:
 @app.get("/api/news", summary="Recent news items")
 def get_news() -> Dict[str, Any]:
     stats = load_stats_data()
-    return {"news": stats.get("news_items", [])}
+    return {
+        "news": stats.get("news_items", []),
+        "updated_at": stats.get("updated_at"),
+        "collection_metadata": stats.get("collection_metadata"),
+    }
 
 
 @app.get("/api/topics", summary="News topics")
