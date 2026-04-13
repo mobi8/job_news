@@ -262,7 +262,7 @@ class Database:
         rows = self.conn.execute(
             """
             SELECT fingerprint, source, source_job_id, title, company, location, url, description,
-                   remote, first_seen_at, last_seen_at, match_score
+                   remote, country, first_seen_at, last_seen_at, match_score
             FROM jobs
             ORDER BY match_score DESC, first_seen_at DESC
             """
