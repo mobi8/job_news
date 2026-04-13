@@ -203,16 +203,6 @@ function FilterBar({
           ))}
         </select>
         <select
-          value={filters.country}
-          onChange={(event) => onChange({ ...filters, country: event.target.value })}
-        >
-          {countryOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
           value={filters.sortBy}
           onChange={(event) =>
             onChange({ ...filters, sortBy: event.target.value })
@@ -356,7 +346,7 @@ function JobsList({
         );
     }
     return sorted;
-  }, [jobsData?.jobs, filters?.status, filters?.sortBy, mainStatus, subStatus]);
+  }, [jobsData?.jobs, filters?.status, filters?.sortBy, mainStatus, subStatus, jobStatuses]);
 
   if (isLoading) {
     return <div className="loading">로딩 중...</div>;
@@ -371,9 +361,14 @@ function JobsList({
       {sortedAndFiltered.map((job: any) => {
         const jobKey = job.dashboard_key ?? job.url;
         const currentStatus = jobStatuses[jobKey] || "unseen";
+        const hue = (job.match_score / 100) * 120;
+        const gaugeGradient = `linear-gradient(90deg, hsl(${hue}, 80%, 40%), hsl(${hue}, 100%, 55%))`;
         return (
-        <div
+        <a
           key={jobKey}
+          href={job.url}
+          target="_blank"
+          rel="noreferrer"
           className="list-card"
         >
           <div className="card-header">
@@ -390,46 +385,54 @@ function JobsList({
           <div className="card-location">{job.location}</div>
           <div className="card-footer">
             <div className="score-gauge">
-              <div className="gauge-bar" style={{ width: `${job.match_score}%` }} />
-              <span className="gauge-label">{job.match_score}</span>
+              <div className="gauge-bar" style={{ width: `${job.match_score}%`, background: gaugeGradient }} />
+              <span className="gauge-label" style={{ color: `hsl(${hue}, 100%, 55%)` }}>{job.match_score}</span>
             </div>
-          </div>
-          <div className="card-actions">
-            <a href={job.url} target="_blank" rel="noreferrer" className="card-link">
-              링크 열기 ↗
-            </a>
           </div>
 
           <div className="card-status-buttons">
             <button
               className={`status-btn ${currentStatus === "unseen" ? "active" : ""}`}
-              onClick={() => onUpdateJobStatus(jobKey, "unseen")}
+              onClick={(e) => {
+                e.preventDefault();
+                onUpdateJobStatus(jobKey, "unseen");
+              }}
             >
               안봤음
             </button>
             <button
               className={`status-btn ${currentStatus === "viewed" ? "active" : ""}`}
-              onClick={() => onUpdateJobStatus(jobKey, "viewed")}
+              onClick={(e) => {
+                e.preventDefault();
+                onUpdateJobStatus(jobKey, "viewed");
+              }}
             >
               봤음
             </button>
             <button
               className={`status-btn ${currentStatus === "applied" ? "active" : ""}`}
-              onClick={() => onUpdateJobStatus(jobKey, "applied")}
+              onClick={(e) => {
+                e.preventDefault();
+                onUpdateJobStatus(jobKey, "applied");
+              }}
             >
               지원함
             </button>
             <button
               className={`status-btn ${currentStatus === "removed" ? "active" : ""}`}
-              onClick={() => onUpdateJobStatus(jobKey, "removed")}
+              onClick={(e) => {
+                e.preventDefault();
+                onUpdateJobStatus(jobKey, "removed");
+              }}
             >
               제거
             </button>
           </div>
           <span className="time-badge">
+            <span className="source-label">{job.source}</span>
             {formatTime(job.first_seen_at)}
           </span>
-        </div>
+        </a>
       );
       })}
     </div>
@@ -632,42 +635,59 @@ function App() {
 
       {activeTab === "jobs" && (
         <section className="glass-panel controls-panel compact-panel">
-          <div className="controls-grid">
-            <div className="controls-card category-card">
-              <div className="category-tabs-wrapper">
-                <CategoryTabs
-                  mainStatus={mainStatus}
-                  subStatus={subStatus}
-                  statusCounts={statusCounts}
-                  subStatusCounts={subStatusCounts}
-                  onMainStatusChange={setMainStatus}
-                  onSubStatusChange={setSubStatus}
-                />
-              </div>
-              <div className="slider-panel">
-                <div className="slider-label">최소 점수: {filters.min_score}</div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={filters.min_score}
-                  onChange={(event) =>
-                    setFilters({ ...filters, min_score: parseInt(event.target.value) })
-                  }
-                />
-              </div>
+          <div className="controls-card category-card">
+            <CategoryTabs
+              mainStatus={mainStatus}
+              subStatus={subStatus}
+              statusCounts={statusCounts}
+              subStatusCounts={subStatusCounts}
+              onMainStatusChange={setMainStatus}
+              onSubStatusChange={setSubStatus}
+            />
+            <div className="slider-panel">
+              <div className="slider-label">최소 점수: {filters.min_score}</div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={filters.min_score}
+                onChange={(event) =>
+                  setFilters({ ...filters, min_score: parseInt(event.target.value) })
+                }
+              />
             </div>
-            <div className="controls-card filter-card">
-              <div className="filter-card-top">
-                <FilterBar filters={filters} onChange={(values) => setFilters(values)} />
-              </div>
-            </div>
+          </div>
+          <div className="controls-card filter-card">
+            <FilterBar filters={filters} onChange={(values) => setFilters(values)} />
           </div>
         </section>
       )}
 
       <MetadataBar jobsQuery={jobsQuery} newsQuery={newsQuery} activeTab={activeTab} />
+
+      {activeTab === "jobs" && (
+        <div className="country-bookmarks">
+          <button
+            className={`bookmark UAE ${filters.country === "UAE" ? "active" : ""}`}
+            onClick={() => setFilters({ ...filters, country: "UAE" })}
+          >
+            UAE
+          </button>
+          <button
+            className={`bookmark Georgia ${filters.country === "Georgia" ? "active" : ""}`}
+            onClick={() => setFilters({ ...filters, country: "Georgia" })}
+          >
+            Georgia
+          </button>
+          <button
+            className={`bookmark Malta ${filters.country === "Malta" ? "active" : ""}`}
+            onClick={() => setFilters({ ...filters, country: "Malta" })}
+          >
+            Malta
+          </button>
+        </div>
+      )}
 
       <section className="glass-panel section-panel">
         <ContentSection

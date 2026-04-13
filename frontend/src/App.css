@@ -474,7 +474,17 @@
   font-size: 0.7rem;
   color: rgba(228, 232, 247, 0.5);
   margin-left: auto;
+  margin-top: 0.6rem;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.source-label {
+  font-size: 0.65rem;
+  color: rgba(228, 232, 247, 0.4);
 }
 
 .empty,
@@ -629,7 +639,7 @@
   padding: 0.55rem 0.75rem;
 }
 
-.controls-grid {
+.controls-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.9rem;
@@ -855,9 +865,10 @@
 .gauge-bar {
   flex: 1;
   height: 6px;
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.6));
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 50%, #15803d 100%);
   border-radius: 3px;
   overflow: hidden;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
 }
 
 .gauge-label {
@@ -866,37 +877,6 @@
   font-weight: 600;
   min-width: 2rem;
   text-align: right;
-}
-
-/* Card Actions */
-.card-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-top: 0.8rem;
-  margin-bottom: 0.8rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 0.6rem 0;
-}
-
-.card-link {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  background: rgba(96, 165, 250, 0.15);
-  border: 1px solid rgba(96, 165, 250, 0.3);
-  border-radius: 6px;
-  color: #60a5fa;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.card-link:hover {
-  background: rgba(96, 165, 250, 0.25);
-  border-color: #60a5fa;
 }
 
 /* Card Status Buttons */
@@ -992,4 +972,73 @@
   color: #e4e8f7;
   font-family: "Courier New", monospace;
   font-size: 0.85rem;
+}
+
+.country-bookmarks {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  margin-bottom: 0.9rem;
+  padding: 0 1.1rem;
+}
+
+.bookmark {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  color: white;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border: 1px solid;
+  cursor: pointer;
+  background: none;
+}
+
+.bookmark.UAE {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), rgba(220, 38, 38, 0.5));
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.bookmark.UAE:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.7), rgba(220, 38, 38, 0.7));
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.bookmark.UAE.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9));
+  border-color: rgba(239, 68, 68, 0.8);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.bookmark.Georgia {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(124, 58, 242, 0.5));
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.bookmark.Georgia:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.7), rgba(124, 58, 242, 0.7));
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.bookmark.Georgia.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(124, 58, 242, 0.9));
+  border-color: rgba(139, 92, 246, 0.8);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.bookmark.Malta {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.5), rgba(8, 145, 178, 0.5));
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.bookmark.Malta:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.7), rgba(8, 145, 178, 0.7));
+  border-color: rgba(6, 182, 212, 0.5);
+}
+
+.bookmark.Malta.active {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.9), rgba(8, 145, 178, 0.9));
+  border-color: rgba(6, 182, 212, 0.8);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
 }
