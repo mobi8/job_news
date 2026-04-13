@@ -93,7 +93,13 @@
       "Bash(curl -s http://localhost:4173)",
       "Bash(curl -s \"http://localhost:8000/api/jobs?limit=3\")",
       "Bash(curl -s http://localhost:8000/api/recommendations)",
-      "Bash(curl -s http://localhost:8000/healthz)"
+      "Bash(curl -s http://localhost:8000/healthz)",
+      "Bash(PYTHONPATH=/Users/lewis/Desktop/agent/src timeout 120 python3 src/watch/scraper.py daily)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/jobs?limit=1&country=Georgia\")",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/jobs?limit=1&country=Malta\")",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/jobs?limit=1&country=UAE\")",
+      "Bash(awk '{print $9, $5, $6, $7, $8}')",
+      "Bash(pkill -f \"scraper.py daily\")"
     ]
   }
 }
