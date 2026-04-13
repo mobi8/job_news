@@ -253,7 +253,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     dashboard_data_path = OUTPUT_DIR / "job_stats_data.json"
     if dashboard_data_path.exists():
         dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
-        recent_news = db.fetch_recent_news(48)
+        recent_news = db.fetch_recent_news(336)  # 2 weeks of news
 
         # Add source labels and descriptions
         source_info = {

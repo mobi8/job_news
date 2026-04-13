@@ -17,6 +17,7 @@ fi
 cd "${WORKDIR}"
 
 # Start FastAPI uvicorn server in background
+export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 uvicorn src.api.app:app --reload --log-level info &
 UVICORN_PID=$!
 
