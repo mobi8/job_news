@@ -87,6 +87,9 @@ def load_job_statuses() -> Dict[str, str]:
 
 def detect_country(job: Dict[str, Any]) -> str:
     location = (job.get("location") or "").lower()
+    # Exclude USA
+    if any(x in location for x in ["usa", ", us", "united states", "atlanta"]):
+        return ""
     if "malta" in location or "valletta" in location:
         return "Malta"
     if "georgia" in location or "tbilisi" in location or "batumi" in location:
@@ -241,9 +244,20 @@ def get_player_mentions() -> Dict[str, Any]:
 
 @app.get("/api/job-statuses")
 def get_job_statuses() -> Dict[str, Any]:
-    """Get all job statuses"""
+    """Get all job statuses and rejected job details"""
     statuses = load_job_statuses()
-    return {"statuses": statuses}
+
+    # Load rejected jobs for details
+    rejected_jobs: Dict[str, Dict[str, Any]] = {}
+    if REJECT_FEEDBACK_PATH.exists():
+        try:
+            data = json.loads(REJECT_FEEDBACK_PATH.read_text(encoding="utf-8"))
+            for job in data.get("rejected_jobs", []):
+                rejected_jobs[job.get("key")] = job
+        except Exception:
+            pass
+
+    return {"statuses": statuses, "rejected_jobs": rejected_jobs}
 
 
 @app.post("/api/job-status")
@@ -291,7 +305,8 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
                 reject_data["rejected_jobs"] = rejected_jobs
                 reject_data["synced_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 REJECT_FEEDBACK_PATH.write_text(json.dumps(reject_data, indent=2, ensure_ascii=False))
-                load_rejected_jobs_keys.cache_clear()
+                if hasattr(load_rejected_jobs_keys, 'cache_clear'):
+                    load_rejected_jobs_keys.cache_clear()
 
         # Write job statuses
         JOB_STATUSES_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False))
@@ -302,6 +317,7 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
 
 
 @app.get("/healthz")
+@app.get("/api/healthz")
 def health_check() -> JSONResponse:
     if not JOBS_DATA_PATH.exists() or not STATS_DATA_PATH.exists():
         return JSONResponse(status_code=503, content={"status": "missing data files"})

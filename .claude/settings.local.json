@@ -99,7 +99,17 @@
       "Bash(curl -s \"http://127.0.0.1:8000/api/jobs?limit=1&country=Malta\")",
       "Bash(curl -s \"http://127.0.0.1:8000/api/jobs?limit=1&country=UAE\")",
       "Bash(awk '{print $9, $5, $6, $7, $8}')",
-      "Bash(pkill -f \"scraper.py daily\")"
+      "Bash(pkill -f \"scraper.py daily\")",
+      "mcp__ide__getDiagnostics",
+      "Bash(kill 31278 67636)",
+      "Bash(ls -1 /Users/lewis/Desktop/agent/*.sh)",
+      "Bash(kill 31506)",
+      "Bash(NO_SCRAPE=1 bash:*)",
+      "Bash(curl:*)",
+      "Bash(pkill -f \"uvicorn\\\\|vite\")",
+      "mcp__plugin_ecc_playwright__browser_snapshot",
+      "Bash(npx tsc:*)",
+      "Bash(pkill -f \"uvicorn\")"
     ]
   }
 }

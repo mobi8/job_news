@@ -53,6 +53,9 @@ def detect_country_from_location(location: str) -> str:
     if not location:
         return ""
     location_lower = location.lower()
+    # Exclude USA
+    if any(x in location_lower for x in ["usa", ", us", "united states", "atlanta"]):
+        return ""
     if "malta" in location_lower or "valletta" in location_lower:
         return "Malta"
     if "georgia" in location_lower or "tbilisi" in location_lower or "batumi" in location_lower:

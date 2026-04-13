@@ -7,8 +7,8 @@ import {
   fetchStats,
   fetchJobStatuses,
   updateJobStatus as apiUpdateJobStatus,
-} from "./lib/api";
-import type { JobsResponse, StatsResponse } from "./lib/api";
+} from "./lib/api.ts";
+import type { JobsResponse, StatsResponse } from "./lib/api.ts";
 import "./App.css";
 
 const filterOptions = [
@@ -308,6 +308,19 @@ function JobsList({
     const getJobStatus = (job: any): StatusKey =>
       jobStatuses[getJobKey(job)] || "unseen";
 
+    // For removed/applied statuses, include past jobs from jobStatuses
+    if (mainStatus === "removed" || mainStatus === "applied") {
+      const jobKeys = new Set(jobs.map(getJobKey));
+      Object.entries(jobStatuses).forEach(([jobKey, status]) => {
+        if (status === mainStatus && !jobKeys.has(jobKey)) {
+          // Extract title from jobKey (format: "source|id|title|company")
+          const parts = jobKey.split("|");
+          const title = parts[2] || jobKey;
+          jobs.push({ dashboard_key: jobKey, url: jobKey, title, company: parts[3] || "", location: "", source: parts[0] || "" });
+        }
+      });
+    }
+
     // Filter by main status
     if (mainStatus) {
       jobs = jobs.filter((job: any) => getJobStatus(job) === mainStatus);
@@ -600,9 +613,22 @@ function App() {
     // Sync with API
     const allJobs = jobsQuery.data?.jobs || [];
     const job = allJobs.find((j: any) => (j.dashboard_key ?? j.url) === jobKey);
-    apiUpdateJobStatus(jobKey, status, job).catch((err) => {
-      console.error("Failed to update job status:", err);
-    });
+    apiUpdateJobStatus(jobKey, status, job)
+      .then(() => {
+        // Reload all statuses from API after update
+        return fetchJobStatuses().then((data) => {
+          const converted: Record<string, StatusKey> = {};
+          Object.entries(data.statuses).forEach(([key, value]) => {
+            if (["unseen", "viewed", "applied", "removed"].includes(value)) {
+              converted[key] = value as StatusKey;
+            }
+          });
+          setJobStatuses(converted);
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to update job status:", err);
+      });
   };
 
 
@@ -615,13 +641,23 @@ function App() {
       applied: 0,
       removed: 0,
     };
-    // Calculate status counts ONLY for jobs in current filter results
     const jobs = jobsQuery.data?.jobs ?? [];
+    const jobKeys = new Set(jobs.map((j: any) => j.dashboard_key ?? j.url));
+
+    // Count jobs from current results
     jobs.forEach((job: any) => {
       const jobKey = job.dashboard_key ?? job.url;
       const currentStatus: StatusKey = jobStatuses[jobKey] || "unseen";
       initial[currentStatus] = (initial[currentStatus] || 0) + 1;
     });
+
+    // Count all past statuses (viewed, applied, removed from jobStatuses)
+    Object.entries(jobStatuses).forEach(([jobKey, status]) => {
+      if (!jobKeys.has(jobKey)) {
+        initial[status as StatusKey] = (initial[status as StatusKey] || 0) + 1;
+      }
+    });
+
     return initial;
   }, [jobStatuses, jobsQuery.data?.jobs]);
 
@@ -689,6 +725,12 @@ function App() {
 
       {activeTab === "jobs" && (
         <div className="country-bookmarks">
+          <button
+            className={`bookmark ${filters.country === "" ? "active" : ""}`}
+            onClick={() => setFilters({ ...filters, country: "" })}
+          >
+            전체
+          </button>
           <button
             className={`bookmark UAE ${filters.country === "UAE" ? "active" : ""}`}
             onClick={() => setFilters({ ...filters, country: "UAE" })}
