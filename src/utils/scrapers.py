@@ -73,7 +73,6 @@ def parse_jobvite_jobs(raw_html: str) -> List[JobPosting]:
                 company="ARRISE / Pragmatic Play",
                 location=location,
                 remote="remote" in location.lower(),
-                country="UAE",
                 url=urllib.parse.urljoin(JOBVITE_URL, href),
                 country="UAE",
             )
