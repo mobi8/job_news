@@ -90,7 +90,10 @@
       "Bash(PYTHONPATH=/Users/lewis/Desktop/agent/src uvicorn src.api.app:app --host 127.0.0.1 --port 8000)",
       "Bash(kill -9 96286)",
       "mcp__plugin_ecc_playwright__browser_navigate",
-      "Bash(curl -s http://localhost:4173)"
+      "Bash(curl -s http://localhost:4173)",
+      "Bash(curl -s \"http://localhost:8000/api/jobs?limit=3\")",
+      "Bash(curl -s http://localhost:8000/api/recommendations)",
+      "Bash(curl -s http://localhost:8000/healthz)"
     ]
   }
 }
