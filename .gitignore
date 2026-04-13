@@ -47,4 +47,5 @@ logs/
 # Project specific
 outputs/
 *.pdf
+*.db
 cmux-macos.dmg
