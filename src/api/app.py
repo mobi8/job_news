@@ -87,14 +87,17 @@ def load_job_statuses() -> Dict[str, str]:
 
 def detect_country(job: Dict[str, Any]) -> str:
     location = (job.get("location") or "").lower()
-    # Exclude USA
-    if any(x in location for x in ["usa", ", us", "united states", "atlanta"]):
+    # Exclude USA (미국 in Korean, usa/us/united states in English)
+    # Must check for "미국 조지아" (US Georgia) before checking for "georgia"
+    if any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "alpharetta", "sandy", "remote in", "acc", "anduril"]):
         return ""
-    if "malta" in location or "valletta" in location:
+    if "미국 조지아" in location:  # Korean "US Georgia" - explicitly exclude
+        return ""
+    if "malta" in location or "valletta" in location or "몰타" in location:
         return "Malta"
-    if "georgia" in location or "tbilisi" in location or "batumi" in location:
+    if "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
         return "Georgia"
-    if "dubai" in location or "united arab emirates" in location or "uae" in location:
+    if "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
         return "UAE"
     return ""
 

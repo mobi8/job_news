@@ -109,7 +109,8 @@
       "Bash(pkill -f \"uvicorn\\\\|vite\")",
       "mcp__plugin_ecc_playwright__browser_snapshot",
       "Bash(npx tsc:*)",
-      "Bash(pkill -f \"uvicorn\")"
+      "Bash(pkill -f \"uvicorn\")",
+      "Bash(ls:*)"
     ]
   }
 }

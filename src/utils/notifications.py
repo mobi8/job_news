@@ -53,14 +53,17 @@ def detect_country_from_location(location: str) -> str:
     if not location:
         return ""
     location_lower = location.lower()
-    # Exclude USA
-    if any(x in location_lower for x in ["usa", ", us", "united states", "atlanta"]):
+    # Exclude USA (미국 in Korean, usa/us/united states in English)
+    # Must check for "미국 조지아" (US Georgia) before checking for "georgia"
+    if any(x in location_lower for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "alpharetta", "sandy", "remote in", "acc", "anduril"]):
         return ""
-    if "malta" in location_lower or "valletta" in location_lower:
+    if "미국 조지아" in location_lower:  # Korean "US Georgia" - explicitly exclude
+        return ""
+    if "malta" in location_lower or "valletta" in location_lower or "몰타" in location_lower:
         return "Malta"
-    if "georgia" in location_lower or "tbilisi" in location_lower or "batumi" in location_lower:
+    if "georgia" in location_lower or "조지아" in location_lower or "tbilisi" in location_lower or "트빌리시" in location_lower or "batumi" in location_lower or "바투미" in location_lower:
         return "Georgia"
-    if "dubai" in location_lower or "united arab emirates" in location_lower or "uae" in location_lower:
+    if "dubai" in location_lower or "두바이" in location_lower or "united arab emirates" in location_lower or "uae" in location_lower:
         return "UAE"
     return ""
 
