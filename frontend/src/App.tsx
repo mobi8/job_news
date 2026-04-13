@@ -129,203 +129,148 @@ function FilterBar({
   );
 }
 
-// Jobs Section with List + Detail
-function JobsSection({
+// Format timestamp for display
+function formatTime(timestamp?: string) {
+  if (!timestamp) return "—";
+  const date = new Date(timestamp);
+  return date.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Jobs List
+function JobsList({
   jobsData,
   isLoading,
 }: {
   jobsData?: any;
   isLoading: boolean;
 }) {
-  const [selectedJob, setSelectedJob] = useState<any>(null);
+  if (isLoading) {
+    return <div className="loading">로딩 중...</div>;
+  }
 
-  const displayJob = selectedJob || jobsData?.jobs?.[0];
+  if (!jobsData?.jobs?.length) {
+    return <div className="empty">공고 없음</div>;
+  }
 
   return (
-    <section className="glass-panel section-container">
-      <h2 className="section-title">공고 관리</h2>
-      <div className="section-layout">
-        <div className="list-pane">
-          <div className="list-header">
-            <span>공고 ({jobsData?.total ?? 0})</span>
-            <span className="list-meta">
-              {jobsData?.counts?.recommended ?? 0} 추천 ·{" "}
-              {jobsData?.counts?.non_recommended ?? 0} 보류
+    <div className="list-grid">
+      {jobsData.jobs.map((job: any) => (
+        <a
+          key={job.dashboard_key ?? job.url}
+          href={job.url}
+          target="_blank"
+          rel="noreferrer"
+          className="list-card"
+        >
+          <div className="card-header">
+            <div className="card-title">{job.title}</div>
+            <span
+              className={`status-badge ${
+                job.qualifies ? "recommended" : "caution"
+              }`}
+            >
+              {job.qualifies ? "추천" : "보류"}
             </span>
           </div>
-          <div className="list-scroll">
-            {isLoading ? (
-              <div className="loading">로딩 중...</div>
-            ) : jobsData?.jobs?.length ? (
-              jobsData.jobs.map((job: any) => (
-                <div
-                  key={job.dashboard_key ?? job.url}
-                  className={`list-item ${
-                    selectedJob?.url === job.url ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedJob(job)}
-                >
-                  <div className="list-item-title">{job.title}</div>
-                  <div className="list-item-subtitle">{job.company}</div>
-                  <div className="list-item-meta">
-                    <span className="score">{job.match_score}</span>
-                    <span
-                      className={`status ${
-                        job.qualifies ? "recommended" : "caution"
-                      }`}
-                    >
-                      {job.qualifies ? "추천" : "보류"}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">공고 없음</div>
-            )}
+          <div className="card-subtitle">{job.company}</div>
+          <div className="card-location">{job.location}</div>
+          <div className="card-footer">
+            <span className="score-badge">{job.match_score}</span>
+            <span className="time-badge">
+              {formatTime(job.first_seen_at)}
+            </span>
           </div>
-        </div>
-
-        <div className="detail-pane">
-          {displayJob ? (
-            <div className="detail-content">
-              <h3>{displayJob.title}</h3>
-              <div className="detail-field">
-                <label>회사</label>
-                <p>{displayJob.company}</p>
-              </div>
-              <div className="detail-field">
-                <label>위치</label>
-                <p>{displayJob.location}</p>
-              </div>
-              <div className="detail-field">
-                <label>국가</label>
-                <p>{displayJob.country}</p>
-              </div>
-              <div className="detail-field">
-                <label>스코어</label>
-                <p className="score-large">{displayJob.match_score}</p>
-              </div>
-              <div className="detail-field">
-                <label>상태</label>
-                <p
-                  className={`status-large ${
-                    displayJob.qualifies ? "recommended" : "caution"
-                  }`}
-                >
-                  {displayJob.qualifies ? "추천" : "보류"}
-                </p>
-              </div>
-              <div className="detail-field">
-                <label>소스</label>
-                <p>{displayJob.source_label}</p>
-              </div>
-              {displayJob.fit_tags?.length > 0 && (
-                <div className="detail-field">
-                  <label>태그</label>
-                  <div className="tags">
-                    {displayJob.fit_tags.map((tag: string) => (
-                      <span key={tag} className="tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <a
-                href={displayJob.url}
-                target="_blank"
-                rel="noreferrer"
-                className="detail-link"
-              >
-                원문 보기 →
-              </a>
-            </div>
-          ) : (
-            <div className="detail-empty">항목을 선택해주세요</div>
-          )}
-        </div>
-      </div>
-    </section>
+        </a>
+      ))}
+    </div>
   );
 }
 
-// News Section with List + Detail
-function NewsSection({
+// News List
+function NewsList({
   newsData,
 }: {
   newsData?: any[];
 }) {
-  const [selectedNews, setSelectedNews] = useState<any>(null);
+  if (!newsData?.length) {
+    return <div className="empty">뉴스 없음</div>;
+  }
 
-  const displayNews = selectedNews || newsData?.[0];
+  return (
+    <div className="list-grid">
+      {newsData.map((item: any) => (
+        <a
+          key={item.url}
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className="list-card news-card"
+        >
+          <div className="card-header">
+            <div className="card-title">{item.title}</div>
+            {item.source_emoji && (
+              <span className="emoji-badge">{item.source_emoji}</span>
+            )}
+          </div>
+          <div className="card-subtitle">
+            {item.source_label || item.source}
+          </div>
+          {item.source_description && (
+            <div className="card-description">{item.source_description}</div>
+          )}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// Content Section with Tabs
+function ContentSection({
+  jobsData,
+  jobsLoading,
+  newsData,
+}: {
+  jobsData?: any;
+  jobsLoading: boolean;
+  newsData?: any[];
+}) {
+  const [activeTab, setActiveTab] = useState<"jobs" | "news">("jobs");
+
+  const jobCount = jobsData?.total ?? 0;
+  const newsCount = newsData?.length ?? 0;
 
   return (
     <section className="glass-panel section-container">
-      <h2 className="section-title">뉴스</h2>
-      <div className="section-layout">
-        <div className="list-pane">
-          <div className="list-header">
-            <span>뉴스 ({newsData?.length ?? 0})</span>
-          </div>
-          <div className="list-scroll">
-            {newsData?.length ? (
-              newsData.map((item: any) => (
-                <div
-                  key={item.url}
-                  className={`list-item ${
-                    selectedNews?.url === item.url ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedNews(item)}
-                >
-                  <div className="list-item-title">{item.title}</div>
-                  <div className="list-item-subtitle">
-                    {item.source_label || item.source}
-                  </div>
-                  <div className="list-item-meta">
-                    <span className="source-tag">
-                      {item.source_emoji || "📰"}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">뉴스 없음</div>
-            )}
-          </div>
-        </div>
-
-        <div className="detail-pane">
-          {displayNews ? (
-            <div className="detail-content">
-              <h3>{displayNews.title}</h3>
-              <div className="detail-field">
-                <label>소스</label>
-                <p>
-                  {displayNews.source_emoji && (
-                    <span>{displayNews.source_emoji} </span>
-                  )}
-                  {displayNews.source_label || displayNews.source}
-                </p>
-              </div>
-              {displayNews.source_description && (
-                <div className="detail-field">
-                  <label>설명</label>
-                  <p>{displayNews.source_description}</p>
-                </div>
-              )}
-              <a
-                href={displayNews.url}
-                target="_blank"
-                rel="noreferrer"
-                className="detail-link"
-              >
-                기사 보기 →
-              </a>
-            </div>
-          ) : (
-            <div className="detail-empty">항목을 선택해주세요</div>
+      <div className="section-tabs">
+        <button
+          className={`tab ${activeTab === "jobs" ? "active" : ""}`}
+          onClick={() => setActiveTab("jobs")}
+        >
+          공고 ({jobCount})
+          {jobsData?.counts && (
+            <span className="tab-meta">
+              {jobsData.counts.recommended} 추천
+            </span>
           )}
-        </div>
+        </button>
+        <button
+          className={`tab ${activeTab === "news" ? "active" : ""}`}
+          onClick={() => setActiveTab("news")}
+        >
+          뉴스 ({newsCount})
+        </button>
+      </div>
+
+      <div className="section-content">
+        {activeTab === "jobs" && (
+          <JobsList jobsData={jobsData} isLoading={jobsLoading} />
+        )}
+        {activeTab === "news" && <NewsList newsData={newsData} />}
       </div>
     </section>
   );
@@ -395,12 +340,11 @@ function App() {
       <StatsPanel stats={statsQuery.data?.stats ?? statsQuery.data} />
       <FilterBar filters={filters} onChange={setFilters} />
 
-      <JobsSection
+      <ContentSection
         jobsData={jobsQuery.data}
-        isLoading={jobsQuery.isLoading}
+        jobsLoading={jobsQuery.isLoading}
+        newsData={newsQuery.data}
       />
-
-      <NewsSection newsData={newsQuery.data} />
     </div>
   );
 }
