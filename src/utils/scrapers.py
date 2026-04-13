@@ -73,7 +73,9 @@ def parse_jobvite_jobs(raw_html: str) -> List[JobPosting]:
                 company="ARRISE / Pragmatic Play",
                 location=location,
                 remote="remote" in location.lower(),
+                country="UAE",
                 url=urllib.parse.urljoin(JOBVITE_URL, href),
+                country="UAE",
             )
         )
 
@@ -110,6 +112,7 @@ def parse_smartrecruitment_jobs(raw_html: str) -> List[JobPosting]:
                 company="SmartRecruitment.com",
                 location=location,
                 remote="remote" in f"{title} {location}".lower(),
+                country="UAE",
                 url=url,
             )
         )
@@ -145,6 +148,7 @@ def parse_igaming_recruitment_jobs(raw_html: str) -> List[JobPosting]:
                 company="iGaming Recruitment",
                 location=location,
                 remote="remote" in f"{title} {location}".lower(),
+                country="UAE",
                 url=url,
             )
         )
@@ -194,6 +198,7 @@ def parse_jobrapido_jobs(raw_html: str) -> List[JobPosting]:
                 url=url,
                 description=description,
                 remote="remote" in f"{title} {location}".lower(),
+                country="UAE",
             )
         )
 
@@ -237,6 +242,7 @@ def parse_jobleads_jobs(raw_html: str) -> List[JobPosting]:
                 url=url,
                 description=date,
                 remote="remote" in f"{title} {location}".lower(),
+                country="UAE",
             )
         )
 
@@ -371,6 +377,7 @@ def parse_telegram_channel_jobs(raw_html: str, source: str, company_name: str) -
                 location=location,
                 url=url,
                 description=f"{text} {match.group('datetime')}",
+                country="UAE",
                 remote="remote" in text.lower(),
             )
         )
@@ -439,6 +446,7 @@ def parse_cryptojobslist_jobs(raw_html: str) -> List[JobPosting]:
             JobPosting(
                 source="telegram_cryptojobslist",
                 source_job_id=match.group("post").split("/")[-1],
+                country="UAE",
                 title=title,
                 company=company,
                 location=location,
@@ -535,9 +543,11 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
             # URL에 따라 소스 구분
             source_name = "indeed_uae"
+            country = "UAE"
             if "ge.indeed.com" in search_url or "georgia" in search_url.lower():
                 source_name = "indeed_georgia"
-            
+                country = "Georgia"
+
             jobs.append(
                 JobPosting(
                     source=source_name,
@@ -548,6 +558,7 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
                     url=url,
                     description=clean_text(item.get("description", "")),
                     remote=bool(item.get("remote", False)),
+                    country=country,
                 )
             )
 
@@ -597,12 +608,15 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
             # URL에 따라 소스 구분
             source_name = "linkedin_public"
+            country = "UAE"
             search_lower = search_url.lower()
             if "malta" in search_lower or "valletta" in search_lower:
                 source_name = "linkedin_malta"
+                country = "Malta"
             elif "georgia" in search_lower or "tbilisi" in search_lower:
                 source_name = "linkedin_georgia"
-            
+                country = "Georgia"
+
             jobs.append(
                 JobPosting(
                     source=source_name,
@@ -611,6 +625,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                     company=clean_text(item.get("company", "")) or "LinkedIn",
                     location=clean_text(item.get("location", "")),
                     url=url,
+                    country=country,
                     description=clean_text(item.get("description", "")),
                     remote=bool(item.get("remote", False)),
                 )

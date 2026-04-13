@@ -17,6 +17,7 @@ class JobPosting:
     url: str
     description: str = ""
     remote: bool = False
+    country: str = "UAE"
     first_seen_at: Optional[str] = None
     last_seen_at: Optional[str] = None
     match_score: int = 0
