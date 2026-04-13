@@ -37,8 +37,6 @@ SOURCE_COUNTRY_OVERRIDES = {
     "telegram_cryptojobslist": "UAE",
     "indeed_uae": "UAE",
     "linkedin_public": "UAE",
-    "indeed_georgia": "Georgia",
-    "linkedin_georgia": "Georgia",
     "linkedin_malta": "Malta",
 }
 
