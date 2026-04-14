@@ -40,19 +40,9 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=saudi+arabia&sort=date",
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=qatar&sort=date",
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=bahrain&sort=date",
-    # UAE 게임 + 비자 검색
-    "https://ae.indeed.com/jobs?q=game+developer+OR+game+engineer+OR+game+designer&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=visa+sponsorship+OR+work+permit+OR+relocation&l=dubai&sort=date",
-    "https://ae.indeed.com/jobs?q=gaming+studio+OR+game+studio&l=united+arab+emirates&sort=date",
-    # 조지아 검색 (전국 확대)
-    "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain&sort=date",
-    "https://ge.indeed.com/jobs?q=igaming+OR+gambling+OR+casino&sort=date",
-    "https://ge.indeed.com/jobs?q=payment+OR+fintech+OR+stablecoin&sort=date",
-    "https://ge.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+crypto&sort=date",
-    "https://ge.indeed.com/jobs?q=pragmatic+OR+evolution+OR+playtech&sort=date",
-    "https://ge.indeed.com/jobs?q=game+developer+OR+game+engineer+OR+game+designer&sort=date",
-    "https://ge.indeed.com/jobs?q=game+studio+OR+gaming+studio&sort=date",
-    "https://ge.indeed.com/jobs?q=visa+sponsorship+OR+work+permit+OR+relocation&sort=date",
+    # 조지아 검색 추가
+    "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain+OR+igaming+OR+casino+OR+payment&l=georgia&sort=date",
+    "https://ge.indeed.com/jobs?q=product+manager+OR+product+owner+OR+business+development+OR+sales&l=tbilisi&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -72,45 +62,14 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Saudi%20Arabia",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Qatar",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Bahrain",
-    # UAE 게임 + 비자 검색
-    "https://www.linkedin.com/jobs/search/?keywords=game%20developer%20OR%20game%20engineer%20OR%20game%20designer&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=visa%20sponsorship%20OR%20visa%20support%20OR%20work%20visa&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=relocation%20assistance%20OR%20work%20permit%20OR%20sponsored&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20gaming%20studio%20OR%20game%20development&location=United%20Arab%20Emirates",
-    # 조지아 검색 (전국 확대)
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=igaming%20OR%20gambling%20OR%20casino&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=payment%20OR%20fintech%20OR%20payments&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=stablecoin%20OR%20stable%20coin%20OR%20digital%20asset&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20crypto.com%20OR%20coinbase&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=pragmatic%20play%20OR%20evolution%20OR%20playtech&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=kindred%20OR%20betsson%20OR%20betsoft&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20developer%20OR%20software%20engineer&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=compliance%20OR%20operations%20OR%20risk%20management&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development&location=Georgia",
-    # 몰타 검색 확대
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=igaming%20OR%20gambling%20OR%20casino&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=payment%20OR%20fintech%20OR%20payments&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=stablecoin%20OR%20stable%20coin%20OR%20digital%20asset&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20crypto.com%20OR%20coinbase&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=pragmatic%20play%20OR%20evolution%20OR%20playtech&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=kindred%20OR%20betsson%20OR%20betsoft&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20developer%20OR%20software%20engineer&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=compliance%20OR%20operations%20OR%20risk%20management&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development&location=Malta",
-    # 게임 + 비자 관련 검색 (Georgia)
-    "https://www.linkedin.com/jobs/search/?keywords=game%20developer%20OR%20game%20engineer%20OR%20game%20designer&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20gaming%20studio%20OR%20game%20development&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=visa%20sponsorship%20OR%20visa%20support%20OR%20work%20visa&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=relocation%20assistance%20OR%20work%20permit%20OR%20sponsored&location=Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=esports%20OR%20esports%20gaming%20OR%20game%20tournament&location=Georgia",
-    # 게임 + 비자 관련 검색 (Malta)
-    "https://www.linkedin.com/jobs/search/?keywords=game%20developer%20OR%20game%20engineer%20OR%20game%20designer&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20gaming%20studio%20OR%20game%20development&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=visa%20sponsorship%20OR%20visa%20support%20OR%20work%20visa&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=relocation%20assistance%20OR%20work%20permit%20OR%20sponsored&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=esports%20OR%20esports%20gaming%20OR%20game%20tournament&location=Malta",
+    # 조지아 (나라) 검색 추가 - Tbilisi만 사용하여 미국 조지아 제외
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Tbilisi%2C%20Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Tbilisi%2C%20Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Tbilisi%2C%20Georgia",
+    # 몰타 검색 추가
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Valletta%2C%20Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Malta",
 ]
 RECRUITER_COMPANIES = [
     "robert walters",

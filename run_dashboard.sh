@@ -32,6 +32,7 @@ if [[ ! -f "${JOBS_DIR}/job_statuses.json" ]]; then
   echo '{"statuses": {}}' > "${JOBS_DIR}/job_statuses.json"
 fi
 
+cd "${WORKDIR}"
 if [[ "${SKIP_SCRAPE}" != "1" ]]; then
   echo "Running scraper..."
   python3 src/watch/scraper.py collect || echo "Scraper error (continuing)"
