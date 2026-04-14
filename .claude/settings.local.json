@@ -126,7 +126,10 @@
       "Bash(pkill -9 python node)",
       "Bash(tee /tmp/batch_final.log)",
       "Bash(tee /tmp/batch_optimized.log)",
-      "Bash(awk '{print $2, $9, $10}')"
+      "Bash(awk '{print $2, $9, $10}')",
+      "Bash(PYTHONPATH=/Users/lewis/Desktop/agent/src timeout 600 python3 /Users/lewis/Desktop/agent/src/watch/scraper.py daily)",
+      "Bash(tee /tmp/batch_timefilter.log)",
+      "Bash(ps -p 93561 -o pid,etime,cmd)"
     ]
   }
 }
