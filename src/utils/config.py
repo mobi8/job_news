@@ -46,7 +46,7 @@ INDEED_SEARCH_URLS = [
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=igaming&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -59,6 +59,7 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=payments%20engineer%20OR%20payments%20developer%20OR%20crypto%20payments%20OR%20stablecoin&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=sales%20manager%20OR%20business%20development%20OR%20account%20manager&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=designer%20OR%20ux%20OR%20ui&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=wallet%20specialist%20OR%20exchange%20operations%20OR%20digital%20asset%20operations&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Saudi%20Arabia",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Qatar",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Bahrain",
