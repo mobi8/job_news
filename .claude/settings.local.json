@@ -110,7 +110,23 @@
       "mcp__plugin_ecc_playwright__browser_snapshot",
       "Bash(npx tsc:*)",
       "Bash(pkill -f \"uvicorn\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(pkill -f vite)",
+      "Bash(pkill -f \"uvicorn|vite|node\")",
+      "Bash(npm ci:*)",
+      "mcp__plugin_ecc_sequential-thinking__sequentialthinking",
+      "Bash(killall -9 python3 node)",
+      "Bash(ps -p 74255 -o pid,etime,cmd)",
+      "Bash(pkill -f \"loop.py\")",
+      "Bash(ps -p 79628 -o pid,etime,cmd)",
+      "Bash(pkill -9 node)",
+      "Bash(pkill -9 python)",
+      "Bash(chmod +x /tmp/test_linkedin_speed.sh)",
+      "Bash(/tmp/test_linkedin_speed.sh)",
+      "Bash(pkill -9 python node)",
+      "Bash(tee /tmp/batch_final.log)",
+      "Bash(tee /tmp/batch_optimized.log)",
+      "Bash(awk '{print $2, $9, $10}')"
     ]
   }
 }

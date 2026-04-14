@@ -506,32 +506,37 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
 
     jobs: List[JobPosting] = []
     seen_urls = set()
-    for search_url in INDEED_SEARCH_URLS:
-        command = ["node", str(BROWSER_PROBE_PATH), search_url]
 
-        try:
-            completed = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=300,
-            )
-        except (subprocess.SubprocessError, FileNotFoundError) as exc:
-            logger.warning("Skipping Indeed search %s: %s", search_url, exc)
-            continue
+    # Batch all Indeed URLs in one node call
+    command = ["node", str(BROWSER_PROBE_PATH)] + INDEED_SEARCH_URLS
 
-        stdout = completed.stdout.strip()
-        if not stdout:
-            logger.warning("Skipping Indeed search %s: empty browser output.", search_url)
-            continue
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError) as exc:
+        logger.warning("Indeed browser scraping failed: %s", exc)
+        return []
 
-        try:
-            page = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            logger.warning("Skipping Indeed search %s: invalid JSON output (%s).", search_url, exc)
-            continue
+    stdout = completed.stdout.strip()
+    if not stdout:
+        logger.warning("Indeed: empty browser output")
+        return []
 
+    try:
+        pages = json.loads(stdout)
+        # Handle both single page and array of pages
+        if not isinstance(pages, list):
+            pages = [pages]
+    except json.JSONDecodeError as exc:
+        logger.warning("Indeed: invalid JSON output (%s)", exc)
+        return []
+
+    for search_url, page in zip(INDEED_SEARCH_URLS, pages):
         for item in page.get("jobs", []):
             url = normalize_linkedin_url(item.get("url", "").strip())
             title = clean_text(item.get("title", ""))
@@ -571,31 +576,38 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
 
     jobs: List[JobPosting] = []
     seen_urls = set()
-    for search_url in [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]:
-        command = ["node", str(BROWSER_PROBE_PATH), search_url]
+    all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
 
-        try:
-            completed = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=300,
-            )
-        except (subprocess.SubprocessError, FileNotFoundError) as exc:
-            logger.warning("Skipping LinkedIn search %s: %s", search_url, exc)
-            continue
+    # Batch all LinkedIn URLs in one node call
+    command = ["node", str(BROWSER_PROBE_PATH)] + all_urls
 
-        stdout = completed.stdout.strip()
-        if not stdout:
-            logger.warning("Skipping LinkedIn search %s: empty browser output.", search_url)
-            continue
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError) as exc:
+        logger.warning("LinkedIn browser scraping failed: %s", exc)
+        return []
 
-        try:
-            page = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            logger.warning("Skipping LinkedIn search %s: invalid JSON output (%s).", search_url, exc)
-            continue
+    stdout = completed.stdout.strip()
+    if not stdout:
+        logger.warning("LinkedIn: empty browser output")
+        return []
+
+    try:
+        pages = json.loads(stdout)
+        # Handle both single page and array of pages
+        if not isinstance(pages, list):
+            pages = [pages]
+    except json.JSONDecodeError as exc:
+        logger.warning("LinkedIn: invalid JSON output (%s)", exc)
+        return []
+
+    for search_url, page in zip(all_urls, pages):
 
         for item in page.get("jobs", []):
             url = item.get("url", "").strip()

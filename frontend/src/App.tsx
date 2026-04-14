@@ -61,7 +61,7 @@ type StatusKey = "unseen" | "viewed" | "applied" | "removed";
 
 const mainStatusOptions: { label: string; value: StatusKey }[] = [
   { label: "안봤음", value: "unseen" },
-  { label: "봤음", value: "viewed" },
+  { label: "저장", value: "viewed" },
   { label: "지원함", value: "applied" },
   { label: "제거", value: "removed" },
 ];
@@ -422,7 +422,7 @@ function JobsList({
                 onUpdateJobStatus(jobKey, "viewed");
               }}
             >
-              봤음
+              저장
             </button>
             <button
               className={`status-btn ${currentStatus === "applied" ? "active" : ""}`}
@@ -575,9 +575,17 @@ function App() {
     JobsResponse,
     Error,
     JobsResponse,
-    readonly ["jobs", FilterState]
+    readonly ["jobs", string, string, string, boolean, number, number]
   >({
-    queryKey: ["jobs", filters],
+    queryKey: [
+      "jobs",
+      filters.source,
+      filters.country,
+      filters.q,
+      filters.qualifies,
+      filters.min_score,
+      10000,
+    ],
     queryFn: () =>
       fetchJobs({
         source: filters.source || undefined,
