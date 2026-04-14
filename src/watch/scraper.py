@@ -144,6 +144,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
         sources.append(("Telegram public channels", telegram_jobs))
 
+
     if allowed_sources is None or "indeed_uae" in allowed_sources:
         logger.info("Fetching Indeed UAE via browser session...")
         indeed_jobs = fetch_indeed_jobs_via_browser()
