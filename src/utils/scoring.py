@@ -531,7 +531,7 @@ def focus_records(records: List[Dict[str, Any]], resume_text: str) -> List[Dict[
     return [record for record in annotate_records(records, resume_text) if record["qualifies"]]
 
 
-def top_recommendations(jobs: List[JobPosting], resume_text: str, limit: int = 10) -> List[JobPosting]:
+def top_recommendations(jobs: List[JobPosting], resume_text: str, limit: int | None = None) -> List[JobPosting]:
     scored: List[JobPosting] = []
     seen_fingerprints = set()
     for job in jobs:
@@ -540,7 +540,8 @@ def top_recommendations(jobs: List[JobPosting], resume_text: str, limit: int = 1
         if fit["qualifies"] and job.fingerprint not in seen_fingerprints:
             seen_fingerprints.add(job.fingerprint)
             scored.append(job)
-    return sorted(scored, key=lambda item: item.match_score, reverse=True)[:limit]
+    scored = sorted(scored, key=lambda item: item.match_score, reverse=True)
+    return scored if limit is None else scored[:limit]
 
 
 def source_label(source: str) -> str:

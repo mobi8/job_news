@@ -1,9 +1,9 @@
 New job matches: {{ new_count }}
 {% if country_line %}
-{{ country_line }}
+국가별: {{ country_line }}
 {% endif %}
 {% for group in country_groups -%}
-{{ group.country }}:
+{{ group.country }} 공고:
 {% for job in group.jobs -%}
 - <a href="{{ job.url }}">{{ job.label }}</a>
 {% endfor %}

@@ -67,6 +67,15 @@ def detect_country_from_location(location: str) -> str:
 
 
 def country_label_for_job(job: Any) -> str:
+    explicit_country = _job_attr(job, "country")
+    if explicit_country:
+        lowered = explicit_country.strip().lower()
+        if lowered in {"uae", "dubai"}:
+            return "UAE"
+        if lowered in {"malta"}:
+            return "Malta"
+        if lowered in {"georgia"}:
+            return "Georgia"
     source = _job_attr(job, "source").lower()
     if not source:
         return ""
@@ -94,9 +103,9 @@ def build_job_template_items(jobs: List[Any], limit: int | None = None) -> List[
     trimmed = jobs[:limit] if isinstance(limit, int) else list(jobs)
     items: List[Dict[str, str]] = []
     for job in trimmed:
-        label = html.escape(f"{_job_attr(job, 'company')} | {_job_attr(job, 'title')}")
-        url = html.escape(_job_attr(job, "url"), quote=True)
         country = country_label_for_job(job) or "Other"
+        label = html.escape(f"[{country}] {_job_attr(job, 'company')} | {_job_attr(job, 'title')}")
+        url = html.escape(_job_attr(job, "url"), quote=True)
         items.append({"label": label, "url": url, "country": country})
     return items
 
@@ -168,17 +177,50 @@ def send_telegram_text(text: str) -> bool:
         return False
 
 
-def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
+def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
     # 중복 제거: 이전에 보낸 job 제외
     sent_history = prune_telegram_sent_history(load_telegram_sent_history())
 
-    def job_notification_key(job: JobPosting) -> str:
-        return "|".join([job.source, job.source_job_id, job.title, job.company])
+    def job_notification_key(job: Any) -> str:
+        return "|".join(
+            [
+                _job_attr(job, "source"),
+                _job_attr(job, "source_job_id"),
+                _job_attr(job, "title"),
+                _job_attr(job, "company"),
+            ]
+        )
 
-    unsent_jobs = [job for job in jobs if job_notification_key(job) not in sent_history]
+    def job_score(job: Any) -> int:
+        raw_score = job.get("match_score", 0) if isinstance(job, dict) else getattr(job, "match_score", 0)
+        try:
+            return int(raw_score)
+        except Exception:
+            return 0
+
+    def job_sort_key(job: Any) -> tuple[Any, ...]:
+        return (
+            country_label_for_job(job) or "ZZZ",
+            -job_score(job),
+            _job_attr(job, "company").lower(),
+            _job_attr(job, "title").lower(),
+        )
+
+    unsent_jobs = sorted(
+        [
+            job
+            for job in jobs
+            if job_score(job) >= min_score and job_notification_key(job) not in sent_history
+        ],
+        key=job_sort_key,
+    )
+
+    if not unsent_jobs:
+        logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
+        return
 
     country_line = country_line_for_jobs(unsent_jobs)
-    job_items = build_job_template_items(unsent_jobs, limit=3)
+    job_items = build_job_template_items(unsent_jobs)
     country_groups = group_job_items_by_country(job_items)
     context = {
         "new_count": len(unsent_jobs),
@@ -188,12 +230,16 @@ def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
 
     message_text = render_template("telegram/job_alert.txt", context)
     logger.debug("Rendered job_alert template: %s", message_text)
-    if not send_telegram_text(message_text):
-        return
-
-    if not unsent_jobs:
-        logger.info("No new jobs to mark as sent, but sent a zero-update Telegram alert.")
-        return
+    if len(message_text) <= 4000:
+        if not send_telegram_text(message_text):
+            return
+    else:
+        logger.warning(
+            "Job alert (%d chars) exceeds Telegram limit; chunking into shorter messages.",
+            len(message_text),
+        )
+        if not send_telegram_messages_chunked(message_text.splitlines()):
+            return
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()

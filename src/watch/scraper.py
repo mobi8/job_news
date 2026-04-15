@@ -73,6 +73,7 @@ from utils.scrapers import (
 from utils.utils import (
     load_reject_feedback,
     load_resume_text,
+    load_last_scrape_completed_at,
     matches_reject_feedback,
     parse_requested_sources,
     save_scrape_state,
@@ -100,9 +101,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     resume_text = load_resume_text()
     reject_feedback = load_reject_feedback()
 
-    # Batch timing for browser lookback filtering
+    # Use the most recent completed batch time as the anchor for lookback filtering.
+    # This keeps the window aligned with the last successful run instead of the current start time.
     browser_lookback_hours = load_browser_lookback_hours()
-    batch_time = utc_now()
+    batch_time_str = load_last_scrape_completed_at() or utc_now().isoformat()
+    batch_time = datetime.fromisoformat(batch_time_str)
     cutoff_time = batch_time - timedelta(hours=browser_lookback_hours)
     cutoff_time_str = cutoff_time.isoformat()
 
@@ -315,7 +318,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         )
 
     if mode == "collect":
-        maybe_send_telegram(inserted, recommendations)
+        maybe_send_telegram(inserted, tracked_jobs)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
     elif mode == "daily":

@@ -253,6 +253,17 @@ def save_scrape_state(mode: str, sources: List[tuple[str, List[JobPosting]]], in
     SCRAPE_STATE_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def load_last_scrape_completed_at() -> Optional[str]:
+    if not SCRAPE_STATE_PATH.exists():
+        return None
+    try:
+        payload = json.loads(SCRAPE_STATE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    last_scraped_at = payload.get("last_scraped_at")
+    return str(last_scraped_at) if last_scraped_at else None
+
+
 def prune_telegram_sent_history(history: Dict[str, str], days: int = 14) -> Dict[str, str]:
     cutoff = utc_now() - timedelta(days=days)
     kept: Dict[str, str] = {}

@@ -47,7 +47,7 @@ def run_once() -> int:
     env = os.environ.copy()
     settings = load_watch_settings()
     interval_seconds = int(settings["scrape_interval_minutes"] * 60)
-    watch_mode = "daily"
+    watch_mode = "collect"
 
     watch_logger.info(f"Running watcher (mode={watch_mode}, interval={interval_seconds}s)")
 
