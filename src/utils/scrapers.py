@@ -506,6 +506,7 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
 
     jobs: List[JobPosting] = []
     seen_urls = set()
+    collected_at = utc_now().isoformat()
 
     # Batch all Indeed URLs in one node call
     command = ["node", str(BROWSER_PROBE_PATH)] + INDEED_SEARCH_URLS
@@ -563,6 +564,7 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
                     description=clean_text(item.get("description", "")),
                     remote=bool(item.get("remote", False)),
                     country=country,
+                    collected_at=collected_at,
                 )
             )
 
@@ -577,6 +579,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
     jobs: List[JobPosting] = []
     seen_urls = set()
     all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
+    collected_at = utc_now().isoformat()
 
     # Batch all LinkedIn URLs in one node call
     command = ["node", str(BROWSER_PROBE_PATH)] + all_urls
@@ -639,6 +642,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                     country=country,
                     description=clean_text(item.get("description", "")),
                     remote=bool(item.get("remote", False)),
+                    collected_at=collected_at,
                 )
             )
 

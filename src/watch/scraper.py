@@ -91,6 +91,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     resume_text = load_resume_text()
     reject_feedback = load_reject_feedback()
 
+    # Batch timing for -6 hour filtering
+    batch_time = utc_now()
+    cutoff_time = batch_time - timedelta(hours=6)
+    cutoff_time_str = cutoff_time.isoformat()
+
     # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
     if reject_feedback:
         purged = db.purge_reject_feedback_jobs(reject_feedback)
@@ -148,12 +153,16 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     if allowed_sources is None or "indeed_uae" in allowed_sources:
         logger.info("Fetching Indeed UAE via browser session...")
         indeed_jobs = fetch_indeed_jobs_via_browser()
+        # Apply -6 hour window filtering (collected_at >= cutoff_time)
+        indeed_jobs = [j for j in indeed_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
         logger.info("Collected %s jobs from Indeed UAE.", len(indeed_jobs))
         sources.append(("Indeed UAE browser searches", indeed_jobs))
 
     if allowed_sources is None or "linkedin_public" in allowed_sources:
         logger.info("Fetching LinkedIn public jobs via browser session...")
         linkedin_jobs = fetch_linkedin_jobs_via_browser()
+        # Apply -6 hour window filtering (collected_at >= cutoff_time)
+        linkedin_jobs = [j for j in linkedin_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
         logger.info("Collected %s jobs from LinkedIn.", len(linkedin_jobs))
         sources.append(("LinkedIn public browser searches", linkedin_jobs))
 

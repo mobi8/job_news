@@ -20,6 +20,7 @@ class JobPosting:
     country: str = "UAE"
     first_seen_at: Optional[str] = None
     last_seen_at: Optional[str] = None
+    collected_at: Optional[str] = None
     match_score: int = 0
 
     @property
