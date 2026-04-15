@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import datetime
 import json
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Add src to path so utils can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
