@@ -22188,8 +22188,8 @@
         const state = await stateRes.json();
         document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || 1440;
         document.getElementById("scrape-last-at").textContent = state.last_scraped_at ? new Date(state.last_scraped_at).toLocaleString() : "아직 기록 없음";
-        document.getElementById("scrape-last-ago").textContent = state.last_scraped_at ? `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'daily'}` : "-";
-        document.getElementById("runtime-status").textContent = "지금 실행은 수동 1회 스크랩이고, 완료되면 텔레그램 일일 요약도 같이 보냅니다. 자동 실행은 저장한 분 간격마다 1번씩 돌아갑니다.";
+        document.getElementById("scrape-last-ago").textContent = state.last_scraped_at ? `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'collect'}` : "-";
+        document.getElementById("runtime-status").textContent = "지금 실행은 수동 1회 스크랩이고, 완료되면 텔레그램 알림도 같이 보냅니다. 자동 실행은 저장한 분 간격마다 1번씩 돌아갑니다.";
       } catch (error) {
         document.getElementById("runtime-status").textContent = "실행 상태를 불러오지 못했습니다.";
       }
@@ -22221,8 +22221,8 @@
           const state = await res.json();
           if (state.last_scraped_at && state.last_scraped_at !== previousLastScrapedAt) {
             document.getElementById("scrape-last-at").textContent = new Date(state.last_scraped_at).toLocaleString();
-            document.getElementById("scrape-last-ago").textContent = `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'daily'}`;
-            document.getElementById("runtime-status").textContent = "수동 실행이 완료됐습니다. 텔레그램 일일 요약 전송까지 포함된 사이클입니다.";
+            document.getElementById("scrape-last-ago").textContent = `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'collect'}`;
+            document.getElementById("runtime-status").textContent = "수동 실행이 완료됐습니다. 텔레그램 알림 전송까지 포함된 사이클입니다.";
             return;
           }
         } catch (error) {
@@ -22235,12 +22235,12 @@
 
     const runScrapeNow = async () => {
       const previousLastScrapedAt = document.getElementById("scrape-last-at")?.textContent || "";
-      document.getElementById("runtime-status").textContent = "수동 실행을 시작했습니다. 완료되면 텔레그램 일일 요약까지 같이 보냅니다.";
+      document.getElementById("runtime-status").textContent = "수동 실행을 시작했습니다. 완료되면 텔레그램 알림까지 같이 보냅니다.";
       try {
         await fetch("/run-scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "daily" }),
+          body: JSON.stringify({ mode: "collect" }),
         });
         pollForScrapeCompletion(previousLastScrapedAt);
       } catch (error) {

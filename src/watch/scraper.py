@@ -332,7 +332,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         )
 
     if mode == "collect":
-        batch_jobs = focus_records(inserted_jobs, resume_text)
+        batch_jobs = focus_records([job.to_dict() for job in inserted_jobs], resume_text)
         maybe_send_telegram(inserted, batch_jobs)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
