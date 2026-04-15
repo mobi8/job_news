@@ -15,16 +15,65 @@ export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
 echo "Starting Job Watch backend + frontend + watch loop..."
 
-# Kill existing processes on ports
+terminate_pids() {
+  local label="$1"
+  shift
+  local pids=("$@")
+  if [[ ${#pids[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  echo "  Stopping ${label}: ${pids[*]}"
+  for pid in "${pids[@]}"; do
+    kill -TERM "$pid" 2>/dev/null || true
+  done
+
+  local wait_count=0
+  while [[ $wait_count -lt 30 ]]; do
+    local still_running=0
+    for pid in "${pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        still_running=1
+        break
+      fi
+    done
+    if [[ $still_running -eq 0 ]]; then
+      return 0
+    fi
+    sleep 0.1
+    wait_count=$((wait_count + 1))
+  done
+
+  echo "  Forcing ${label} shutdown..."
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+  done
+}
+
+kill_matching_processes() {
+  local label="$1"
+  local pattern="$2"
+  local pids=()
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && pids+=("$pid")
+  done < <(pgrep -f "$pattern" 2>/dev/null || true)
+  terminate_pids "$label" "${pids[@]}"
+}
+
+# Clean up any older dashboard/watch processes before starting fresh.
+kill_matching_processes "watch loop" "src/watch/loop.py"
+kill_matching_processes "scraper" "src/watch/scraper.py"
+kill_matching_processes "backend" "uvicorn src.api.app:app"
+
 if lsof -ti:8000 >/dev/null 2>&1; then
-  echo "  Killing existing process on port 8000..."
-  kill $(lsof -ti:8000) 2>/dev/null || true
+  terminate_pids "port 8000 listener" $(lsof -ti:8000)
 fi
 if lsof -ti:5173 >/dev/null 2>&1; then
-  echo "  Killing existing process on port 5173..."
-  kill $(lsof -ti:5173) 2>/dev/null || true
+  terminate_pids "port 5173 listener" $(lsof -ti:5173)
 fi
-sleep 0.5
+sleep 1
 
 # Frontend cleanup & rebuild
 cd "${FRONTEND_DIR}"
