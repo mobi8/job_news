@@ -244,10 +244,11 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
 
   // Always use jobsQuery as the source of truth for collection_metadata
   const collectedAt = jobsQuery?.data?.collection_metadata?.collected_at || jobsQuery?.data?.updated_at;
+  const batchNewCount = jobsQuery?.data?.collection_metadata?.new_jobs_this_run;
   const formattedScrapTime = collectedAt
     ? new Date(collectedAt).toLocaleString("ko-KR", {
-        month: "2-digit",
-        day: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
@@ -273,6 +274,10 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
         <div className="metadata-item">
           <span className="metadata-label">최신 스크랩:</span>
           <span className="metadata-value">{formattedScrapTime}</span>
+        </div>
+        <div className="metadata-item">
+          <span className="metadata-label">이번 배치 신규:</span>
+          <span className="metadata-value">{batchNewCount ?? "—"}</span>
         </div>
         <div className="metadata-item">
           <span className="metadata-label">다음 배치:</span>

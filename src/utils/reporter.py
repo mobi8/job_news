@@ -2161,6 +2161,7 @@ def save_dashboard_data(
     source_daily: List[Dict[str, Any]],
     filtered_jobs: List[Dict[str, Any]],
     all_jobs: List[Dict[str, Any]],
+    collection_metadata: Dict[str, Any] | None = None,
 ) -> None:
     """Save dashboard data as JSON only (HTML template remains unchanged)."""
     import json
@@ -2177,6 +2178,8 @@ def save_dashboard_data(
         "all_jobs": all_jobs,
         "updated_at": utc_now().isoformat(),
     }
+    if collection_metadata is not None:
+        dashboard_data["collection_metadata"] = collection_metadata
 
     data_path.parent.mkdir(parents=True, exist_ok=True)
     with open(data_path, "w", encoding="utf-8") as f:

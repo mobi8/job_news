@@ -67,9 +67,10 @@ class Database:
             # Column already exists
             pass
 
-    def upsert_jobs(self, jobs: List[JobPosting]) -> int:
+    def upsert_jobs(self, jobs: List[JobPosting], return_jobs: bool = False) -> int | tuple[int, List[JobPosting]]:
         now = utc_now().isoformat()
         inserted = 0
+        inserted_jobs: List[JobPosting] = []
 
         for job in jobs:
             if job.source in LINKEDIN_SOURCES:
@@ -83,6 +84,7 @@ class Database:
             first_seen_at = row["first_seen_at"] if row else now
             if row is None:
                 inserted += 1
+                inserted_jobs.append(job)
 
             job.first_seen_at = first_seen_at
             job.last_seen_at = now
@@ -124,6 +126,8 @@ class Database:
             )
 
         self.conn.commit()
+        if return_jobs:
+            return inserted, inserted_jobs
         return inserted
 
     def upsert_news(self, items: List[NewsItem]) -> int:

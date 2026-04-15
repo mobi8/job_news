@@ -195,7 +195,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     for job in jobs:
         job.match_score = calculate_match_score(job, resume_text)
 
-    inserted = db.upsert_jobs(jobs)
+    inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
 
     # Collect and store news from RSS feeds
     news_items = fetch_all_rss_news()
@@ -238,6 +238,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             "sources": [source for source, _ in sources],
             "jobs_collected_this_run": len(jobs),
             "new_jobs_this_run": inserted,
+            "new_jobs_this_run_details": [job.to_dict() for job in inserted_jobs],
             "resume_loaded": bool(resume_text),
         },
         "statistics": stats,
@@ -269,6 +270,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         source_daily,
         tracked_jobs,
         all_jobs_annotated,
+        collection_metadata=payload["collection_metadata"],
     )
 
     # Add recent news data to dashboard JSON with source labels
@@ -318,7 +320,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         )
 
     if mode == "collect":
-        maybe_send_telegram(inserted, tracked_jobs)
+        batch_jobs = focus_records(inserted_jobs, resume_text)
+        maybe_send_telegram(inserted, batch_jobs)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
     elif mode == "daily":
