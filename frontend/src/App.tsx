@@ -312,6 +312,11 @@ function JobsList({
     const getJobKey = (job: any) => job.dashboard_key ?? job.url;
     const getJobStatus = (job: any): StatusKey =>
       jobStatuses[getJobKey(job)] || "unseen";
+    const getJobBucket = (job: any) => {
+      const status = getJobStatus(job);
+      if (status !== "unseen") return status;
+      return job.qualifies ? "recommended" : "reference";
+    };
 
     // For removed/applied statuses, include past jobs from jobStatuses
     if (mainStatus === "removed" || mainStatus === "applied") {
@@ -328,14 +333,21 @@ function JobsList({
 
     // Filter by main status
     if (mainStatus) {
-      jobs = jobs.filter((job: any) => getJobStatus(job) === mainStatus);
+      jobs = jobs.filter((job: any) => {
+        const status = getJobStatus(job);
+        if (mainStatus === "unseen") {
+          return status === "unseen";
+        }
+        return status === mainStatus;
+      });
     }
 
     // Filter by sub-status (only for unseen)
     if (mainStatus === "unseen" && subStatus) {
       jobs = jobs.filter((job: any) => {
-        if (subStatus === "recommended") return job.qualifies === true;
-        if (subStatus === "reference") return job.qualifies === false;
+        const bucket = getJobBucket(job);
+        if (subStatus === "recommended") return bucket === "recommended";
+        if (subStatus === "reference") return bucket === "reference";
         return true;
       });
     }
@@ -381,6 +393,7 @@ function JobsList({
       {sortedAndFiltered.map((job: any) => {
         const jobKey = job.dashboard_key ?? job.url;
         const currentStatus = jobStatuses[jobKey] || "unseen";
+        const currentBucket = currentStatus !== "unseen" ? currentStatus : (job.qualifies ? "recommended" : "reference");
         const hue = (job.match_score / 100) * 120;
         const gaugeGradient = `linear-gradient(90deg, hsl(${hue}, 80%, 40%), hsl(${hue}, 100%, 55%))`;
         return (
@@ -395,10 +408,10 @@ function JobsList({
             <div className="card-title">{job.title}</div>
             <span
               className={`status-badge ${
-                job.qualifies ? "recommended" : "caution"
+                currentBucket === "recommended" ? "recommended" : "caution"
               }`}
             >
-              {job.qualifies ? "추천" : "참고"}
+              {currentBucket === "recommended" ? "추천" : "참고"}
             </span>
           </div>
           <div className="card-subtitle">{job.company}</div>
@@ -676,8 +689,10 @@ function App() {
 
   const subStatusCounts = useMemo(() => {
     // Calculate sub-status counts only for unseen jobs
+    const getJobStatus = (job: any): StatusKey =>
+      jobStatuses[job.dashboard_key ?? job.url] || "unseen";
     const unseenJobs = (jobsQuery.data?.jobs || []).filter(
-      (job: any) => (jobStatuses[job.dashboard_key ?? job.url] || "unseen") === "unseen"
+      (job: any) => getJobStatus(job) === "unseen"
     );
     return {
       total: unseenJobs.length,
