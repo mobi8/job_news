@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import json
 import sys
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -47,12 +46,10 @@ def read_json(path: Path) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to parse {path.name}: {exc}")
 
 
-@lru_cache(maxsize=1)
 def load_jobs_data() -> Dict[str, Any]:
     return read_json(JOBS_DATA_PATH)
 
 
-@lru_cache(maxsize=1)
 def load_stats_data() -> Dict[str, Any]:
     return read_json(STATS_DATA_PATH)
 
@@ -321,14 +318,6 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
         return {"success": True, "message": "Job status updated"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update job status: {str(e)}")
-
-
-@app.post("/api/refresh-cache")
-def refresh_cache() -> Dict[str, Any]:
-    """Clear cached data to force reload from files"""
-    load_jobs_data.cache_clear()
-    load_stats_data.cache_clear()
-    return {"success": True, "message": "Cache cleared"}
 
 
 @app.get("/healthz")

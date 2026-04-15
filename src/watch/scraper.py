@@ -83,6 +83,15 @@ from utils.utils import (
 logger = scraper_logger
 
 
+def load_browser_lookback_hours() -> int:
+    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "72")
+    try:
+        return max(1, int(raw_value))
+    except ValueError:
+        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 72.", raw_value)
+        return 72
+
+
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     db = Database(DB_PATH)
@@ -91,9 +100,10 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     resume_text = load_resume_text()
     reject_feedback = load_reject_feedback()
 
-    # Batch timing for -6 hour filtering
+    # Batch timing for browser lookback filtering
+    browser_lookback_hours = load_browser_lookback_hours()
     batch_time = utc_now()
-    cutoff_time = batch_time - timedelta(hours=6)
+    cutoff_time = batch_time - timedelta(hours=browser_lookback_hours)
     cutoff_time_str = cutoff_time.isoformat()
 
     # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
@@ -153,7 +163,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     if allowed_sources is None or "indeed_uae" in allowed_sources:
         logger.info("Fetching Indeed UAE via browser session...")
         indeed_jobs = fetch_indeed_jobs_via_browser()
-        # Apply -6 hour window filtering (collected_at >= cutoff_time)
+        # Apply browser lookback filtering (collected_at >= cutoff_time)
         indeed_jobs = [j for j in indeed_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
         logger.info("Collected %s jobs from Indeed UAE.", len(indeed_jobs))
         sources.append(("Indeed UAE browser searches", indeed_jobs))
@@ -161,7 +171,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     if allowed_sources is None or "linkedin_public" in allowed_sources:
         logger.info("Fetching LinkedIn public jobs via browser session...")
         linkedin_jobs = fetch_linkedin_jobs_via_browser()
-        # Apply -6 hour window filtering (collected_at >= cutoff_time)
+        # Apply browser lookback filtering (collected_at >= cutoff_time)
         linkedin_jobs = [j for j in linkedin_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
         logger.info("Collected %s jobs from LinkedIn.", len(linkedin_jobs))
         sources.append(("LinkedIn public browser searches", linkedin_jobs))
@@ -323,13 +333,6 @@ def main() -> int:
         if len(sys.argv) > 1:
             mode = sys.argv[1].strip().lower()
         run(mode=mode)
-
-        # Clear API cache after successful batch completion
-        try:
-            urllib.request.urlopen("http://127.0.0.1:8000/api/refresh-cache", data=b'')
-            logger.info("API cache cleared for dashboard refresh")
-        except Exception as exc:
-            logger.warning("Failed to clear API cache: %s", exc)
 
         return 0
     except urllib.error.URLError as exc:
