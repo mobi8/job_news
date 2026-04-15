@@ -34,12 +34,6 @@ if [[ ! -d node_modules ]]; then
   npm install --silent 2>/dev/null
 fi
 
-# Check required files
-if [[ ! -f "${JOBS_DIR}/jobs_analysis.json" ]] || [[ ! -f "${JOBS_DIR}/job_stats_data.json" ]]; then
-  echo "⚠️  Data files missing. Run scraper first or use: NO_SCRAPE=1 bash run_dashboard.sh"
-  exit 1
-fi
-
 # Create job_statuses.json if missing
 if [[ ! -f "${JOBS_DIR}/job_statuses.json" ]]; then
   echo '{"statuses": {}}' > "${JOBS_DIR}/job_statuses.json"
@@ -49,6 +43,12 @@ cd "${WORKDIR}"
 if [[ "${SKIP_SCRAPE}" != "1" ]]; then
   echo "Running scraper..."
   python3 src/watch/scraper.py collect || echo "Scraper error (continuing)"
+fi
+
+# Check required files after an optional scrape run
+if [[ ! -f "${JOBS_DIR}/jobs_analysis.json" ]] || [[ ! -f "${JOBS_DIR}/job_stats_data.json" ]]; then
+  echo "⚠️  Data files missing. Run scraper first or use: NO_SCRAPE=1 bash run_dashboard.sh"
+  exit 1
 fi
 
 # Start watch loop in background (daemon mode)

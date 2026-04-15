@@ -139,11 +139,11 @@ def source_daily_counts(records: List[Dict[str, Any]], days: int = 14) -> List[D
     return sorted(items, key=lambda item: (item["source"], item["seen_date"]), reverse=True)
 
 
-def send_telegram_text(text: str) -> None:
+def send_telegram_text(text: str) -> bool:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
-        return
+        return False
 
     payload = urllib.parse.urlencode(
         {
@@ -159,14 +159,16 @@ def send_telegram_text(text: str) -> None:
         data=payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
-    with urllib.request.urlopen(request, timeout=20):
-        logger.info("Telegram notification sent.")
+    try:
+        with urllib.request.urlopen(request, timeout=20):
+            logger.info("Telegram notification sent.")
+        return True
+    except Exception as exc:
+        logger.warning("Telegram notification failed: %s", exc)
+        return False
 
 
 def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
-    if inserted <= 0:
-        return
-
     # 중복 제거: 이전에 보낸 job 제외
     sent_history = prune_telegram_sent_history(load_telegram_sent_history())
 
@@ -174,10 +176,6 @@ def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
         return "|".join([job.source, job.source_job_id, job.title, job.company])
 
     unsent_jobs = [job for job in jobs if job_notification_key(job) not in sent_history]
-
-    if not unsent_jobs:
-        logger.info("All jobs already sent in previous notifications, skipping.")
-        return
 
     country_line = country_line_for_jobs(unsent_jobs)
     job_items = build_job_template_items(unsent_jobs, limit=3)
@@ -190,7 +188,12 @@ def maybe_send_telegram(inserted: int, jobs: List[JobPosting]) -> None:
 
     message_text = render_template("telegram/job_alert.txt", context)
     logger.debug("Rendered job_alert template: %s", message_text)
-    send_telegram_text(message_text)
+    if not send_telegram_text(message_text):
+        return
+
+    if not unsent_jobs:
+        logger.info("No new jobs to mark as sent, but sent a zero-update Telegram alert.")
+        return
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()
@@ -223,7 +226,8 @@ def send_incremental_summary(
         }
         message_text = render_template("telegram/incremental_summary.txt", context)
         logger.debug("Rendered incremental_summary (no new unsent): %s", message_text)
-        send_telegram_text(message_text)
+        if not send_telegram_text(message_text):
+            return
         save_telegram_sent_history(sent_history)
         logger.info("Skipped duplicate Telegram jobs for the last %s hours.", hours)
         return
@@ -245,7 +249,8 @@ def send_incremental_summary(
         }
         message_text = render_template("telegram/incremental_summary.txt", context)
         logger.debug("Rendered incremental_summary (no jobs): %s", message_text)
-        send_telegram_text(message_text)
+        if not send_telegram_text(message_text):
+            return
         logger.info("No new jobs for the last %s hours. Sent zero-update Telegram summary.", hours)
         return
 
@@ -271,7 +276,8 @@ def send_incremental_summary(
     }
     message_text = render_template("telegram/incremental_summary.txt", context)
     logger.debug("Rendered incremental_summary: %s", message_text)
-    send_telegram_text(message_text)
+    if not send_telegram_text(message_text):
+        return
 
     sent_at = utc_now().isoformat()
     for job in new_jobs:
@@ -287,11 +293,6 @@ def send_daily_summary(db: Database, limit: int = 100) -> None:
     # 중복 제거: 이전에 보낸 job 제외
     sent_history = prune_telegram_sent_history(load_telegram_sent_history())
     unsent_today = [job for job in new_today if notification_key(job) not in sent_history]
-
-    # 새 공고가 없으면 메시지를 보내지 않음
-    if not unsent_today:
-        logger.info("No new unsent jobs in last 24h. Skipping daily summary.")
-        return
 
     source_today = source_total_counts(unsent_today)
     source_total = source_total_counts(all_focused)
@@ -318,13 +319,19 @@ def send_daily_summary(db: Database, limit: int = 100) -> None:
     message_text = render_template("telegram/daily_summary.txt", context)
     logger.debug("Rendered daily_summary: %s", message_text)
     if len(message_text) <= 4000:
-        send_telegram_text(message_text)
+        if not send_telegram_text(message_text):
+            return
     else:
         logger.warning(
             "Daily summary (%d chars) exceeds Telegram limit; chunking into shorter messages.",
             len(message_text),
         )
-        send_telegram_messages_chunked(message_text.splitlines())
+        if not send_telegram_messages_chunked(message_text.splitlines()):
+            return
+
+    if not unsent_today:
+        logger.info("No new unsent jobs in last 24h, but sent a zero-update daily summary.")
+        return
 
     # sent_history 업데이트
     sent_at = utc_now().isoformat()
@@ -333,7 +340,7 @@ def send_daily_summary(db: Database, limit: int = 100) -> None:
     save_telegram_sent_history(prune_telegram_sent_history(sent_history))
 
 
-def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> None:
+def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> bool:
     """
     텔레그램 메시지를 청크로 나누어 전송합니다.
     텔레그램 API 제한(4096자)을 고려합니다.
@@ -363,8 +370,10 @@ def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> 
             # 첫 번째 메시지 이후에는 지연 추가 (API 제한 방지)
             import time
             time.sleep(0.5)
-        send_telegram_text(message)
+        if not send_telegram_text(message):
+            return False
         logger.info(f"Sent message chunk {i+1}/{len(messages)} ({len(message)} chars)")
+    return True
 
 
 def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database | None = None) -> None:
@@ -401,7 +410,8 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
             message_text = "\n".join(lines)
 
         logger.debug("Rendered simple news_summary: %s", message_text)
-        send_telegram_text(message_text)
+        if not send_telegram_text(message_text):
+            return
     else:
         # Topic-based approach
         topics = db.compute_news_topics(168)
@@ -476,7 +486,8 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
             message_text = render_template("telegram/news_summary_simplified.txt", context_simple)
             logger.debug("Rendered news_summary (simplified): %s", message_text)
 
-        send_telegram_text(message_text)
+        if not send_telegram_text(message_text):
+            return
 
     # Update sent_history
     sent_at = utc_now().isoformat()

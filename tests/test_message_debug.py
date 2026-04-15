@@ -19,7 +19,7 @@ class TestSendDailySummary:
     @patch('utils.notifications.load_telegram_sent_history')
     @patch('utils.notifications.load_resume_text')
     def test_no_new_jobs_no_message(self, mock_resume, mock_history, mock_send):
-        """새 공고가 없으면 메시지를 보내지 않음"""
+        """새 공고가 없어도 0건 요약 메시지를 보냄"""
         mock_resume.return_value = "cloud engineer"
         mock_history.return_value = {}
 
@@ -30,8 +30,8 @@ class TestSendDailySummary:
 
         send_daily_summary(db)
 
-        # 메시지를 보내지 않음
-        mock_send.assert_not_called()
+        # 0건 요약 메시지를 보냄
+        mock_send.assert_called_once()
 
     @patch('utils.notifications.send_telegram_text')
     @patch('utils.notifications.save_telegram_sent_history')

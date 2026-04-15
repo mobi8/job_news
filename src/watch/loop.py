@@ -76,8 +76,7 @@ def main() -> int:
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
     if not token or not chat_id:
-        watch_logger.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
-        return 1
+        watch_logger.warning("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID; running without Telegram alerts")
 
     while True:
         settings = load_watch_settings()

@@ -249,7 +249,7 @@ class TestMaybeSendTelegram:
         """Test when no new jobs were inserted"""
         jobs = []
         maybe_send_telegram(0, jobs)
-        mock_send.assert_not_called()
+        mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
     @patch("utils.notifications.load_telegram_sent_history", return_value={})
@@ -258,7 +258,7 @@ class TestMaybeSendTelegram:
         """Test with negative inserted count"""
         jobs = []
         maybe_send_telegram(-5, jobs)
-        mock_send.assert_not_called()
+        mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
     @patch("utils.notifications.save_telegram_sent_history")
@@ -299,8 +299,8 @@ class TestMaybeSendTelegram:
         with patch("utils.notifications.load_telegram_sent_history", return_value=sent_history):
             with patch("utils.notifications.prune_telegram_sent_history", return_value=sent_history):
                 maybe_send_telegram(1, [job])
-                # Should not send if already sent
-                mock_send.assert_not_called()
+                # Zero-update alerts should still be sent
+                mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
     @patch("utils.notifications.save_telegram_sent_history")
