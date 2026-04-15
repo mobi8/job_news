@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import time
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -56,6 +57,15 @@ def run_once() -> int:
         env=env,
         check=False,
     )
+
+    # Clear API cache after scraper completes
+    if result.returncode == 0:
+        try:
+            urllib.request.urlopen("http://127.0.0.1:8000/api/refresh-cache", data=b'')
+            watch_logger.info("Refreshed API cache after batch completion")
+        except Exception as e:
+            watch_logger.warning(f"Failed to refresh API cache: {e}")
+
     return result.returncode
 
 

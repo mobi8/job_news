@@ -319,6 +319,14 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to update job status: {str(e)}")
 
 
+@app.post("/api/refresh-cache")
+def refresh_cache() -> Dict[str, Any]:
+    """Clear cached data to force reload from files"""
+    load_jobs_data.cache_clear()
+    load_stats_data.cache_clear()
+    return {"success": True, "message": "Cache cleared"}
+
+
 @app.get("/healthz")
 @app.get("/api/healthz")
 def health_check() -> JSONResponse:
