@@ -323,6 +323,14 @@ def main() -> int:
         if len(sys.argv) > 1:
             mode = sys.argv[1].strip().lower()
         run(mode=mode)
+
+        # Clear API cache after successful batch completion
+        try:
+            urllib.request.urlopen("http://127.0.0.1:8000/api/refresh-cache", data=b'')
+            logger.info("API cache cleared for dashboard refresh")
+        except Exception as exc:
+            logger.warning("Failed to clear API cache: %s", exc)
+
         return 0
     except urllib.error.URLError as exc:
         logger.error("Network error: %s", exc)
