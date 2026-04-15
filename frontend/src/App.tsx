@@ -398,7 +398,7 @@ function JobsList({
                 job.qualifies ? "recommended" : "caution"
               }`}
             >
-              {job.qualifies ? "추천" : "보류"}
+              {job.qualifies ? "추천" : "참고"}
             </span>
           </div>
           <div className="card-subtitle">{job.company}</div>

@@ -1068,8 +1068,9 @@ def save_dashboard(
           <select id="filter-status">
             <option value="">전체 상태</option>
             <option value="inbox">아직안본</option>
+            <option value="inbox_high">추천</option>
+            <option value="inbox_low">우선순위 낮음</option>
             <option value="applied">지원함</option>
-            <option value="viewed">보류</option>
             <option value="rejected">제거함</option>
           </select>
         </div>
@@ -1095,7 +1096,6 @@ def save_dashboard(
       <div class="tab-row">
         <button type="button" class="tab-btn is-active" data-tab-target="inbox">아직안본 <span id="tab-count-inbox" class="tab-count">0</span></button>
         <button type="button" class="tab-btn" data-tab-target="applied">지원한 <span id="tab-count-applied" class="tab-count">0</span></button>
-        <button type="button" class="tab-btn" data-tab-target="viewed">보류 <span id="tab-count-viewed" class="tab-count">0</span></button>
         <button type="button" class="tab-btn" data-tab-target="rejected">제거함 <span id="tab-count-rejected" class="tab-count">0</span></button>
       </div>
     </section>
@@ -1136,19 +1136,6 @@ def save_dashboard(
             <tr><th>공고</th><th>회사·지역</th><th>등록시각 · 점수 · 출처</th><th>관리</th></tr>
           </thead>
           <tbody id="bucket-applied"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card bucket-panel" data-tab-panel="viewed" hidden>
-      <h2>보류 공고 <span id="bucket-count-viewed" class="summary-chip">0</span></h2>
-      <p class="meta">한 번 읽어봤거나 잠시 보관해두는 공고입니다.</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>공고</th><th>회사·지역</th><th>등록시각 · 점수 · 출처</th><th>관리</th></tr>
-          </thead>
-          <tbody id="bucket-viewed"></tbody>
         </table>
       </div>
     </section>
@@ -1372,10 +1359,8 @@ def save_dashboard(
       if (recruiterOnly && row.dataset.recruiter !== "yes") return false;
       if (passOnly && row.dataset.pass !== "yes") return false;
 
-      const viewedCheckbox = row.querySelector('input[data-field="viewed"]');
       const checkbox = row.querySelector('input[data-field="applied"]');
       const removedCheckbox = row.querySelector('input[data-field="removed"]');
-      const viewed = viewedCheckbox ? viewedCheckbox.checked : false;
       const applied = checkbox ? checkbox.checked : false;
       const removed = removedCheckbox ? removedCheckbox.checked : false;
       const bucket = rowBucket(row);
@@ -1389,7 +1374,7 @@ def save_dashboard(
       }}
 
       // inbox 섹션에서 스코어 필터 적용
-      if ((bucket === "inbox_high" || bucket === "inbox_low") && !viewed && !applied && !removed) {{
+      if ((bucket === "inbox_high" || bucket === "inbox_low") && !applied && !removed) {{
         const score = Number(row.dataset.score || 0);
         if (score < inboxScoreMin) return false;
       }}
@@ -1398,14 +1383,12 @@ def save_dashboard(
     }};
 
     const rowBucket = (row) => {{
-      const viewed = Boolean(row.querySelector('input[data-field="viewed"]')?.checked);
       const applied = Boolean(row.querySelector('input[data-field="applied"]')?.checked);
       const removed = Boolean(row.querySelector('input[data-field="removed"]')?.checked);
       const isPass = row.dataset.pass === "yes";
 
       if (removed) return "rejected";
       if (applied) return "applied";
-      if (viewed) return "viewed";
       return isPass ? "inbox_high" : "inbox_low";
     }};
 
@@ -1422,7 +1405,6 @@ def save_dashboard(
         inbox_high: "bucket-count-inbox-high",
         inbox_low: "bucket-count-inbox-low",
         applied: "bucket-count-applied",
-        viewed: "bucket-count-viewed",
         rejected: "bucket-count-rejected",
       }};
       Object.entries(mapping).forEach(([key, id]) => {{
@@ -1468,10 +1450,9 @@ def save_dashboard(
         inbox_high: document.getElementById("bucket-inbox-high"),
         inbox_low: document.getElementById("bucket-inbox-low"),
         applied: document.getElementById("bucket-applied"),
-        viewed: document.getElementById("bucket-viewed"),
         rejected: document.getElementById("bucket-rejected"),
       }};
-      const counts = {{ inbox: 0, inbox_high: 0, inbox_low: 0, applied: 0, viewed: 0, rejected: 0 }};
+      const counts = {{ inbox: 0, inbox_high: 0, inbox_low: 0, applied: 0, rejected: 0 }};
       rows.sort(compareRows).forEach((row) => {{
         const bucket = rowBucket(row);
         const matches = rowMatches(row, bucket);
@@ -1484,7 +1465,7 @@ def save_dashboard(
         }}
       }});
       const meta = document.getElementById("filter-meta");
-      if (meta) meta.textContent = `아직안본 ${{counts.inbox}} · 추천 ${{counts.inbox_high}} · 우선순위 낮음 ${{counts.inbox_low}} · 지원함 ${{counts.applied}} · 보류 ${{counts.viewed}} · 제거함 ${{counts.rejected}}`;
+      if (meta) meta.textContent = `아직안본 ${{counts.inbox}} · 추천 ${{counts.inbox_high}} · 우선순위 낮음 ${{counts.inbox_low}} · 지원함 ${{counts.applied}} · 제거함 ${{counts.rejected}}`;
       updateBucketCounts(counts);
     }};
 
@@ -1553,10 +1534,9 @@ def save_dashboard(
       const inboxScoreMin = Number(document.getElementById("inbox-score-filter")?.value || 0);
       const inboxRows = rows.filter((row) => {{
         const bucket = rowBucket(row);
-        const viewed = Boolean(row.querySelector('input[data-field="viewed"]')?.checked);
         const applied = Boolean(row.querySelector('input[data-field="applied"]')?.checked);
         const removed = Boolean(row.querySelector('input[data-field="removed"]')?.checked);
-        return (bucket === "inbox_high" || bucket === "inbox_low") && !viewed && !applied && !removed;
+        return (bucket === "inbox_high" || bucket === "inbox_low") && !applied && !removed;
       }});
 
       const filteredCount = inboxRows.filter((row) => {{
@@ -1623,7 +1603,6 @@ def save_dashboard(
     const getBucketFromState = (state = {{}}) => {{
       if (state.removed) return "rejected";
       if (state.applied) return "applied";
-      if (state.viewed) return "viewed";
       return null;
     }};
 
@@ -1639,7 +1618,6 @@ def save_dashboard(
           inbox_high: 0,
           inbox_low: 0,
           applied: 0,
-          viewed: 0,
           rejected: 0,
         }};
         filteredJobs.forEach((job) => {{
@@ -1651,10 +1629,6 @@ def save_dashboard(
           }}
           if (bucket === 'applied') {{
             counts.applied += 1;
-            return;
-          }}
-          if (bucket === 'viewed') {{
-            counts.viewed += 1;
             return;
           }}
           const qualifies = Boolean(job.qualifies);
@@ -1670,7 +1644,6 @@ def save_dashboard(
           inbox_high: 'bucket-count-inbox-high',
           inbox_low: 'bucket-count-inbox-low',
           applied: 'bucket-count-applied',
-          viewed: 'bucket-count-viewed',
           rejected: 'bucket-count-rejected',
         }};
         Object.entries(mapping).forEach(([key, id]) => {{
