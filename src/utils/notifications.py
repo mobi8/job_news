@@ -152,6 +152,7 @@ def send_telegram_text(text: str) -> bool:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
+        logger.warning("Telegram notification skipped: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.")
         return False
 
     payload = urllib.parse.urlencode(
@@ -168,13 +169,21 @@ def send_telegram_text(text: str) -> bool:
         data=payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=20):
-            logger.info("Telegram notification sent.")
-        return True
-    except Exception as exc:
-        logger.warning("Telegram notification failed: %s", exc)
-        return False
+    last_exc: Exception | None = None
+    for attempt in range(1, 3):
+        try:
+            with urllib.request.urlopen(request, timeout=20):
+                logger.info("Telegram notification sent.")
+            return True
+        except Exception as exc:
+            last_exc = exc
+            logger.warning("Telegram notification attempt %d failed: %s", attempt, exc)
+            if attempt == 1:
+                import time
+                time.sleep(2)
+    if last_exc is not None:
+        logger.warning("Telegram notification failed after retries: %s", last_exc)
+    return False
 
 
 def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
