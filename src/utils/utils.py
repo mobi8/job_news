@@ -26,6 +26,20 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def load_watch_interval_minutes(default: int = 60) -> int:
+    watch_settings_path = SCRAPE_STATE_PATH.parent / "watch_settings.json"
+    if not watch_settings_path.exists():
+        return default
+    try:
+        payload = json.loads(watch_settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+    try:
+        return max(1, int(payload.get("scrape_interval_minutes", default)))
+    except Exception:
+        return default
+
+
 def format_seen_timestamp(value: str) -> str:
     if not value:
         return ""
@@ -133,12 +147,19 @@ def save_telegram_sent_history(history: Dict[str, str]) -> None:
     )
 
 
-def save_scrape_state(mode: str, sources: List[tuple[str, List[JobPosting]]], inserted: int) -> None:
+def save_scrape_state(
+    mode: str,
+    sources: List[tuple[str, List[JobPosting]]],
+    inserted: int,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    next_scrape_at: str | None = None,
+) -> None:
     from pathlib import Path
     import sqlite3
 
     source_state = {}
-    scraped_at = utc_now().isoformat()
+    scraped_at = completed_at or utc_now().isoformat()
 
     # 이전 상태 로드 (이전 DB 카운트 알기 위함)
     previous_counts = {}
@@ -244,7 +265,10 @@ def save_scrape_state(mode: str, sources: List[tuple[str, List[JobPosting]]], in
             pass
 
     payload = {
+        "last_started_at": started_at or scraped_at,
+        "last_completed_at": scraped_at,
         "last_scraped_at": scraped_at,
+        "next_scrape_at": next_scrape_at,
         "mode": mode,
         "new_jobs_this_run": inserted,
         "sources": source_state,
@@ -260,7 +284,7 @@ def load_last_scrape_completed_at() -> Optional[str]:
         payload = json.loads(SCRAPE_STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
         return None
-    last_scraped_at = payload.get("last_scraped_at")
+    last_scraped_at = payload.get("last_completed_at") or payload.get("last_scraped_at")
     return str(last_scraped_at) if last_scraped_at else None
 
 

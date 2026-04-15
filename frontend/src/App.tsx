@@ -235,15 +235,9 @@ function formatTime(timestamp?: string) {
 
 // Metadata Bar Component
 function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Always use jobsQuery as the source of truth for collection_metadata
   const collectedAt = jobsQuery?.data?.collection_metadata?.collected_at || jobsQuery?.data?.updated_at;
+  const nextBatchAt = jobsQuery?.data?.collection_metadata?.next_batch_at;
   const batchNewCount = jobsQuery?.data?.collection_metadata?.new_jobs_this_run;
   const formattedScrapTime = collectedAt
     ? new Date(collectedAt).toLocaleString("ko-KR", {
@@ -251,22 +245,19 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
       day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
+      second: "2-digit",
       })
     : "—";
 
-  const nextBatchTime = (() => {
-    // 다음 배치는 매시간 정각 기준 (예: 매시간 정각에 실행)
-    const nextHour = new Date(now);
-    nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-    return nextHour.toLocaleString("ko-KR", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  })();
+  const nextBatchTime = nextBatchAt
+    ? new Date(nextBatchAt).toLocaleString("ko-KR", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "—";
 
   return (
     <section className="glass-panel metadata-bar">

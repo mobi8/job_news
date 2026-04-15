@@ -44,6 +44,7 @@ from utils.notifications import (
     send_daily_summary,
     send_incremental_summary,
     send_news_summary,
+    send_telegram_text,
     source_daily_counts,
     source_total_counts,
 )
@@ -74,8 +75,12 @@ from utils.utils import (
     load_reject_feedback,
     load_resume_text,
     load_last_scrape_completed_at,
+    load_watch_interval_minutes,
+    load_telegram_sent_history,
     matches_reject_feedback,
+    notification_key,
     parse_requested_sources,
+    prune_telegram_sent_history,
     save_scrape_state,
     utc_now,
 )
@@ -95,6 +100,7 @@ def load_browser_lookback_hours() -> int:
 
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    run_started_at = utc_now()
     db = Database(DB_PATH)
     db.purge_language_filtered_jobs()
     db.purge_hard_excluded_jobs()
@@ -205,7 +211,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     logger.info("Collected %d news items (%d industry + %d player), %d new.",
                 len(all_news_items), len(news_items), len(player_news_items), news_inserted)
 
-    save_scrape_state(mode, sources, inserted)
     all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
     tracked_jobs = [job for job in all_jobs_annotated if job["qualifies"]]
     new_last_1_day = focus_records(db.jobs_first_seen_since(24), resume_text)
@@ -232,9 +237,22 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     source_daily = source_daily_counts(tracked_jobs)
     recommendations = top_recommendations(jobs, resume_text)
 
+    run_completed_at = utc_now()
+    watch_interval_minutes = load_watch_interval_minutes()
+    next_batch_at = (run_started_at + timedelta(minutes=watch_interval_minutes)).isoformat()
+    save_scrape_state(
+        mode,
+        sources,
+        inserted,
+        started_at=run_started_at.isoformat(),
+        completed_at=run_completed_at.isoformat(),
+        next_scrape_at=next_batch_at,
+    )
     payload = {
         "collection_metadata": {
-            "collected_at": utc_now().isoformat(),
+            "collected_at": run_completed_at.isoformat(),
+            "batch_started_at": run_started_at.isoformat(),
+            "next_batch_at": next_batch_at,
             "sources": [source for source, _ in sources],
             "jobs_collected_this_run": len(jobs),
             "new_jobs_this_run": inserted,
@@ -325,9 +343,20 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
     elif mode == "daily":
-        send_daily_summary(db, limit=100)
-        # Send news summary only in daily mode (if news items exist)
-        send_news_summary(all_news_items, db=db)
+        sent_history = prune_telegram_sent_history(load_telegram_sent_history())
+        new_today = focus_records(db.jobs_first_seen_since(24), resume_text)
+        unsent_today = [job for job in new_today if notification_key(job) not in sent_history]
+        unsent_news = [item for item in all_news_items if item.url not in sent_history]
+        if not unsent_today and not unsent_news:
+            zero_update_text = (
+                "<b>🆕 Jobs & News (0 new)</b>\n\n"
+                "이번 배치에 신규 공고와 신규 뉴스가 없습니다."
+            )
+            if send_telegram_text(zero_update_text):
+                logger.info("Sent combined zero-update daily summary.")
+        else:
+            send_daily_summary(db, limit=100)
+            send_news_summary(all_news_items, db=db)
 
     logger.info("Saved outputs to %s", OUTPUT_DIR)
     return payload

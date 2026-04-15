@@ -216,7 +216,14 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
     )
 
     if not unsent_jobs:
-        logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
+        message_text = (
+            "<b>🆕 New Jobs (0 new)</b>\n\n"
+            "이번 배치에 신규 공고가 없습니다."
+        )
+        if send_telegram_text(message_text):
+            logger.info("Sent zero-update Telegram job alert at score >= %s.", min_score)
+        else:
+            logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
         return
 
     country_line = country_line_for_jobs(unsent_jobs)
@@ -431,13 +438,20 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
     - limit: 최대 보낼 기사 수 (기본값 100)
     """
     if not news_items:
+        message_text = "<b>📰 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
+        if send_telegram_text(message_text):
+            logger.info("Sent zero-update Telegram news summary.")
         return
 
     sent_history = prune_telegram_sent_history(load_telegram_sent_history())
     unsent = [item for item in news_items if item.url not in sent_history]
 
     if not unsent:
-        logger.info("All news items already sent. Skipping Telegram news summary.")
+        message_text = "<b>📰 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
+        if send_telegram_text(message_text):
+            logger.info("Sent zero-update Telegram news summary.")
+        else:
+            logger.info("All news items already sent. Skipping Telegram news summary.")
         return
 
     if db is None:
@@ -477,7 +491,11 @@ def send_news_summary(news_items: List[NewsItem], limit: int = 100, db: Database
             topics_with_unsent.append(topic)
 
         if not topics_with_unsent:
-            logger.info("No new articles in any topic. Skipping Telegram news summary.")
+            message_text = "<b>📰 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
+            if send_telegram_text(message_text):
+                logger.info("Sent zero-update Telegram news summary.")
+            else:
+                logger.info("No new articles in any topic. Skipping Telegram news summary.")
             return
 
         # Build context for full version
