@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import time
+import signal
 from datetime import datetime
 from pathlib import Path
 
@@ -63,6 +64,9 @@ def run_once() -> int:
 
 
 def main() -> int:
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
@@ -70,15 +74,22 @@ def main() -> int:
         watch_logger.warning("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID; running without Telegram alerts")
 
     while True:
-        settings = load_watch_settings()
-        interval_seconds = int(settings["scrape_interval_minutes"] * 60)
-        started_at = time.time()
-        code = run_once()
-        watch_logger.info(f"Watcher exit code: {code}")
-        elapsed = time.time() - started_at
-        sleep_seconds = max(0, interval_seconds - elapsed)
-        watch_logger.debug(f"Sleeping {int(sleep_seconds)}s until next run")
-        time.sleep(sleep_seconds)
+        try:
+            settings = load_watch_settings()
+            interval_seconds = int(settings["scrape_interval_minutes"] * 60)
+            started_at = time.time()
+            code = run_once()
+            watch_logger.info(f"Watcher exit code: {code}")
+            elapsed = time.time() - started_at
+            sleep_seconds = max(0, interval_seconds - elapsed)
+            watch_logger.info(f"Sleeping {int(sleep_seconds)}s until next run")
+            time.sleep(sleep_seconds)
+        except KeyboardInterrupt:
+            watch_logger.info("Watcher interrupted; exiting.")
+            return 0
+        except Exception as exc:
+            watch_logger.exception("Watcher loop error: %s", exc)
+            time.sleep(60)
 
 
 if __name__ == "__main__":

@@ -103,9 +103,9 @@ if [[ ! -f "${JOBS_DIR}/jobs_analysis.json" ]] || [[ ! -f "${JOBS_DIR}/job_stats
   exit 1
 fi
 
-# Start watch loop in background (daemon mode)
+# Start watch loop detached from the shell so it survives terminal closure.
 cd "${WORKDIR}"
-python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
+nohup python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
 WATCH_LOOP_PID=$!
 echo "  Watch loop started (PID: $WATCH_LOOP_PID)"
 
