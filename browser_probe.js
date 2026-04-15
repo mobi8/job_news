@@ -216,6 +216,9 @@ async function main() {
         await page.waitForSelector('a.base-card__full-link', { timeout: 25000 }).catch(() => {});
         await page.waitForTimeout(2000);
 
+        // Wait for snippets to fully load before scrolling
+        await page.waitForTimeout(3000);
+
         // Scroll to load more jobs dynamically (handles promoted jobs and infinite scroll)
         let previousHeight = 0;
         let scrolls = 0;
@@ -225,7 +228,7 @@ async function main() {
           if (newHeight === previousHeight) break;
 
           await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-          await page.waitForTimeout(800);
+          await page.waitForTimeout(1500);  // Increased wait for snippet loading
           previousHeight = newHeight;
           scrolls++;
         }

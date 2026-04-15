@@ -461,6 +461,7 @@ COMMERCIAL_ROLE_TERMS = [
     "director",
     "lead",
     "head of",
+    "specialist",
 ]
 
 PRODUCT_ROLE_TERMS = [
@@ -605,6 +606,10 @@ RESUME_SKILL_LEXICON = [
     "postgresql",
     "product",
     "integration",
+    "wallet",
+    "custody",
+    "digital assets",
+    "operations",
 ]
 
 ALLOWED_LANGUAGE_TERMS = [

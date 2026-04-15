@@ -133,7 +133,14 @@
       "Bash(echo \"Watch loop restarted \\(PID: $!\\)\")",
       "Bash(awk '{print $6, $7, $8}')",
       "Read(//tmp/**)",
-      "Bash(pkill -f \"scraper.py collect\")"
+      "Bash(pkill -f \"scraper.py collect\")",
+      "Bash(pkill -f \"uvicorn.*app:app\")",
+      "Bash(nohup python3:*)",
+      "Bash(pkill -9 -f \"python.*uvicorn\")",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --reload --log-level info)",
+      "Bash(pkill -9 -f uvicorn)",
+      "Bash(pkill -9 uvicorn)",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --log-level info)"
     ]
   }
 }

@@ -15,4 +15,4 @@
 - Product development and technical leadership
 
 ## Keywords
-backend engineer architect cloud kubernetes docker golang python rust microservices distributed systems database design devops ci cd product development crypto web3 fintech payments blockchain defi smart contracts solana ethereum
+backend engineer architect cloud kubernetes docker golang python rust microservices distributed systems database design devops ci cd product development crypto web3 fintech payments blockchain defi smart contracts solana ethereum wallet custody digital assets operations
