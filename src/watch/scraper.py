@@ -41,10 +41,7 @@ from utils.config import (
 from utils.db import Database
 from utils.notifications import (
     maybe_send_telegram,
-    send_daily_summary,
     send_incremental_summary,
-    send_news_summary,
-    send_telegram_text,
     source_daily_counts,
     source_total_counts,
 )
@@ -76,11 +73,8 @@ from utils.utils import (
     load_resume_text,
     load_last_scrape_completed_at,
     load_watch_interval_minutes,
-    load_telegram_sent_history,
     matches_reject_feedback,
-    notification_key,
     parse_requested_sources,
-    prune_telegram_sent_history,
     save_scrape_state,
     utc_now,
 )
@@ -342,21 +336,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         maybe_send_telegram(inserted, batch_jobs)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
-    elif mode == "daily":
-        sent_history = prune_telegram_sent_history(load_telegram_sent_history())
-        new_today = focus_records(db.jobs_first_seen_since(24), resume_text)
-        unsent_today = [job for job in new_today if notification_key(job) not in sent_history]
-        unsent_news = [item for item in all_news_items if item.url not in sent_history]
-        if not unsent_today and not unsent_news:
-            zero_update_text = (
-                "<b>🆕 Jobs & News (0 new)</b>\n\n"
-                "이번 배치에 신규 공고와 신규 뉴스가 없습니다."
-            )
-            if send_telegram_text(zero_update_text):
-                logger.info("Sent combined zero-update daily summary.")
-        else:
-            send_daily_summary(db, limit=100)
-            send_news_summary(all_news_items, db=db)
 
     logger.info("Saved outputs to %s", OUTPUT_DIR)
     return payload
