@@ -59,6 +59,9 @@ kill_matching_processes() {
   while IFS= read -r pid; do
     [[ -n "$pid" ]] && pids+=("$pid")
   done < <(pgrep -f "$pattern" 2>/dev/null || true)
+  if [[ ${#pids[@]} -eq 0 ]]; then
+    return 0
+  fi
   terminate_pids "$label" "${pids[@]}"
 }
 
