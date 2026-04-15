@@ -92,8 +92,14 @@ async function evaluateIndeedPage(page) {
 async function evaluateLinkedInPage(page) {
   return page.evaluate(() => {
     const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
-    const jobAnchors = Array.from(document.querySelectorAll('a.base-card__full-link'));
+    // Include both regular and promoted job cards
+    const jobAnchors = Array.from(document.querySelectorAll(
+      'a.base-card__full-link, ' +           // Regular job cards
+      'a[data-job-id], ' +                    // Alternative job selector
+      'a.job-card-title'                      // Promoted/featured job selector
+    ));
     const jobs = [];
+    const seenUrls = new Set();  // Deduplicate by URL
 
     for (const anchor of jobAnchors) {
       const card = anchor.closest('li') || anchor.closest('.base-card') || anchor.parentElement;
@@ -126,9 +132,10 @@ async function evaluateLinkedInPage(page) {
           .join(' ')
       );
 
-      if (!title || !url) {
+      if (!title || !url || seenUrls.has(url)) {
         continue;
       }
+      seenUrls.add(url);
 
       jobs.push({
         source: 'linkedin_public',
@@ -208,6 +215,21 @@ async function main() {
         await page.waitForLoadState('domcontentloaded').catch(() => {});
         await page.waitForSelector('a.base-card__full-link', { timeout: 25000 }).catch(() => {});
         await page.waitForTimeout(2000);
+
+        // Scroll to load more jobs dynamically (handles promoted jobs and infinite scroll)
+        let previousHeight = 0;
+        let scrolls = 0;
+        const maxScrolls = 8;
+        while (scrolls < maxScrolls) {
+          const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+          if (newHeight === previousHeight) break;
+
+          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+          await page.waitForTimeout(800);
+          previousHeight = newHeight;
+          scrolls++;
+        }
+
         results.push(await evaluateLinkedInPage(page));
         continue;
       }

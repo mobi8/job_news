@@ -129,7 +129,11 @@
       "Bash(awk '{print $2, $9, $10}')",
       "Bash(PYTHONPATH=/Users/lewis/Desktop/agent/src timeout 600 python3 /Users/lewis/Desktop/agent/src/watch/scraper.py daily)",
       "Bash(tee /tmp/batch_timefilter.log)",
-      "Bash(ps -p 93561 -o pid,etime,cmd)"
+      "Bash(ps -p 93561 -o pid,etime,cmd)",
+      "Bash(echo \"Watch loop restarted \\(PID: $!\\)\")",
+      "Bash(awk '{print $6, $7, $8}')",
+      "Read(//tmp/**)",
+      "Bash(pkill -f \"scraper.py collect\")"
     ]
   }
 }
