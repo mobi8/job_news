@@ -91,15 +91,7 @@ RECRUITER_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=Robert%20Walters%20crypto%20OR%20web3%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=Michael%20Page%20crypto%20OR%20payments%20OR%20product&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=Hays%20crypto%20OR%20fintech%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Salt%20web3%20OR%20crypto%20OR%20product&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Discovered%20MENA%20crypto%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Stanley%20James%20crypto%20OR%20payments%20OR%20product&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Cander%20Group%20crypto%20OR%20blockchain&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Mint%20Selection%20crypto%20OR%20digital%20assets&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Ateca%20Consulting%20payments%20OR%20fintech&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=AP%20Executive%20fintech%20OR%20crypto&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=Crypto%20Recruit%20web3%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Blockchain%20Talent%20web3%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
 ]
 
 

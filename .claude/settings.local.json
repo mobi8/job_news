@@ -143,7 +143,8 @@
       "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --log-level info)",
       "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --log-level error)",
       "Bash(pkill -9 -f \"python.*uvicorn|python.*app.py\")",
-      "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000)"
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000)",
+      "Bash(tail -100 logs/*.log)"
     ]
   }
 }

@@ -517,7 +517,7 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
             capture_output=True,
             text=True,
             check=True,
-            timeout=300,
+            timeout=600,
         )
     except (subprocess.SubprocessError, FileNotFoundError) as exc:
         logger.warning("Indeed browser scraping failed: %s", exc)
@@ -590,7 +590,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             capture_output=True,
             text=True,
             check=True,
-            timeout=300,
+            timeout=600,
         )
     except (subprocess.SubprocessError, FileNotFoundError) as exc:
         logger.warning("LinkedIn browser scraping failed: %s", exc)

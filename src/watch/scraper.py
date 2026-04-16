@@ -108,7 +108,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     batch_time_str = load_last_scrape_completed_at() or utc_now().isoformat()
     batch_time = datetime.fromisoformat(batch_time_str)
     cutoff_time = batch_time - timedelta(hours=browser_lookback_hours)
-    cutoff_time_str = cutoff_time.isoformat()
+    cutoff_time_iso = cutoff_time.isoformat()
 
     # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
     if reject_feedback:
@@ -168,7 +168,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         logger.info("Fetching Indeed UAE via browser session...")
         indeed_jobs = fetch_indeed_jobs_via_browser()
         # Apply browser lookback filtering (collected_at >= cutoff_time)
-        indeed_jobs = [j for j in indeed_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
+        cutoff_time_iso = cutoff_time.isoformat()
+        indeed_jobs = [j for j in indeed_jobs if j.collected_at and j.collected_at >= cutoff_time_iso]
         logger.info("Collected %s jobs from Indeed UAE.", len(indeed_jobs))
         sources.append(("Indeed UAE browser searches", indeed_jobs))
 
@@ -176,7 +177,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         logger.info("Fetching LinkedIn public jobs via browser session...")
         linkedin_jobs = fetch_linkedin_jobs_via_browser()
         # Apply browser lookback filtering (collected_at >= cutoff_time)
-        linkedin_jobs = [j for j in linkedin_jobs if j.collected_at and j.collected_at >= cutoff_time_str]
+        linkedin_jobs = [j for j in linkedin_jobs if j.collected_at and j.collected_at >= cutoff_time_iso]
         logger.info("Collected %s jobs from LinkedIn.", len(linkedin_jobs))
         sources.append(("LinkedIn public browser searches", linkedin_jobs))
 
