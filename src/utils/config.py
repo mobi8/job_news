@@ -157,30 +157,11 @@ PLAYER_RSS_FEEDS = [
         "category": "iGaming",
         "source": "rss_player_pragmatic",
     },
-    {
-        "url": "https://www.playtechcareers.com/news/feed/",
-        "player": "Playtech",
-        "category": "iGaming",
-        "source": "rss_player_playtech",
-    },
-    {
-        "url": "https://stake.com/en/news/feed/",
-        "player": "Stake",
-        "category": "Crypto Casino",
-        "source": "rss_player_stake",
-    },
-    {
-        "url": "https://ir.draftkings.com/news-releases/rss/",
-        "player": "DraftKings",
-        "category": "iGaming",
-        "source": "rss_player_draftkings",
-    },
-    {
-        "url": "https://ir.wynn.com/investor-relations/news-releases/rss/",
-        "player": "Wynn",
-        "category": "Gaming Resort",
-        "source": "rss_player_wynn",
-    },
+    # Removed feeds that consistently fail (DNS/SSL errors):
+    # - playtechcareers.com (DNS timeout)
+    # - stake.com (SSL timeout)
+    # - ir.draftkings.com (DNS timeout)
+    # - ir.wynn.com (DNS timeout)
 ]
 
 # iGaming & Crypto Casino Players
