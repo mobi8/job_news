@@ -730,6 +730,10 @@
           <div id="scrape-last-at">불러오는 중</div>
           <div id="scrape-last-ago">-</div>
         </div>
+        <div class="runtime-last-meta" style="margin-top:8px;">
+          <strong>이번 배치 신규</strong>
+          <div><span id="new-jobs-this-batch">-</span> 공고 · <span id="new-news-this-batch">-</span> 뉴스</div>
+        </div>
         <p id="runtime-status" class="meta" style="margin-top:10px;">현재 설정을 불러오는 중입니다.</p>
       </section>
       <section class="trend-card">
@@ -22180,15 +22184,21 @@
 
     const loadRuntimeState = async () => {
       try {
-        const [settingsRes, stateRes] = await Promise.all([
+        const [settingsRes, stateRes, statsRes] = await Promise.all([
           fetch("/watch-settings"),
           fetch("/scrape-state"),
+          fetch("/api/stats"),
         ]);
         const settings = await settingsRes.json();
         const state = await stateRes.json();
+        const stats = await statsRes.json();
         document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || 1440;
         document.getElementById("scrape-last-at").textContent = state.last_scraped_at ? new Date(state.last_scraped_at).toLocaleString() : "아직 기록 없음";
         document.getElementById("scrape-last-ago").textContent = state.last_scraped_at ? `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'collect'}` : "-";
+        const newJobs = stats.collection_metadata?.new_jobs_this_run || 0;
+        const newNews = stats.collection_metadata?.new_news_this_run || 0;
+        document.getElementById("new-jobs-this-batch").textContent = String(newJobs);
+        document.getElementById("new-news-this-batch").textContent = String(newNews);
         document.getElementById("runtime-status").textContent = "지금 실행은 수동 1회 스크랩이고, 완료되면 텔레그램 알림도 같이 보냅니다. 자동 실행은 저장한 분 간격마다 1번씩 돌아갑니다.";
       } catch (error) {
         document.getElementById("runtime-status").textContent = "실행 상태를 불러오지 못했습니다.";

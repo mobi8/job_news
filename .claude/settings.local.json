@@ -144,7 +144,11 @@
       "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --log-level error)",
       "Bash(pkill -9 -f \"python.*uvicorn|python.*app.py\")",
       "Bash(/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000)",
-      "Bash(tail -100 logs/*.log)"
+      "Bash(tail -100 logs/*.log)",
+      "Bash(jq '.collection_metadata += {\"news_collected_this_run\": 288, \"new_news_this_run\": 7}' /Users/lewis/Desktop/agent/outputs/job_stats_data.json)",
+      "Bash(mv /tmp/updated.json /Users/lewis/Desktop/agent/outputs/job_stats_data.json)",
+      "Bash(jq '.collection_metadata += {\"news_collected_this_run\": 288, \"new_news_this_run\": 7}' /Users/lewis/Desktop/agent/outputs/jobs_analysis.json)",
+      "Bash(mv /tmp/jobs.json /Users/lewis/Desktop/agent/outputs/jobs_analysis.json)"
     ]
   }
 }

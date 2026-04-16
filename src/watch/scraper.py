@@ -235,6 +235,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             if job.get("first_seen_at")
             and datetime.fromisoformat(job["first_seen_at"]) >= utc_now() - timedelta(days=30)
         ]),
+        "new_jobs_this_batch": inserted,
+        "new_news_this_batch": news_inserted,
         "top_locations": [],
     }
     by_location: Dict[str, int] = {}
@@ -265,6 +267,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             "jobs_collected_this_run": len(jobs),
             "new_jobs_this_run": inserted,
             "new_jobs_this_run_details": [job.to_dict() for job in inserted_jobs],
+            "news_collected_this_run": len(all_news_items),
+            "new_news_this_run": news_inserted,
             "resume_loaded": bool(resume_text),
         },
         "statistics": stats,

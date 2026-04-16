@@ -239,6 +239,7 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
   const collectedAt = jobsQuery?.data?.collection_metadata?.collected_at || jobsQuery?.data?.updated_at;
   const nextBatchAt = jobsQuery?.data?.collection_metadata?.next_batch_at;
   const batchNewCount = jobsQuery?.data?.collection_metadata?.new_jobs_this_run;
+  const batchNewNews = jobsQuery?.data?.collection_metadata?.new_news_this_run;
   const formattedScrapTime = collectedAt
     ? new Date(collectedAt).toLocaleString("ko-KR", {
       month: "2-digit",
@@ -268,7 +269,7 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
         </div>
         <div className="metadata-item">
           <span className="metadata-label">이번 배치 신규:</span>
-          <span className="metadata-value">{batchNewCount ?? "—"}</span>
+          <span className="metadata-value">{batchNewCount ?? "—"} 공고 · {batchNewNews ?? "—"} 뉴스</span>
         </div>
         <div className="metadata-item">
           <span className="metadata-label">다음 배치:</span>
