@@ -17,8 +17,10 @@ from urllib.error import URLError
 import pytest
 
 from utils.models import JobPosting
+from utils.models import NewsItem
 from utils.notifications import (
     maybe_send_telegram,
+    send_news_summary,
     send_telegram_text,
     source_daily_counts,
     source_total_counts,
@@ -370,6 +372,37 @@ class TestMaybeSendTelegram:
             # Message should contain job information
             assert isinstance(message, str)
             assert len(message) > 0
+
+
+class TestSendNewsSummary:
+    """Tests for send_news_summary function"""
+
+    @patch("utils.notifications.send_telegram_text")
+    @patch("utils.notifications.load_telegram_sent_history", return_value={})
+    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
+    def test_send_news_summary_simple(self, mock_prune, mock_load, mock_send):
+        """Test sending a simple news summary without db topics"""
+        item = NewsItem(
+            source="rss_finextra_headlines",
+            title="Fintech updates",
+            url="https://example.com/news/1",
+            published_at="2026-04-16T00:00:00+00:00",
+        )
+        send_news_summary([item], db=None)
+        assert mock_send.called
+        message = mock_send.call_args[0][0]
+        assert "Industry News (1 articles)" in message
+        assert "Fintech updates" in message
+
+    @patch("utils.notifications.send_telegram_text")
+    @patch("utils.notifications.load_telegram_sent_history", return_value={})
+    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
+    def test_send_news_summary_zero_update(self, mock_prune, mock_load, mock_send):
+        """Test zero-update news summary"""
+        send_news_summary([], db=None)
+        mock_send.assert_called_once()
+        message = mock_send.call_args[0][0]
+        assert "0 new" in message
 
 
 class TestTemplateRenderer:

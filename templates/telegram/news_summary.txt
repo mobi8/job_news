@@ -1,0 +1,12 @@
+<b>📈 Industry News Summary ({{ total_articles }} articles)</b>
+
+{% for topic in topics -%}
+<b>{{ topic.label_ko }} ({{ topic.article_count }} articles)</b>
+{% for article in topic.articles -%}
+  {{ loop.index }}. <a href="{{ article.url }}">{{ article.title }}</a>
+{% endfor %}
+
+{% endfor -%}
+{% if showing_partial -%}
+<i>Showing {{ shown_count }} of {{ total_articles }} total articles</i>
+{% endif %}

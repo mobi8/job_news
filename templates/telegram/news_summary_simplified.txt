@@ -1,0 +1,13 @@
+<b>📈 Industry News ({{ total_articles }} articles)</b>
+
+<b>Topics:</b>
+{% for topic in topics -%}
+• {{ topic.label_ko }}: {{ topic.article_count }} articles
+{% endfor %}
+
+<b>Top Articles:</b>
+{% for topic in topics -%}
+{% for article in topic.articles -%}
+• <a href="{{ article.url }}">{{ article.title }}</a>
+{% endfor %}
+{% endfor %}

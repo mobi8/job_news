@@ -42,6 +42,7 @@ from utils.db import Database
 from utils.notifications import (
     maybe_send_telegram,
     send_incremental_summary,
+    send_news_summary,
     source_daily_counts,
     source_total_counts,
 )
@@ -334,6 +335,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     if mode == "collect":
         batch_jobs = focus_records([job.to_dict() for job in inserted_jobs], resume_text)
         maybe_send_telegram(inserted, batch_jobs)
+        send_news_summary(all_news_items, db=db)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 

@@ -359,6 +359,107 @@ def send_incremental_summary(
     save_telegram_sent_history(prune_telegram_sent_history(sent_history))
 
 
+def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | None = None) -> None:
+    def news_url(item: Any) -> str:
+        return _job_attr(item, "url")
+
+    def news_title(item: Any) -> str:
+        return _job_attr(item, "title")
+
+    sent_history = prune_telegram_sent_history(load_telegram_sent_history())
+    unsent_items = [item for item in news_items if news_url(item) and news_url(item) not in sent_history]
+
+    if not unsent_items:
+        message_text = "<b>📈 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
+        if send_telegram_text(message_text):
+            logger.info("Sent zero-update Telegram news summary.")
+        else:
+            logger.info("No new articles to send via Telegram.")
+        return
+
+    if db is None:
+        lines = [f"<b>📈 Industry News ({len(unsent_items)} articles)</b>", ""]
+        for item in unsent_items[:limit]:
+            title = html.escape(news_title(item)[:80])
+            url = html.escape(news_url(item), quote=True)
+            lines.append(f"• <a href=\"{url}\">{title}</a>")
+
+        message_text = "\n".join(lines)
+        if len(message_text) > 4000:
+            logger.warning("Telegram news summary too long (%d chars), truncating.", len(message_text))
+            lines = lines[:15]
+            lines.append(f"\n... and {len(unsent_items) - 15} more articles")
+            message_text = "\n".join(lines)
+
+        logger.debug("Rendered simple news_summary: %s", message_text)
+        if not send_telegram_text(message_text):
+            return
+    else:
+        topics = db.compute_news_topics(168)
+        if not topics:
+            logger.info("No topics found from news items.")
+            return
+
+        unsent_urls = {news_url(item) for item in unsent_items}
+        topics_with_unsent = []
+        for topic in topics:
+            topic_unsent = [article for article in topic["articles"] if article["url"] in unsent_urls]
+            if not topic_unsent:
+                continue
+            topic["articles"] = topic_unsent[:15]
+            topic["article_count"] = len(topic_unsent)
+            topics_with_unsent.append(topic)
+
+        if not topics_with_unsent:
+            message_text = "<b>📈 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
+            if send_telegram_text(message_text):
+                logger.info("Sent zero-update Telegram news summary.")
+            else:
+                logger.info("No new articles in any topic. Skipping Telegram news summary.")
+            return
+
+        max_topics = min(len(topics_with_unsent), 5)
+        total_sent_count = sum(min(len(t["articles"]), 10) for t in topics_with_unsent[:max_topics])
+
+        context_full = {
+            "total_articles": len(unsent_items),
+            "topics": [
+                {
+                    "label_ko": html.escape(topic["label_ko"]),
+                    "article_count": topic["article_count"],
+                    "articles": [
+                        {
+                            "title": html.escape(article["title"][:70]),
+                            "url": html.escape(article["url"], quote=True),
+                        }
+                        for article in topic["articles"][:10]
+                    ],
+                }
+                for topic in topics_with_unsent[:max_topics]
+            ],
+            "showing_partial": len(unsent_items) > total_sent_count,
+            "shown_count": total_sent_count,
+        }
+
+        message_text = render_template("telegram/news_summary.txt", context_full)
+        logger.debug("Rendered news_summary: %s", message_text)
+        if len(message_text) <= 4000:
+            if not send_telegram_text(message_text):
+                return
+        else:
+            logger.warning(
+                "News summary (%d chars) exceeds Telegram limit; chunking into shorter messages.",
+                len(message_text),
+            )
+            if not send_telegram_messages_chunked(message_text.splitlines()):
+                return
+
+    sent_at = utc_now().isoformat()
+    for item in unsent_items:
+        sent_history[news_url(item)] = sent_at
+    save_telegram_sent_history(prune_telegram_sent_history(sent_history))
+
+
 def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> bool:
     """
     텔레그램 메시지를 청크로 나누어 전송합니다.
