@@ -546,12 +546,23 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
 
             seen_urls.add(url)
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
-            # URL에 따라 소스 구분
+
+            # Location 필드를 확인해서 country 결정
+            location_str = clean_text(item.get("location", "")).lower()
             source_name = "indeed_uae"
             country = "UAE"
-            if "ge.indeed.com" in search_url or "georgia" in search_url.lower():
-                source_name = "indeed_georgia"
+
+            # Location 기반 국가 판단 (우선순위 높음)
+            if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
+                country = "Malta"
+                source_name = "indeed_malta"
+            elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str:
                 country = "Georgia"
+                source_name = "indeed_georgia"
+            # URL 기반 판단 (location이 없을 때 폴백)
+            elif "ge.indeed.com" in search_url:
+                country = "Georgia"
+                source_name = "indeed_georgia"
 
             jobs.append(
                 JobPosting(
@@ -620,16 +631,27 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
 
             seen_urls.add(url)
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
-            # URL에 따라 소스 구분
+
+            # Location 필드를 확인해서 country 결정
+            location_str = clean_text(item.get("location", "")).lower()
             source_name = "linkedin_public"
             country = "UAE"
             search_lower = search_url.lower()
-            if "malta" in search_lower or "valletta" in search_lower:
-                source_name = "linkedin_malta"
+
+            # Location 기반 국가 판단 (우선순위 높음)
+            if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
-            elif "georgia" in search_lower or "tbilisi" in search_lower:
-                source_name = "linkedin_georgia"
+                source_name = "linkedin_malta"
+            elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str or "batumi" in location_str or "바투미" in location_str:
                 country = "Georgia"
+                source_name = "linkedin_georgia"
+            # URL 기반 판단 (location이 없을 때 폴백)
+            elif "malta" in search_lower or "valletta" in search_lower:
+                country = "Malta"
+                source_name = "linkedin_malta"
+            elif "georgia" in search_lower or "tbilisi" in search_lower:
+                country = "Georgia"
+                source_name = "linkedin_georgia"
 
             jobs.append(
                 JobPosting(
