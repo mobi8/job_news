@@ -148,7 +148,11 @@
       "Bash(jq '.collection_metadata += {\"news_collected_this_run\": 288, \"new_news_this_run\": 7}' /Users/lewis/Desktop/agent/outputs/job_stats_data.json)",
       "Bash(mv /tmp/updated.json /Users/lewis/Desktop/agent/outputs/job_stats_data.json)",
       "Bash(jq '.collection_metadata += {\"news_collected_this_run\": 288, \"new_news_this_run\": 7}' /Users/lewis/Desktop/agent/outputs/jobs_analysis.json)",
-      "Bash(mv /tmp/jobs.json /Users/lewis/Desktop/agent/outputs/jobs_analysis.json)"
+      "Bash(mv /tmp/jobs.json /Users/lewis/Desktop/agent/outputs/jobs_analysis.json)",
+      "Bash(python src/api/telegram_poller.py)",
+      "Bash(echo \"✅ Poller started \\(PID: $!\\)\")",
+      "Bash(pkill -f telegram_poller)",
+      "Bash(python3 /Users/lewis/Desktop/agent/src/api/telegram_poller.py)"
     ]
   }
 }

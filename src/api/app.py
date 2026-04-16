@@ -326,3 +326,58 @@ def health_check() -> JSONResponse:
     if not JOBS_DATA_PATH.exists() or not STATS_DATA_PATH.exists():
         return JSONResponse(status_code=503, content={"status": "missing data files"})
     return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle incoming Telegram messages"""
+    try:
+        import os
+        from datetime import datetime, timedelta
+
+        if "message" not in data:
+            return {"ok": True}
+
+        msg = data["message"]
+        text = msg.get("text", "").strip()
+        chat_id = msg.get("chat", {}).get("id")
+
+        if not text or not chat_id:
+            return {"ok": True}
+
+        # Parse days from message ("최근 3일", "3일" 등)
+        days = 7  # default
+        if "3일" in text or "3day" in text:
+            days = 3
+        elif "7일" in text or "7day" in text:
+            days = 7
+        elif "1일" in text or "1day" in text or "오늘" in text:
+            days = 1
+
+        # Get jobs from last N days
+        jobs_data = load_jobs_data()
+        all_jobs = jobs_data.get("all_tracked_jobs", [])
+        cutoff = datetime.now(datetime.timezone.utc) - timedelta(days=days)
+
+        recent = [
+            j for j in all_jobs
+            if j.get("first_seen_at")
+            and datetime.fromisoformat(j["first_seen_at"].replace("Z", "+00:00")) >= cutoff
+            and j.get("qualifies")
+        ]
+
+        # Format result
+        from utils.notifications import send_telegram_text
+        if recent:
+            msg = f"🔍 최근 {days}일 신규 공고 ({len(recent)}개)\n\n"
+            for job in recent[:10]:  # top 10
+                msg += f"• {job.get('title', '?')} - {job.get('company', '?')} ({job.get('match_score', 0)}점)\n"
+            if len(recent) > 10:
+                msg += f"\n... 외 {len(recent)-10}개"
+            send_telegram_text(msg)
+        else:
+            send_telegram_text(f"최근 {days}일 신규 공고가 없습니다.")
+
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

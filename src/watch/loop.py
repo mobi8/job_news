@@ -63,6 +63,22 @@ def run_once() -> int:
 
 
 
+def start_telegram_poller():
+    """Start Telegram message poller in background"""
+    try:
+        poller_path = str(Path(__file__).parent.parent / "api" / "telegram_poller.py")
+        if Path(poller_path).exists():
+            subprocess.Popen(
+                [sys.executable, poller_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            watch_logger.info("Started Telegram poller")
+    except Exception as e:
+        watch_logger.warning(f"Failed to start Telegram poller: {e}")
+
+
 def main() -> int:
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
@@ -72,6 +88,8 @@ def main() -> int:
 
     if not token or not chat_id:
         watch_logger.warning("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID; running without Telegram alerts")
+    else:
+        start_telegram_poller()
 
     while True:
         try:
