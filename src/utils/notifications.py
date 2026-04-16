@@ -225,12 +225,24 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
     )
 
     if not unsent_jobs:
-        message_text = (
-            "<b>🆕 New Jobs (0 new)</b>\n\n"
-            "이번 배치에 신규 공고가 없습니다."
-        )
+        if inserted > 0 or jobs:
+            message_text = (
+                "<b>🆕 New Jobs (0 new)</b>\n\n"
+                f"이번 배치에 신규 공고는 {max(inserted, len(jobs))}건 있었지만 "
+                f"알림 조건(min_score={min_score})을 넘은 항목이 없습니다."
+            )
+        else:
+            message_text = (
+                "<b>🆕 New Jobs (0 new)</b>\n\n"
+                "이번 배치에 신규 공고가 없습니다."
+            )
         if send_telegram_text(message_text):
-            logger.info("Sent zero-update Telegram job alert at score >= %s.", min_score)
+            logger.info(
+                "Sent zero-update Telegram job alert (inserted=%s, qualifying=%s, min_score=%s).",
+                inserted,
+                len(unsent_jobs),
+                min_score,
+            )
         else:
             logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
         return

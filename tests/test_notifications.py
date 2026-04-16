@@ -254,6 +254,26 @@ class TestMaybeSendTelegram:
     @patch("utils.notifications.send_telegram_text")
     @patch("utils.notifications.load_telegram_sent_history", return_value={})
     @patch("utils.notifications.prune_telegram_sent_history")
+    def test_maybe_send_telegram_below_threshold(self, mock_prune, mock_load, mock_send):
+        """Test when jobs were inserted but none meet the score threshold"""
+        job = JobPosting(
+            source="indeed_uae",
+            source_job_id="123",
+            title="Office Assistant",
+            company="TechCorp",
+            location="Dubai",
+            url="https://indeed.com/123",
+            match_score=10,
+        )
+        maybe_send_telegram(1, [job])
+        assert mock_send.called
+        message = mock_send.call_args[0][0]
+        assert "알림 조건" in message
+        assert "0 new" in message
+
+    @patch("utils.notifications.send_telegram_text")
+    @patch("utils.notifications.load_telegram_sent_history", return_value={})
+    @patch("utils.notifications.prune_telegram_sent_history")
     def test_maybe_send_telegram_negative_inserted(self, mock_prune, mock_load, mock_send):
         """Test with negative inserted count"""
         jobs = []
@@ -374,7 +394,7 @@ class TestTemplateRenderer:
         assert "New job matches: 5" in result
         assert "Corp1 | Developer" in result
         assert "https://example.com/1" in result
-        assert "UAE:" in result
+        assert "UAE 공고:" in result
 
     def test_render_incremental_summary_template(self):
         """Test rendering incremental summary template"""
