@@ -314,6 +314,13 @@ def auto_category_for_record(record: Dict[str, Any]) -> str:
 
 
     # ---------------------------------------------------------
+    # Recruiter / Agency
+    # ---------------------------------------------------------
+    if any(term in text_blob for term in RECRUITER_COMPANIES):
+        return "recruiter"
+
+
+    # ---------------------------------------------------------
     # Default
     # ---------------------------------------------------------
     return ""

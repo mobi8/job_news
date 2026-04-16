@@ -80,6 +80,7 @@ from utils.scrapers import (
     telegram_job_relevant,
 )
 from utils.utils import (
+    dedupe_job_postings,
     load_reject_feedback,
     load_resume_text,
     load_last_scrape_completed_at,
@@ -203,6 +204,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             or telegram_job_relevant(job, resume_text)
         )
     ]
+    jobs = dedupe_job_postings(jobs)
 
     for job in jobs:
         job.match_score = calculate_match_score(job, resume_text)
@@ -213,7 +215,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     news_items = fetch_all_rss_news()
     player_news_items = fetch_all_player_rss_news()
     all_news_items = news_items + player_news_items
-    news_inserted = db.upsert_news(all_news_items)
+    news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
     logger.info("Collected %d news items (%d industry + %d player), %d new.",
                 len(all_news_items), len(news_items), len(player_news_items), news_inserted)
 
@@ -344,9 +346,9 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         )
 
     if mode == "collect":
-        batch_jobs = focus_records([job.to_dict() for job in inserted_jobs], resume_text)
+        batch_jobs = [job.to_dict() for job in inserted_jobs]
         maybe_send_telegram(inserted, batch_jobs)
-        send_news_summary(all_news_items, db=db)
+        send_news_summary(inserted_news_items, db=db)
     elif mode == "incremental":
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 

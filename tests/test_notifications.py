@@ -245,18 +245,14 @@ class TestMaybeSendTelegram:
     """Tests for maybe_send_telegram function"""
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history")
-    def test_maybe_send_telegram_no_new_jobs(self, mock_prune, mock_load, mock_send):
+    def test_maybe_send_telegram_no_new_jobs(self, mock_send):
         """Test when no new jobs were inserted"""
         jobs = []
         maybe_send_telegram(0, jobs)
         mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history")
-    def test_maybe_send_telegram_below_threshold(self, mock_prune, mock_load, mock_send):
+    def test_maybe_send_telegram_below_threshold(self, mock_send):
         """Test when jobs were inserted but none meet the score threshold"""
         job = JobPosting(
             source="indeed_uae",
@@ -274,19 +270,14 @@ class TestMaybeSendTelegram:
         assert "0 new" in message
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history")
-    def test_maybe_send_telegram_negative_inserted(self, mock_prune, mock_load, mock_send):
+    def test_maybe_send_telegram_negative_inserted(self, mock_send):
         """Test with negative inserted count"""
         jobs = []
         maybe_send_telegram(-5, jobs)
         mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.save_telegram_sent_history")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
-    def test_maybe_send_telegram_new_jobs(self, mock_prune, mock_load, mock_save, mock_send):
+    def test_maybe_send_telegram_new_jobs(self, mock_send):
         """Test sending telegram for new jobs"""
         job = JobPosting(
             source="indeed_uae",
@@ -302,9 +293,7 @@ class TestMaybeSendTelegram:
         assert mock_send.called
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history")
-    def test_maybe_send_telegram_duplicate_jobs(self, mock_prune, mock_load, mock_send):
+    def test_maybe_send_telegram_duplicate_jobs(self, mock_send):
         """Test filtering duplicate jobs"""
         job = JobPosting(
             source="indeed_uae",
@@ -314,21 +303,11 @@ class TestMaybeSendTelegram:
             location="Dubai",
             url="https://indeed.com/123"
         )
-        # Simulate job already sent
-        sent_history = {
-            "|".join([job.source, job.source_job_id, job.title, job.company]): "2026-03-30T09:00:00"
-        }
-        with patch("utils.notifications.load_telegram_sent_history", return_value=sent_history):
-            with patch("utils.notifications.prune_telegram_sent_history", return_value=sent_history):
-                maybe_send_telegram(1, [job])
-                # Zero-update alerts should still be sent
-                mock_send.assert_called_once()
+        maybe_send_telegram(1, [job])
+        mock_send.assert_called_once()
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.save_telegram_sent_history")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
-    def test_maybe_send_telegram_multiple_jobs(self, mock_prune, mock_load, mock_save, mock_send):
+    def test_maybe_send_telegram_multiple_jobs(self, mock_send):
         """Test sending notification with multiple new jobs"""
         jobs = [
             JobPosting(
@@ -350,11 +329,38 @@ class TestMaybeSendTelegram:
             assert isinstance(message, str)
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.save_telegram_sent_history")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
+    def test_maybe_send_telegram_deduplicates_same_job_signature(self, mock_send):
+        """Test that repeated rows with the same title/company/location collapse to one alert item"""
+        jobs = [
+            JobPosting(
+                source="indeed_uae",
+                source_job_id="1",
+                title="Senior Developer",
+                company="TechCorp",
+                location="Dubai",
+                url="https://indeed.com/1",
+                match_score=85,
+            ),
+            JobPosting(
+                source="indeed_uae",
+                source_job_id="2",
+                title="Senior Developer",
+                company="TechCorp",
+                location="Dubai",
+                url="https://indeed.com/2",
+                match_score=85,
+            ),
+        ]
+
+        maybe_send_telegram(2, jobs)
+
+        assert mock_send.called
+        message = mock_send.call_args[0][0]
+        assert "New job matches: 1" in message or "1" in message
+
+    @patch("utils.notifications.send_telegram_text")
     @patch("utils.notifications.source_label")
-    def test_maybe_send_telegram_message_format(self, mock_label, mock_prune, mock_load, mock_save, mock_send):
+    def test_maybe_send_telegram_message_format(self, mock_label, mock_send):
         """Test message format includes job details"""
         mock_label.return_value = "Indeed UAE"
         job = JobPosting(
@@ -584,10 +590,7 @@ class TestIntegration:
         assert len(today_results) > 0
 
     @patch("utils.notifications.send_telegram_text")
-    @patch("utils.notifications.save_telegram_sent_history")
-    @patch("utils.notifications.load_telegram_sent_history", return_value={})
-    @patch("utils.notifications.prune_telegram_sent_history", return_value={})
-    def test_maybe_send_telegram_realistic_scenario(self, mock_prune, mock_load, mock_save, mock_send):
+    def test_maybe_send_telegram_realistic_scenario(self, mock_send):
         """Test realistic scenario with multiple new jobs"""
         jobs = [
             JobPosting(

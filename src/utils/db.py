@@ -130,9 +130,10 @@ class Database:
             return inserted, inserted_jobs
         return inserted
 
-    def upsert_news(self, items: List[NewsItem]) -> int:
+    def upsert_news(self, items: List[NewsItem], return_items: bool = False) -> int | tuple[int, List[NewsItem]]:
         now = utc_now().isoformat()
         inserted = 0
+        inserted_items: List[NewsItem] = []
 
         for item in items:
             row = self.conn.execute(
@@ -143,6 +144,7 @@ class Database:
             first_seen_at = row["first_seen_at"] if row else now
             if row is None:
                 inserted += 1
+                inserted_items.append(item)
 
             self.conn.execute(
                 """
@@ -170,6 +172,8 @@ class Database:
             )
 
         self.conn.commit()
+        if return_items:
+            return inserted, inserted_items
         return inserted
 
     def fetch_recent_news(self, hours: int = 48) -> List[Dict[str, Any]]:

@@ -77,6 +77,22 @@ def normalize_phrase(value: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
 
 
+def _record_display_signature(record: Any) -> tuple[str, str, str]:
+    if isinstance(record, dict):
+        title = str(record.get("title", "") or "")
+        company = str(record.get("company", "") or "")
+        location = str(record.get("location", "") or "")
+    else:
+        title = str(getattr(record, "title", "") or "")
+        company = str(getattr(record, "company", "") or "")
+        location = str(getattr(record, "location", "") or "")
+    return (
+        normalize_phrase(title),
+        normalize_phrase(company),
+        normalize_phrase(location),
+    )
+
+
 def load_reject_feedback() -> List[Dict[str, Any]]:
     if not REJECT_FEEDBACK_PATH.exists():
         return []
@@ -452,10 +468,19 @@ def dedupe_records_for_display(records: List[Dict[str, Any]]) -> List[Dict[str, 
     deduped: List[Dict[str, Any]] = []
     seen = set()
     for record in records:
-        title_key = normalize_phrase(str(record.get("title", "")))
-        company_key = normalize_phrase(str(record.get("company", "")))
-        location_key = normalize_phrase(str(record.get("location", "")))
-        key = (title_key, company_key, location_key)
+        key = _record_display_signature(record)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(record)
+    return deduped
+
+
+def dedupe_job_postings(records: List[Any]) -> List[Any]:
+    deduped: List[Any] = []
+    seen = set()
+    for record in records:
+        key = _record_display_signature(record)
         if key in seen:
             continue
         seen.add(key)

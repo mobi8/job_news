@@ -15,6 +15,7 @@ from .db import Database
 from .models import JobPosting
 from .scoring import focus_records, source_label
 from .utils import (
+    dedupe_records_for_display,
     load_resume_text,
     load_telegram_sent_history,
     notification_key,
@@ -110,6 +111,27 @@ def build_job_template_items(jobs: List[Any], limit: int | None = None) -> List[
     return items
 
 
+def _coerce_job_record(job: Any) -> Dict[str, Any]:
+    if isinstance(job, dict):
+        return dict(job)
+    if isinstance(job, JobPosting):
+        return job.to_dict()
+    return {
+        "source": _job_attr(job, "source"),
+        "source_job_id": _job_attr(job, "source_job_id"),
+        "title": _job_attr(job, "title"),
+        "company": _job_attr(job, "company"),
+        "location": _job_attr(job, "location"),
+        "url": _job_attr(job, "url"),
+        "description": _job_attr(job, "description"),
+        "remote": bool(_job_attr(job, "remote")),
+        "country": _job_attr(job, "country"),
+        "first_seen_at": _job_attr(job, "first_seen_at"),
+        "last_seen_at": _job_attr(job, "last_seen_at"),
+        "match_score": _job_attr(job, "match_score"),
+    }
+
+
 def group_job_items_by_country(items: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     grouped: OrderedDict[str, List[Dict[str, str]]] = OrderedDict()
     for item in items:
@@ -146,6 +168,27 @@ def source_daily_counts(records: List[Dict[str, Any]], days: int = 14) -> List[D
         for (source, seen_date), jobs in counts.items()
     ]
     return sorted(items, key=lambda item: (item["source"], item["seen_date"]), reverse=True)
+
+
+def _job_score(job: Any) -> int:
+    raw_score = job.get("match_score", 0) if isinstance(job, dict) else getattr(job, "match_score", 0)
+    try:
+        return int(raw_score)
+    except Exception:
+        return 0
+
+
+def _prepare_notification_jobs(jobs: List[Any]) -> List[Dict[str, Any]]:
+    normalized = [_coerce_job_record(job) for job in jobs]
+    normalized.sort(
+        key=lambda job: (
+            -_job_score(job),
+            country_label_for_job(job) or "ZZZ",
+            _job_attr(job, "company").lower(),
+            _job_attr(job, "title").lower(),
+        )
+    )
+    return dedupe_records_for_display(normalized)
 
 
 def send_telegram_text(text: str) -> bool:
@@ -187,71 +230,31 @@ def send_telegram_text(text: str) -> bool:
 
 
 def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
-    # 중복 제거: 이전에 보낸 job 제외
-    sent_history = prune_telegram_sent_history(load_telegram_sent_history())
+    prepared_jobs = _prepare_notification_jobs(jobs)
+    qualifying_jobs = [job for job in prepared_jobs if _job_score(job) >= min_score]
 
-    def job_notification_key(job: Any) -> str:
-        return "|".join(
-            [
-                _job_attr(job, "source"),
-                _job_attr(job, "source_job_id"),
-                _job_attr(job, "title"),
-                _job_attr(job, "company"),
-            ]
+    if not qualifying_jobs:
+        message_text = (
+            "<b>🆕 New Jobs (0 new)</b>\n\n"
+            f"이번 배치에 신규 공고는 {max(inserted, len(prepared_jobs))}건 있었지만 "
+            f"알림 조건(min_score={min_score})을 넘은 항목이 없습니다."
         )
-
-    def job_score(job: Any) -> int:
-        raw_score = job.get("match_score", 0) if isinstance(job, dict) else getattr(job, "match_score", 0)
-        try:
-            return int(raw_score)
-        except Exception:
-            return 0
-
-    def job_sort_key(job: Any) -> tuple[Any, ...]:
-        return (
-            country_label_for_job(job) or "ZZZ",
-            -job_score(job),
-            _job_attr(job, "company").lower(),
-            _job_attr(job, "title").lower(),
-        )
-
-    unsent_jobs = sorted(
-        [
-            job
-            for job in jobs
-            if job_score(job) >= min_score and job_notification_key(job) not in sent_history
-        ],
-        key=job_sort_key,
-    )
-
-    if not unsent_jobs:
-        if inserted > 0 or jobs:
-            message_text = (
-                "<b>🆕 New Jobs (0 new)</b>\n\n"
-                f"이번 배치에 신규 공고는 {max(inserted, len(jobs))}건 있었지만 "
-                f"알림 조건(min_score={min_score})을 넘은 항목이 없습니다."
-            )
-        else:
-            message_text = (
-                "<b>🆕 New Jobs (0 new)</b>\n\n"
-                "이번 배치에 신규 공고가 없습니다."
-            )
         if send_telegram_text(message_text):
             logger.info(
                 "Sent zero-update Telegram job alert (inserted=%s, qualifying=%s, min_score=%s).",
                 inserted,
-                len(unsent_jobs),
+                len(qualifying_jobs),
                 min_score,
             )
         else:
             logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
         return
 
-    country_line = country_line_for_jobs(unsent_jobs)
-    job_items = build_job_template_items(unsent_jobs)
+    country_line = country_line_for_jobs(qualifying_jobs)
+    job_items = build_job_template_items(qualifying_jobs)
     country_groups = group_job_items_by_country(job_items)
     context = {
-        "new_count": len(unsent_jobs),
+        "new_count": len(qualifying_jobs),
         "country_line": country_line,
         "country_groups": country_groups,
     }
@@ -269,12 +272,6 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
         if not send_telegram_messages_chunked(message_text.splitlines()):
             return
 
-    # sent_history 업데이트
-    sent_at = utc_now().isoformat()
-    for job in unsent_jobs:
-        sent_history[job_notification_key(job)] = sent_at
-    save_telegram_sent_history(prune_telegram_sent_history(sent_history))
-
 
 def send_incremental_summary(
     db: Database,
@@ -282,81 +279,65 @@ def send_incremental_summary(
     limit: int = 8,
     allowed_sources: Optional[set[str]] = None,
 ) -> None:
-    resume_text = load_resume_text()
-    sent_history = prune_telegram_sent_history(load_telegram_sent_history())
-    new_jobs = focus_records(db.jobs_first_seen_since(hours), resume_text)
+    new_jobs = _prepare_notification_jobs(db.jobs_first_seen_since(hours))
     if allowed_sources is not None:
         new_jobs = [job for job in new_jobs if job["source"] in allowed_sources]
-    unsent_jobs = [job for job in new_jobs if notification_key(job) not in sent_history]
-    if new_jobs and not unsent_jobs:
-        context = {
-            "hours": hours,
-            "job_count": 0,
-            "country_line": "",
-            "source_counts": False,
-            "source_line": "",
-            "jobs": [],
-            "country_groups": [],
-        }
-        message_text = render_template("telegram/incremental_summary.txt", context)
-        logger.debug("Rendered incremental_summary (no new unsent): %s", message_text)
-        if not send_telegram_text(message_text):
-            return
-        save_telegram_sent_history(sent_history)
-        logger.info("Skipped duplicate Telegram jobs for the last %s hours.", hours)
-        return
-    new_jobs = unsent_jobs
-    if not new_jobs:
+    new_jobs = [job for job in new_jobs if _job_score(job) >= 30]
+    if new_jobs:
+        source_counts = source_total_counts(new_jobs)
         source_line = ""
-        if allowed_sources:
+        if source_counts:
             source_line = " | ".join(
-                f"{source_label(source)} 0"
-                for source in sorted(allowed_sources, key=source_label)
+                f"{source_label(item['source'])} {item['jobs']}" for item in source_counts
             )
+        country_line = country_line_for_jobs(new_jobs)
+
+        job_items = build_job_template_items(new_jobs, limit=limit)
+        country_groups = group_job_items_by_country(job_items)
+
         context = {
             "hours": hours,
-            "job_count": 0,
-            "source_counts": bool(source_line),
+            "job_count": len(new_jobs),
+            "source_counts": bool(source_counts),
             "source_line": source_line,
-            "country_line": "",
-            "jobs": [],
+            "country_line": country_line,
+            "country_groups": country_groups,
+            "jobs": job_items,
         }
         message_text = render_template("telegram/incremental_summary.txt", context)
-        logger.debug("Rendered incremental_summary (no jobs): %s", message_text)
+        logger.debug("Rendered incremental_summary: %s", message_text)
         if not send_telegram_text(message_text):
             return
-        logger.info("No new jobs for the last %s hours. Sent zero-update Telegram summary.", hours)
         return
 
-    source_counts = source_total_counts(new_jobs)
     source_line = ""
-    if source_counts:
+    if allowed_sources:
         source_line = " | ".join(
-            f"{source_label(item['source'])} {item['jobs']}" for item in source_counts
+            f"{source_label(source)} 0"
+            for source in sorted(allowed_sources, key=source_label)
         )
-    country_line = country_line_for_jobs(new_jobs)
-
-    job_items = build_job_template_items(new_jobs, limit=limit)
-    country_groups = group_job_items_by_country(job_items)
-
     context = {
         "hours": hours,
-        "job_count": len(new_jobs),
-        "source_counts": bool(source_counts),
+        "job_count": 0,
+        "source_counts": bool(source_line),
         "source_line": source_line,
-        "country_line": country_line,
-        "country_groups": country_groups,
-        "jobs": job_items,
+        "country_line": "",
+        "jobs": [],
     }
     message_text = render_template("telegram/incremental_summary.txt", context)
-    logger.debug("Rendered incremental_summary: %s", message_text)
+    logger.debug("Rendered incremental_summary (no jobs): %s", message_text)
     if not send_telegram_text(message_text):
         return
+    logger.info("No new jobs for the last %s hours. Sent zero-update Telegram summary.", hours)
 
-    sent_at = utc_now().isoformat()
-    for job in new_jobs:
-        sent_history[notification_key(job)] = sent_at
-    save_telegram_sent_history(prune_telegram_sent_history(sent_history))
+
+def send_daily_summary(
+    db: Database,
+    hours: float = 24,
+    limit: int = 8,
+    allowed_sources: Optional[set[str]] = None,
+) -> None:
+    send_incremental_summary(db, hours=hours, limit=limit, allowed_sources=allowed_sources)
 
 
 def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | None = None) -> None:
@@ -366,8 +347,7 @@ def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | No
     def news_title(item: Any) -> str:
         return _job_attr(item, "title")
 
-    sent_history = prune_telegram_sent_history(load_telegram_sent_history())
-    unsent_items = [item for item in news_items if news_url(item) and f"news:{news_url(item)}" not in sent_history]
+    unsent_items = [item for item in news_items if news_url(item)]
 
     if not unsent_items:
         message_text = "<b>📈 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
@@ -454,11 +434,6 @@ def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | No
             if not send_telegram_messages_chunked(message_text.splitlines()):
                 return
 
-    sent_at = utc_now().isoformat()
-    for item in unsent_items:
-        # Prefix news URLs to avoid conflict with job keys
-        sent_history[f"news:{news_url(item)}"] = sent_at
-    save_telegram_sent_history(prune_telegram_sent_history(sent_history))
 
 
 def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> bool:
