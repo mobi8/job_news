@@ -367,7 +367,7 @@ def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | No
         return _job_attr(item, "title")
 
     sent_history = prune_telegram_sent_history(load_telegram_sent_history())
-    unsent_items = [item for item in news_items if news_url(item) and news_url(item) not in sent_history]
+    unsent_items = [item for item in news_items if news_url(item) and f"news:{news_url(item)}" not in sent_history]
 
     if not unsent_items:
         message_text = "<b>📈 Industry News (0 new)</b>\n\n이번 배치에 신규 뉴스가 없습니다."
