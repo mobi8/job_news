@@ -456,7 +456,8 @@ def send_news_summary(news_items: List[Any], limit: int = 100, db: Database | No
 
     sent_at = utc_now().isoformat()
     for item in unsent_items:
-        sent_history[news_url(item)] = sent_at
+        # Prefix news URLs to avoid conflict with job keys
+        sent_history[f"news:{news_url(item)}"] = sent_at
     save_telegram_sent_history(prune_telegram_sent_history(sent_history))
 
 
