@@ -40,9 +40,13 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=saudi+arabia&sort=date",
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=qatar&sort=date",
     "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=bahrain&sort=date",
+    # 모바일 게임 관련 검색
+    "https://ae.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal&l=dubai&sort=date",
+    "https://ae.indeed.com/jobs?q=game+studio+OR+indie+game+OR+game+design&l=united+arab+emirates&sort=date",
     # 조지아 검색 추가
     "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain+OR+igaming+OR+casino+OR+payment&l=georgia&sort=date",
     "https://ge.indeed.com/jobs?q=product+manager+OR+product+owner+OR+business+development+OR+sales&l=tbilisi&sort=date",
+    "https://ge.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal&l=tbilisi&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -71,6 +75,11 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Malta",
     "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Valletta%2C%20Malta",
     "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Malta",
+    # 모바일 게임 관련 검색
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist&location=United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal&location=Tbilisi%2C%20Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal&location=Malta",
 ]
 RECRUITER_COMPANIES = [
     "robert walters",
@@ -146,6 +155,22 @@ NEWS_RSS_FEEDS = [
         "url": "https://focusgn.com/feed/",
         "source": "rss_focusgn",
         "label": "FocusGN",
+    },
+    # 모바일/게임 산업 RSS 피드
+    {
+        "url": "https://venturebeat.com/games/feed/",
+        "source": "rss_venturebeat_games",
+        "label": "VentureBeat Games",
+    },
+    {
+        "url": "https://www.pocketgamer.biz/feed/",
+        "source": "rss_pocket_gamer",
+        "label": "Pocket Gamer",
+    },
+    {
+        "url": "https://www.gamesindustry.biz/feed",
+        "source": "rss_gamesindus_news",
+        "label": "GamesIndustry.biz",
     },
 ]
 

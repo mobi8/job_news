@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import time
+import sqlite3
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta, timezone
@@ -48,6 +49,29 @@ def parse_days(text: str) -> int:
     return 7  # default
 
 
+def get_news_by_keyword(keyword: str):
+    """Search news by keyword from database"""
+    db_path = OUTPUT_DIR / "jobs.sqlite3"
+    if not db_path.exists():
+        return []
+
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        query_lower = keyword.lower()
+        cursor.execute(
+            "SELECT * FROM news WHERE title LIKE ? OR summary LIKE ? ORDER BY published_at DESC LIMIT 20",
+            (f"%{query_lower}%", f"%{query_lower}%")
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+    except Exception as e:
+        print(f"❌ News search error: {e}")
+        return []
+
+
 def handle_message(text: str):
     """Process incoming message and send response"""
     if not text:
@@ -64,17 +88,18 @@ def handle_message(text: str):
     if is_date_query:
         days = parse_days(text)
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        results = [
+        job_results = [
             j for j in all_jobs
             if j.get("first_seen_at")
             and datetime.fromisoformat(j["first_seen_at"].replace("Z", "+00:00")) >= cutoff
             and j.get("qualifies")
         ]
-        header = f"🔍 최근 {days}일 신규 공고 ({len(results)}개)"
+        news_results = []
+        header = f"🔍 최근 {days}일 신규 공고 ({len(job_results)}개)"
     else:
-        # Search query
+        # Search query - search both jobs and news
         query = text.lower().strip()
-        results = [
+        job_results = [
             j for j in all_jobs
             if j.get("qualifies") and (
                 query in j.get("title", "").lower()
@@ -82,9 +107,10 @@ def handle_message(text: str):
                 or query in j.get("description", "").lower()
             )
         ]
-        header = f"🔎 '{text}' 검색 결과 ({len(results)}개)"
+        news_results = get_news_by_keyword(text)
+        header = f"🔎 '{text}' 검색 결과 (공고: {len(job_results)}개, 뉴스: {len(news_results)}개)"
 
-    recent = results
+    recent = job_results
     # Sort by score (highest first)
     recent.sort(key=lambda j: j.get("match_score", 0), reverse=True)
 
@@ -117,9 +143,24 @@ def handle_message(text: str):
             country_flag = country_emoji.get(country, country or "")
             lines.append(f"{i}. {country_flag} {title_link} - {company} ({score}점)")
 
+        # Add news if any
+        if news_results:
+            lines.append("\n📰 관련 뉴스:")
+            for i, news in enumerate(news_results[:5], 1):
+                title = news.get("title", "?")
+                url = news.get("url", "")
+                if url:
+                    news_link = f'<a href="{url}">{title}</a>'
+                else:
+                    news_link = title
+                lines.append(f"{i}. {news_link}")
+
         send_telegram_messages_chunked(lines)
     else:
-        send_telegram_text(f"최근 {days}일 신규 공고가 없습니다.")
+        if is_date_query:
+            send_telegram_text(f"최근 {days}일 신규 공고가 없습니다.")
+        else:
+            send_telegram_text(f"'{text}' 관련 공고나 뉴스가 없습니다.")
 
 
 def poll_messages():
