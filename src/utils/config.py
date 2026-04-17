@@ -29,7 +29,7 @@ TELEGRAM_CHANNELS = [
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=korean&l=dubai&sort=date",
-    "https://ae.indeed.com/jobs?q=payment+OR+crypto+OR+igaming&l=dubai&sort=date",
+    "https://ae.indeed.com/jobs?q=payment+OR+crypto+OR+igaming+OR+neobanking&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=adgm+OR+fsra+OR+vara&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=crypto+product+manager+OR+product+owner+OR+neobank+OR+digital+asset+OR+stable+coin&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=custody+OR+digital+asset+OR+digital+assets+OR+digital+asset+custody+OR+stable+coin+OR+game+OR+gaming&l=united+arab+emirates&sort=date",
@@ -37,20 +37,20 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=crypto+casino+OR+sportsbook+OR+live+casino+OR+gaming+platform&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=dmcc+OR+dtc+OR+gaming&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+coinbase+OR+kraken+OR+bitget+OR+gate.io+OR+kucoin+OR+htx+OR+crypto.com+OR+mexc&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=saudi+arabia&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=qatar&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+remote&l=bahrain&sort=date",
+    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=saudi+arabia&sort=date",
+    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=qatar&sort=date",
+    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=bahrain&sort=date",
     # 모바일 게임 관련 검색
     "https://ae.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal+OR+dtc&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=game+studio+OR+indie+game+OR+game+design+OR+dtc&l=united+arab+emirates&sort=date",
     # 조지아 검색 추가
-    "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain+OR+igaming+OR+casino+OR+payment&l=georgia&sort=date",
+    "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain+OR+igaming+OR+casino+OR+payment+OR+neobanking&l=georgia&sort=date",
     "https://ge.indeed.com/jobs?q=product+manager+OR+product+owner+OR+business+development+OR+sales&l=tbilisi&sort=date",
     "https://ge.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal+OR+dtc&l=tbilisi&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=igaming&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -64,15 +64,15 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=sales%20manager%20OR%20business%20development%20OR%20account%20manager&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=designer%20OR%20ux%20OR%20ui&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=wallet%20specialist%20OR%20exchange%20operations%20OR%20digital%20asset%20operations&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Saudi%20Arabia",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Qatar",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments&location=Bahrain",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Saudi%20Arabia",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Qatar",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Bahrain",
     # 조지아 (나라) 검색 추가 - Tbilisi만 사용하여 미국 조지아 제외
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Tbilisi%2C%20Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment%20OR%20neobanking&location=Tbilisi%2C%20Georgia",
     "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Tbilisi%2C%20Georgia",
     "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Tbilisi%2C%20Georgia",
     # 몰타 검색 추가
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment%20OR%20neobanking&location=Malta",
     "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Valletta%2C%20Malta",
     "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Malta",
     # 모바일 게임 관련 검색
