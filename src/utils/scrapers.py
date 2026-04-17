@@ -65,6 +65,14 @@ def parse_jobvite_jobs(raw_html: str) -> List[JobPosting]:
         location = clean_text(match.group("location"))
         source_job_id = href.rstrip("/").split("/")[-1]
 
+        # Detect country from location
+        location_lower = location.lower()
+        country = "UAE"  # Default
+        if "malta" in location_lower or "valletta" in location_lower or "몰타" in location_lower:
+            country = "Malta"
+        elif "georgia" in location_lower or "조지아" in location_lower or "tbilisi" in location_lower or "트빌리시" in location_lower:
+            country = "Georgia"
+
         jobs.append(
             JobPosting(
                 source="jobvite_pragmaticplay",
@@ -74,7 +82,7 @@ def parse_jobvite_jobs(raw_html: str) -> List[JobPosting]:
                 location=location,
                 remote="remote" in location.lower(),
                 url=urllib.parse.urljoin(JOBVITE_URL, href),
-                country="UAE",
+                country=country,
             )
         )
 
@@ -103,6 +111,14 @@ def parse_smartrecruitment_jobs(raw_html: str) -> List[JobPosting]:
         location = clean_text(match.group("location"))
         source_job_id = url.rstrip("/").split("/")[-1]
 
+        # Detect country from location
+        location_lower = location.lower()
+        country = "UAE"  # Default
+        if "malta" in location_lower or "valletta" in location_lower or "몰타" in location_lower:
+            country = "Malta"
+        elif "georgia" in location_lower or "조지아" in location_lower or "tbilisi" in location_lower or "트빌리시" in location_lower:
+            country = "Georgia"
+
         jobs.append(
             JobPosting(
                 source="smartrecruitment",
@@ -111,7 +127,7 @@ def parse_smartrecruitment_jobs(raw_html: str) -> List[JobPosting]:
                 company="SmartRecruitment.com",
                 location=location,
                 remote="remote" in f"{title} {location}".lower(),
-                country="UAE",
+                country=country,
                 url=url,
             )
         )
@@ -139,6 +155,14 @@ def parse_igaming_recruitment_jobs(raw_html: str) -> List[JobPosting]:
         location = clean_text(match.group("location"))
         source_job_id = url.rstrip("/").split("/")[-1]
 
+        # Detect country from location
+        location_lower = location.lower()
+        country = "UAE"  # Default
+        if "malta" in location_lower or "valletta" in location_lower or "몰타" in location_lower:
+            country = "Malta"
+        elif "georgia" in location_lower or "조지아" in location_lower or "tbilisi" in location_lower or "트빌리시" in location_lower:
+            country = "Georgia"
+
         jobs.append(
             JobPosting(
                 source="igamingrecruitment",
@@ -147,7 +171,7 @@ def parse_igaming_recruitment_jobs(raw_html: str) -> List[JobPosting]:
                 company="iGaming Recruitment",
                 location=location,
                 remote="remote" in f"{title} {location}".lower(),
-                country="UAE",
+                country=country,
                 url=url,
             )
         )

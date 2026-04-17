@@ -88,16 +88,32 @@ def load_job_statuses() -> Dict[str, str]:
 
 def detect_country(job: Dict[str, Any]) -> str:
     location = (job.get("location") or "").lower()
-    # Exclude USA (미국 in Korean, usa/us/united states in English)
-    # Must check for "미국 조지아" (US Georgia) before checking for "georgia"
-    if any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "alpharetta", "sandy", "remote in", "acc", "anduril"]):
-        return ""
-    if "미국 조지아" in location:  # Korean "US Georgia" - explicitly exclude
-        return ""
-    if "malta" in location or "valletta" in location or "몰타" in location:
+
+    # First check for Malta (high priority)
+    if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:
         return "Malta"
+
+    # Then check for Georgia (before USA exclusions to catch Georgia properly)
+    # Must check for "미국 조지아" (US Georgia) first
+    if "미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location:
+        return ""
     if "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
         return "Georgia"
+
+    # Exclude USA
+    usa_keywords = [
+        "미국", "usa", "united states", "american gaming", "ags -", "fanduel",
+        "atlanta", "duluth", "alpharetta", "sandy springs", "remote in", "acc", "anduril",
+        "new york", "san francisco", "los angeles", "chicago", "boston", "seattle",
+        "austin", "denver", "miami", "portland", "denver", "united states",
+    ]
+    if any(x in location for x in usa_keywords):
+        return ""
+
+    # Exclude Hong Kong
+    if "hong kong" in location or "홍콩" in location or "hk" in location:
+        return ""
+
     if "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
         return "UAE"
     return ""
