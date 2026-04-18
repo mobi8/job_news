@@ -44,8 +44,13 @@ TOPIC_SUBREDDIT_MAP = {
     "python": ["Python", "learnprogramming"],
     "javascript": ["javascript", "learnprogramming"],
     "golang": ["golang", "learnprogramming"],
-    "visa": ["ImmigrationCanada", "ukvisa", "immigrationau"],
-    "비자": ["ImmigrationCanada", "ukvisa"],
+    "visa": ["ImmigrationCanada", "ukvisa", "immigrationau", "expats"],
+    "비자": ["ImmigrationCanada", "ukvisa", "expats"],
+    "expatriate": ["expats", "ImmigrationCanada", "jobs"],
+    "외국인": ["expats", "ImmigrationCanada", "jobs"],
+    "expat": ["expats", "ImmigrationCanada"],
+    "immigration": ["ImmigrationCanada", "ukvisa", "immigrationau"],
+    "이민": ["ImmigrationCanada", "expats"],
     "salary": ["cscareerquestions", "jobs"],
     "연봉": ["jobs", "cscareerquestions"],
 }
@@ -198,6 +203,125 @@ def filter_and_rank_posts(posts: list, query_keywords: list, min_score: float = 
     return posts_with_scores
 
 
+def analyze_score_distribution(posts: list) -> dict:
+    """
+    Analyze score distribution of collected posts.
+
+    Args:
+        posts: List of posts with _relevance_score
+
+    Returns:
+        Dict with avg_score, min_score, max_score, median_score
+    """
+    if not posts:
+        return {"avg_score": 0, "min_score": 0, "max_score": 0, "median_score": 0}
+
+    scores = [p.get("_relevance_score", 0) for p in posts]
+    scores.sort()
+
+    return {
+        "avg_score": sum(scores) / len(scores),
+        "min_score": min(scores),
+        "max_score": max(scores),
+        "median_score": scores[len(scores) // 2],
+        "count": len(scores),
+    }
+
+
+def decide_dynamic_min_score(collected_count: int, target_count: int, current_distribution: dict) -> float:
+    """
+    Decide min_score dynamically based on current collection status.
+
+    Args:
+        collected_count: How many posts collected so far
+        target_count: Target number of posts needed
+        current_distribution: Score distribution from analyze_score_distribution()
+
+    Returns:
+        New min_score to use for next search
+    """
+    if collected_count == 0:
+        return 0.3  # Start high
+
+    progress = collected_count / target_count
+    current_min = current_distribution.get("min_score", 0)
+    current_median = current_distribution.get("median_score", 0)
+
+    if progress < 0.3:  # Very early stage (0-30%)
+        return current_min * 0.85  # Drop aggressively
+    elif progress < 0.6:  # Mid stage (30-60%)
+        return current_median * 0.9  # Drop moderately
+    elif progress < 0.9:  # Near completion (60-90%)
+        return current_min * 0.95  # Drop slightly
+    else:  # Almost done (90%+)
+        return current_min * 0.98  # Minimal drop
+
+
+def adaptive_reddit_search(query_en: str, candidates: list, query_keywords_en: list, target_count: int = 20) -> list:
+    """
+    Adaptively search multiple subreddits until target count is reached.
+    Dynamically adjusts minimum score based on collection progress.
+
+    Args:
+        query_en: Translated English query
+        candidates: List of subreddit candidates
+        query_keywords_en: Translated keywords for filtering
+        target_count: Target number of posts to collect
+
+    Returns:
+        Sorted list of top posts meeting target count
+    """
+    all_collected = []
+    current_min_score = 0.3
+    attempt = 0
+    max_attempts = 5
+
+    while len(all_collected) < target_count and attempt < max_attempts:
+        attempt += 1
+        print(f"🔄 Attempt {attempt}/5: Searching with min_score={current_min_score:.2f} (collected: {len(all_collected)}/{target_count})")
+
+        # Search multiple subreddits
+        batch_posts = search_multiple_subreddits(query_en, candidates, fetch_limit=max(50, target_count * 2))
+
+        if not batch_posts:
+            print(f"⚠️ No results from subreddits, stopping.")
+            break
+
+        # Filter with current min_score
+        filtered = filter_and_rank_posts(batch_posts, query_keywords_en, min_score=current_min_score)
+
+        if filtered:
+            all_collected.extend(filtered)
+            print(f"✓ Collected {len(filtered)} posts this attempt (total: {len(all_collected)})")
+
+        # Check if we have enough
+        if len(all_collected) >= target_count:
+            print(f"✓ Target reached!")
+            break
+
+        # Analyze current distribution and decide next min_score
+        if all_collected:
+            dist = analyze_score_distribution(all_collected)
+            current_min_score = decide_dynamic_min_score(len(all_collected), target_count, dist)
+            print(f"📊 Score distribution: avg={dist['avg_score']:.2f}, min={dist['min_score']:.2f}, median={dist['median_score']:.2f}")
+            print(f"📉 Lowering threshold to {current_min_score:.2f} for next attempt")
+        else:
+            current_min_score = max(0.05, current_min_score * 0.8)
+
+    # Deduplicate and return top results
+    seen = set()
+    unique_posts = []
+    for post in all_collected:
+        post_id = post.get("url", post.get("title", ""))
+        if post_id not in seen:
+            seen.add(post_id)
+            unique_posts.append(post)
+
+    # Final sort by score
+    unique_posts.sort(key=lambda p: p.get("_relevance_score", 0), reverse=True)
+    return unique_posts[:target_count]
+
+
 def translate_text(text: str, target_lang: str = "en") -> str:
     """
     Translate text using Google Translate free API (no API key needed).
@@ -344,17 +468,15 @@ def handle_reddit_request(text: str):
         fetch_limit = max(50, result_limit * 2) if days_filter else result_limit * 2
         posts = fetch_reddit_posts(query_en, subreddit, limit=fetch_limit)
     else:
-        # Multi-subreddit search with relevance filtering
-        fetch_limit = max(50, result_limit * 3) if days_filter else result_limit * 3
+        # Multi-subreddit adaptive search with dynamic score-based collection
         candidates = get_subreddit_candidates(query_original, query_en.split())
         print(f"🔍 Searching subreddits: {candidates[:5]}")
-        posts = search_multiple_subreddits(query_en, candidates, fetch_limit=fetch_limit)
 
-        # Filter by relevance using TRANSLATED query keywords (not original Korean)
-        # This ensures we match English Reddit posts with English keywords
+        # Extract keywords for filtering
         query_keywords_en = [kw.strip() for kw in query_en.split() if len(kw.strip()) > 2]
-        # Lower min_score to 0.15 since we need at least 1 of 3+ keywords to match
-        posts = filter_and_rank_posts(posts, query_keywords_en, min_score=0.15)
+
+        # Adaptive search: collect until target_count is reached with dynamic min_score adjustment
+        posts = adaptive_reddit_search(query_en, candidates, query_keywords_en, target_count=result_limit)
 
     # Filter by days if specified
     if days_filter:
