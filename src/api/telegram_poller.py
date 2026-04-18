@@ -128,6 +128,7 @@ def handle_reddit_request(text: str):
     subreddit = None
     query = query_part
     days_filter = None
+    result_limit = 20  # Default number of results to show
 
     # Check if subreddit is specified (r/name format)
     parts = query_part.split(None, 1)  # Split on first whitespace
@@ -142,17 +143,39 @@ def handle_reddit_request(text: str):
         for keyword in ["3일", "1일", "7일", "3day", "1day", "최근"]:
             query = query.replace(keyword, "").strip()
 
+    # Check for custom limit (e.g., "30개", "30개", "30", but not "3일")
+    import re
+    # Look for number followed by 개 or standalone number (but not 일/day)
+    limit_match = re.search(r'(\d+)개', query)  # Match "30개"
+    if limit_match:
+        potential_limit = int(limit_match.group(1))
+        if 1 <= potential_limit <= 100:
+            result_limit = potential_limit
+        query = query.replace(limit_match.group(0), "").strip()
+    elif not any(x in query for x in ["일", "day"]):  # Only if not a time filter
+        # Try last number as limit only if it's not part of a time filter
+        numbers = re.findall(r'(\d+)(?!일|day)', query)  # Exclude numbers followed by 일 or day
+        if numbers:
+            potential_limit = int(numbers[-1])
+            if 1 <= potential_limit <= 100:
+                result_limit = potential_limit
+                query = re.sub(r'\d+$', '', query).strip()  # Remove trailing number
+
     # Translate query to English for Reddit search (if Korean detected)
     query_en = translate_text(query, target_lang="en")
     print(f"🌐 Translated '{query}' → '{query_en}'")
 
-    # Fetch Reddit posts with translated query
-    posts = fetch_reddit_posts(query_en, subreddit, limit=15)
+    # Fetch Reddit posts with translated query (fetch more to account for time filtering)
+    fetch_limit = max(50, result_limit * 2) if days_filter else result_limit * 2
+    posts = fetch_reddit_posts(query_en, subreddit, limit=fetch_limit)
 
     # Filter by days if specified
     if days_filter:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days_filter)
         posts = [p for p in posts if p.get("created_utc", 0) > cutoff.timestamp()]
+
+    # Limit to requested number of results
+    posts = posts[:result_limit]
 
     if posts:
         # Build header with time filter info if present
