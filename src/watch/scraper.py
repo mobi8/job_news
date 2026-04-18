@@ -225,23 +225,29 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     # This ensures old jobs are properly classified even if they were stored with wrong country
     for job in all_jobs_annotated:
         location = (job.get("location") or "").lower()
+
         # Malta (high priority)
         if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:
             job["country"] = "Malta"
         # Georgia (check before USA to handle Georgia properly)
-        elif ("미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location):
+        elif "미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location:
             job["country"] = ""
+        # Georgia
         elif "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
             job["country"] = "Georgia"
         # Exclude USA/Hong Kong
         elif any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
             job["country"] = ""
-        # UAE (default for remaining jobs)
+        # UAE
         elif "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
             job["country"] = "UAE"
-        # For jobs with no location match, keep existing country or default to empty
-        elif not job.get("country"):
-            job["country"] = ""
+        # Default: if location doesn't match any specific country, clear country field
+        # This prevents old UAE jobs from being incorrectly classified when location doesn't clearly indicate UAE
+        else:
+            # Only set to empty if location exists but doesn't match any country
+            # Preserve country only if location is completely empty
+            if location and location.strip():  # Non-empty location that didn't match any condition
+                job["country"] = ""
 
     tracked_jobs = [job for job in all_jobs_annotated if job["qualifies"]]
     new_last_1_day = focus_records(db.jobs_first_seen_since(24), resume_text)
