@@ -130,11 +130,37 @@ def handle_reddit_request(text: str):
     days_filter = None
     result_limit = 20  # Default number of results to show
 
-    # Check if subreddit is specified (r/name format)
+    # Location keyword mapping for automatic subreddit detection
+    location_subreddit_map = {
+        "두바이": ["dubai", "uae", "abudhabi"],
+        "dubai": ["dubai", "uae", "abudhabi"],
+        "uae": ["uae", "dubai", "abudhabi"],
+        "조지아": ["georgia", "tbilisi"],
+        "georgia": ["georgia", "tbilisi"],
+        "tbilisi": ["georgia", "tbilisi"],
+        "트빌리시": ["georgia", "tbilisi"],
+        "몰타": ["malta"],
+        "malta": ["malta"],
+        "바레인": ["bahrain"],
+        "bahrain": ["bahrain"],
+        "카타르": ["qatar"],
+        "qatar": ["qatar"],
+        "사우디": ["saudiarabia"],
+        "saudi": ["saudiarabia"],
+    }
+
+    # Check if subreddit is explicitly specified (r/name format)
     parts = query_part.split(None, 1)  # Split on first whitespace
     if parts and parts[0].startswith("r/"):
         subreddit = parts[0][2:]  # Remove "r/" prefix
         query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
+    else:
+        # Auto-detect location from query and suggest subreddits
+        query_lower = query_part.lower()
+        for location_keyword, suggested_subs in location_subreddit_map.items():
+            if location_keyword in query_lower:
+                subreddit = suggested_subs[0]  # Use first suggested subreddit
+                break
 
     # Check for days filter (e.g., "3일", "1day", "최근 7일")
     if any(keyword in query for keyword in ["일", "day", "최근"]):
