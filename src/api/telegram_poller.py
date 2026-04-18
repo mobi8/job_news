@@ -350,9 +350,11 @@ def handle_reddit_request(text: str):
         print(f"🔍 Searching subreddits: {candidates[:5]}")
         posts = search_multiple_subreddits(query_en, candidates, fetch_limit=fetch_limit)
 
-        # Filter by relevance using original query keywords
-        query_keywords = [kw for kw in query_original.split() if len(kw) > 2]
-        posts = filter_and_rank_posts(posts, query_keywords, min_score=0.25)
+        # Filter by relevance using TRANSLATED query keywords (not original Korean)
+        # This ensures we match English Reddit posts with English keywords
+        query_keywords_en = [kw.strip() for kw in query_en.split() if len(kw.strip()) > 2]
+        # Lower min_score to 0.15 since we need at least 1 of 3+ keywords to match
+        posts = filter_and_rank_posts(posts, query_keywords_en, min_score=0.15)
 
     # Filter by days if specified
     if days_filter:
