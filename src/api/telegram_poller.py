@@ -160,6 +160,8 @@ def handle_reddit_request(text: str):
         for location_keyword, suggested_subs in location_subreddit_map.items():
             if location_keyword in query_lower:
                 subreddit = suggested_subs[0]  # Use first suggested subreddit
+                # Remove location keyword from query to avoid noise
+                query = query.replace(location_keyword, " ").strip()
                 break
 
     # Check for days filter (e.g., "3일", "1day", "최근 7일")

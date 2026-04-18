@@ -157,7 +157,9 @@
       "Bash(xargs -I {} lsof -p {})",
       "Bash(kill 834)",
       "Bash(pkill -f \"src/api/telegram_poller.py\")",
-      "Bash(echo \"Telegram poller started with PID: $!\")"
+      "Bash(echo \"Telegram poller started with PID: $!\")",
+      "Bash(echo \"Started with PID: $!\")",
+      "Bash(echo \"✓ Telegram poller started \\(PID: $!\\)\")"
     ]
   }
 }
