@@ -55,104 +55,180 @@ TOPIC_SUBREDDIT_MAP = {
     "연봉": ["jobs", "cscareerquestions"],
 }
 
-LOCATION_SUBREDDIT_MAP = {
-    "두바이": ["dubaijobs", "dubai", "uaejobs"],
-    "dubai": ["dubaijobs", "dubai", "uaejobs"],
-    "uae": ["uaejobs", "dubai"],
-    "조지아": ["georgia", "tbilisi"],
-    "georgia": ["georgia", "tbilisi"],
-    "tbilisi": ["georgia", "tbilisi"],
-    "트빌리시": ["georgia", "tbilisi"],
-    "몰타": ["malta"],
-    "malta": ["malta"],
-    "바레인": ["bahrain"],
-    "bahrain": ["bahrain"],
-    "카타르": ["qatar"],
-    "qatar": ["qatar"],
-    "사우디": ["saudiarabia"],
-    "saudi": ["saudiarabia"],
+# Subreddit pools by location (not fixed - can be expanded)
+LOCATION_SUBREDDIT_POOLS = {
+    "georgia": {
+        "keywords": ["조지아", "georgia", "tbilisi", "트빌리시"],
+        "candidates": ["georgiajobs", "georgiaexpats", "georgia", "tbilisi"],
+    },
+    "dubai": {
+        "keywords": ["두바이", "dubai", "uae"],
+        "candidates": ["dubaijobs", "dubai", "uaejobs"],
+    },
+    "malta": {
+        "keywords": ["몰타", "malta"],
+        "candidates": ["malta"],
+    },
+    "bahrain": {
+        "keywords": ["바레인", "bahrain"],
+        "candidates": ["bahrain"],
+    },
+    "qatar": {
+        "keywords": ["카타르", "qatar"],
+        "candidates": ["qatar"],
+    },
+    "saudi": {
+        "keywords": ["사우디", "saudi"],
+        "candidates": ["saudiarabia"],
+    },
 }
 
+# Subreddit performance scores (loaded from file, updated after each search)
+SUBREDDIT_SCORES = {}  # Format: {location: {subreddit: score}}
 
-def get_subreddit_candidates(query_original: str, query_parts: list) -> list:
+
+def get_subreddit_candidates(query_original: str, query_parts: list) -> dict:
     """
-    Extract subreddit candidates from query based on keywords.
-    Returns list of subreddit names sorted by priority.
+    Extract subreddit candidates with dynamic priority based on:
+    1. Location detection (highest priority)
+    2. Topic matching (medium priority)
+    3. General fallback (low priority)
+
+    Uses performance scores for ordering within each tier.
 
     Args:
         query_original: Original query string
         query_parts: List of keywords extracted from query
 
     Returns:
-        List of subreddit candidates (e.g., ["dubaijobs", "jobs", "dubai"])
+        Dict with priority levels: {"high": [...], "medium": [...], "low": [...]}
     """
-    candidates = []
-    candidates_set = set()
+    candidates = {"high": [], "medium": [], "low": []}
+    seen = set()
 
     query_lower = query_original.lower()
 
-    # 1. Topic-based subreddits (highest priority)
+    # 1. LOCATION-BASED (highest priority - from LOCATION_SUBREDDIT_POOLS)
+    detected_location = None
+    for location, pool_data in LOCATION_SUBREDDIT_POOLS.items():
+        keywords = pool_data.get("keywords", [])
+        for keyword in keywords:
+            if keyword.lower() in query_lower:
+                detected_location = location
+                # Get sorted candidates for this location
+                sorted_subs = get_sorted_candidates(location)
+                for sub in sorted_subs:
+                    if sub not in seen:
+                        candidates["high"].append(sub)
+                        seen.add(sub)
+                break
+        if detected_location:
+            break
+
+    # 2. EXPAT/IMMIGRATION (medium priority)
+    expat_subs = ["expats", "ImmigrationCanada", "ukvisa", "immigrationau"]
+    for keyword in ["foreign", "expat", "expatriate", "immigrant", "visa", "relocation", "외국인", "비자"]:
+        if keyword.lower() in query_lower:
+            for sub in expat_subs:
+                if sub not in seen:
+                    candidates["medium"].append(sub)
+                    seen.add(sub)
+            break
+
+    # 3. TOPIC-BASED (medium priority for specific topics)
     for keyword, subs in TOPIC_SUBREDDIT_MAP.items():
-        if keyword.lower() in query_lower:
+        if keyword.lower() in query_lower and keyword not in ["외국인", "expatriate"]:
             for sub in subs:
-                if sub not in candidates_set:
-                    candidates.append(sub)
-                    candidates_set.add(sub)
+                if sub not in seen and sub not in ["AskReddit", "programming"]:
+                    candidates["medium"].append(sub)
+                    seen.add(sub)
 
-    # 2. Location-based subreddits
-    for keyword, subs in LOCATION_SUBREDDIT_MAP.items():
-        if keyword.lower() in query_lower:
-            for sub in subs:
-                if sub not in candidates_set:
-                    candidates.append(sub)
-                    candidates_set.add(sub)
+    # 4. GENERAL JOBS (low priority - fallback)
+    general_jobs = ["jobs", "hiring", "jobsearch"]
+    for sub in general_jobs:
+        if sub not in seen:
+            candidates["low"].append(sub)
+            seen.add(sub)
 
-    # 3. If no candidates found, use general subreddits
-    if not candidates:
-        candidates = ["jobs", "learnprogramming", "AskReddit"]
+    # 5. If no candidates at all, use fallback
+    if not candidates["high"] and not candidates["medium"] and not candidates["low"]:
+        candidates["low"] = ["jobs"]
 
     return candidates
 
 
-def search_multiple_subreddits(query: str, candidates: list, fetch_limit: int = 50) -> list:
+def search_multiple_subreddits(query: str, candidates: dict, fetch_limit: int = 50, location: str = None) -> list:
     """
-    Search multiple subreddits and combine results.
+    Search multiple subreddits by priority level and evaluate performance.
+
+    Priority levels:
+    - "high": location-specific subreddits (r/georgia, r/dubai)
+    - "medium": expat/topic-specific (r/expats, r/jobs)
+    - "low": general fallback subreddits
 
     Args:
         query: Search query
-        candidates: List of subreddit names
+        candidates: Dict with priority levels {"high": [...], "medium": [...], "low": [...]}
         fetch_limit: How many posts to fetch per subreddit
+        location: Location name (for performance tracking)
 
     Returns:
-        Combined list of posts from all subreddits
+        Combined list of posts from all subreddits (by priority)
     """
     from utils.scrapers import fetch_reddit_posts
 
     all_posts = []
+    priority_order = ["high", "medium", "low"]
+    subreddit_posts = {}  # Track posts per subreddit for evaluation
 
-    for sr in candidates[:5]:  # Limit to 5 subreddits max
-        try:
-            posts = fetch_reddit_posts(query, subreddit=sr, limit=fetch_limit)
-            # Ensure posts is a list
-            if not isinstance(posts, list):
-                print(f"⚠️ r/{sr}: Invalid response type (expected list, got {type(posts).__name__})")
-                continue
-
-            # Add subreddit to each post for tracking
-            for post in posts:
-                if isinstance(post, dict):
-                    post["_searched_subreddit"] = sr
-            all_posts.extend(posts)
-        except Exception as e:
-            print(f"⚠️ Error searching r/{sr}: {str(e)[:80]}")
+    for priority in priority_order:
+        subs = candidates.get(priority, [])
+        if not subs:
             continue
 
+        print(f"🔍 Searching {priority}-priority subreddits: {subs[:3]}{'...' if len(subs) > 3 else ''}")
+
+        for sr in subs[:4]:  # Max 4 per priority level
+            try:
+                posts = fetch_reddit_posts(query, subreddit=sr, limit=fetch_limit)
+                # Ensure posts is a list
+                if not isinstance(posts, list):
+                    print(f"  ⚠️ r/{sr}: Invalid response")
+                    continue
+
+                # Add priority and subreddit to each post
+                for post in posts:
+                    if isinstance(post, dict):
+                        post["_searched_subreddit"] = sr
+                        post["_priority"] = priority
+                all_posts.extend(posts)
+                subreddit_posts[sr] = posts
+
+                if posts:
+                    print(f"  ✓ r/{sr}: {len(posts)} posts")
+            except Exception as e:
+                print(f"  ⚠️ r/{sr}: {str(e)[:60]}")
+                continue
+
+        # Early exit if we have enough from high-priority sources
+        if priority == "high" and len(all_posts) >= fetch_limit:
+            print(f"   → Enough from high-priority, skipping lower tiers")
+            break
+
+    # Evaluate performance of each subreddit
+    if location:
+        print(f"📊 Evaluating subreddit performance:")
+        for sr, posts in subreddit_posts.items():
+            evaluate_subreddit_performance(location, sr, posts, all_posts)
+
+    print(f"📊 Total collected from all tiers: {len(all_posts)}")
     return all_posts
 
 
 def calculate_relevance_score(post: dict, query_keywords: list) -> float:
     """
-    Calculate relevance score based on keyword matching.
+    Calculate relevance score based on keyword matching (substring matching).
+    Simple scoring: how many keywords are found in the post.
 
     Args:
         post: Reddit post dict
@@ -162,19 +238,17 @@ def calculate_relevance_score(post: dict, query_keywords: list) -> float:
         Relevance score (0.0 to 1.0)
     """
     if not query_keywords:
-        return 0.0
+        return 0.5  # Neutral score if no keywords
 
     title = (post.get("title", "") or "").lower()
     summary = (post.get("summary", "") or "").lower()
     text = f"{title} {summary}"
 
-    matches = 0
-    for keyword in query_keywords:
-        if keyword.lower() in text:
-            matches += 1
+    # Simple substring matching - count how many keywords appear
+    matches = sum(1 for keyword in query_keywords if keyword.lower() in text)
 
-    # Score: number of matched keywords / total keywords
-    return matches / len(query_keywords) if query_keywords else 0.0
+    # Score: 0.0 to 1.0 based on keyword matches
+    return matches / len(query_keywords) if query_keywords else 0.5
 
 
 def filter_and_rank_posts(posts: list, query_keywords: list, min_score: float = 0.3) -> list:
@@ -257,31 +331,35 @@ def decide_dynamic_min_score(collected_count: int, target_count: int, current_di
         return current_min * 0.98  # Minimal drop
 
 
-def adaptive_reddit_search(query_en: str, candidates: list, query_keywords_en: list, target_count: int = 20) -> list:
+def adaptive_reddit_search(query_en: str, candidates: dict, query_keywords_en: list, target_count: int = 20, location: str = None) -> list:
     """
     Adaptively search multiple subreddits until target count is reached.
-    Dynamically adjusts minimum score based on collection progress.
+    Uses progressive threshold reduction and performance tracking.
+
+    Strategy: Collect as many posts as possible, filter by relevance, and track subreddit performance.
 
     Args:
         query_en: Translated English query
-        candidates: List of subreddit candidates
+        candidates: Dict with priority levels {"high": [...], "medium": [...], "low": [...]}
         query_keywords_en: Translated keywords for filtering
         target_count: Target number of posts to collect
+        location: Detected location for performance tracking
 
     Returns:
         Sorted list of top posts meeting target count
     """
     all_collected = []
-    current_min_score = 0.3
+    current_min_score = 0.3  # Start with 1/3 keyword requirement (location + topic filter)
     attempt = 0
     max_attempts = 5
 
     while len(all_collected) < target_count and attempt < max_attempts:
         attempt += 1
-        print(f"🔄 Attempt {attempt}/5: Searching with min_score={current_min_score:.2f} (collected: {len(all_collected)}/{target_count})")
+        print(f"🔄 Attempt {attempt}/{max_attempts}: min_score={current_min_score:.2f} (collected: {len(all_collected)}/{target_count})")
 
-        # Search multiple subreddits
-        batch_posts = search_multiple_subreddits(query_en, candidates, fetch_limit=max(50, target_count * 2))
+        # Search multiple subreddits (with location for performance tracking)
+        batch_posts = search_multiple_subreddits(query_en, candidates, fetch_limit=max(50, target_count * 3), location=location)
+        print(f"   Raw posts from Reddit: {len(batch_posts)}")
 
         if not batch_posts:
             print(f"⚠️ No results from subreddits, stopping.")
@@ -289,26 +367,37 @@ def adaptive_reddit_search(query_en: str, candidates: list, query_keywords_en: l
 
         # Filter with current min_score
         filtered = filter_and_rank_posts(batch_posts, query_keywords_en, min_score=current_min_score)
+        print(f"   Filtered (score≥{current_min_score:.2f}): {len(filtered)}")
 
         if filtered:
             all_collected.extend(filtered)
-            print(f"✓ Collected {len(filtered)} posts this attempt (total: {len(all_collected)})")
+            print(f"✓ Added {len(filtered)} posts (total: {len(all_collected)})")
 
         # Check if we have enough
         if len(all_collected) >= target_count:
             print(f"✓ Target reached!")
             break
 
-        # Analyze current distribution and decide next min_score
+        # If still not enough, lower the threshold gradually (but not below 0.15)
         if all_collected:
             dist = analyze_score_distribution(all_collected)
-            current_min_score = decide_dynamic_min_score(len(all_collected), target_count, dist)
-            print(f"📊 Score distribution: avg={dist['avg_score']:.2f}, min={dist['min_score']:.2f}, median={dist['median_score']:.2f}")
-            print(f"📉 Lowering threshold to {current_min_score:.2f} for next attempt")
+            # Progressive reduction: 0.30 → 0.25 → 0.20 → 0.15 (keep meaningful filtering)
+            if len(all_collected) < target_count * 0.3:
+                # Very low collection - reduce moderately
+                current_min_score = max(0.15, current_min_score * 0.8)
+            elif len(all_collected) < target_count * 0.6:
+                # Some collection - reduce slightly
+                current_min_score = max(0.15, current_min_score * 0.85)
+            else:
+                # Good progress - minimal reduction
+                current_min_score = max(0.15, current_min_score * 0.9)
+            print(f"📊 Score dist: min={dist['min_score']:.2f}, median={dist['median_score']:.2f}, avg={dist['avg_score']:.2f}")
+            print(f"📉 Next threshold: {current_min_score:.2f}")
         else:
-            current_min_score = max(0.05, current_min_score * 0.8)
+            # No posts collected yet - lower to 0.25 (still requires some keyword match)
+            current_min_score = max(0.15, current_min_score * 0.8)
 
-    # Deduplicate and return top results
+    # Deduplicate
     seen = set()
     unique_posts = []
     for post in all_collected:
@@ -317,9 +406,105 @@ def adaptive_reddit_search(query_en: str, candidates: list, query_keywords_en: l
             seen.add(post_id)
             unique_posts.append(post)
 
-    # Final sort by score
+    print(f"   Deduped: {len(all_collected)} → {len(unique_posts)}")
+
+    # Final sort by score (highest first)
     unique_posts.sort(key=lambda p: p.get("_relevance_score", 0), reverse=True)
-    return unique_posts[:target_count]
+    final_result = unique_posts[:target_count]
+    print(f"   Returning top {len(final_result)}/{target_count}")
+
+    return final_result
+
+
+def load_subreddit_scores():
+    """Load subreddit performance scores from file"""
+    global SUBREDDIT_SCORES
+    scores_file = OUTPUT_DIR / "subreddit_scores.json"
+    if scores_file.exists():
+        try:
+            SUBREDDIT_SCORES = json.loads(scores_file.read_text(encoding="utf-8"))
+            print(f"📊 Loaded subreddit scores from {scores_file}")
+        except:
+            SUBREDDIT_SCORES = {}
+    else:
+        SUBREDDIT_SCORES = {}
+
+
+def save_subreddit_scores():
+    """Save subreddit performance scores to file"""
+    scores_file = OUTPUT_DIR / "subreddit_scores.json"
+    try:
+        scores_file.write_text(json.dumps(SUBREDDIT_SCORES, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        print(f"⚠️ Failed to save subreddit scores: {e}")
+
+
+def evaluate_subreddit_performance(location: str, subreddit: str, posts: list, all_collected: list) -> float:
+    """
+    Evaluate subreddit performance based on:
+    - Number of posts collected
+    - Match rate (posts with score >= 0.5)
+    - Freshness (average post age)
+
+    Returns normalized score (0.0 to 1.0)
+    """
+    if not posts:
+        return 0.0
+
+    # Calculate match rate
+    matched = sum(1 for p in posts if p.get("_relevance_score", 0) >= 0.5)
+    match_rate = matched / len(posts) if posts else 0.0
+
+    # Calculate freshness (prefer recent posts)
+    now_ts = datetime.now(timezone.utc).timestamp()
+    ages = [now_ts - p.get("created_utc", now_ts) for p in posts]
+    avg_age_days = sum(ages) / len(ages) / 86400 if ages else 999
+    freshness = max(0.0, 1.0 - (avg_age_days / 30))  # Decay over 30 days
+
+    # Composite score: 60% match rate, 40% freshness
+    score = (match_rate * 0.6) + (freshness * 0.4)
+
+    # Update global scores
+    if location not in SUBREDDIT_SCORES:
+        SUBREDDIT_SCORES[location] = {}
+
+    # Exponential moving average: new_score = 0.7 * old_score + 0.3 * current_score
+    old_score = SUBREDDIT_SCORES[location].get(subreddit, 0.5)
+    new_score = (old_score * 0.7) + (score * 0.3)
+    SUBREDDIT_SCORES[location][subreddit] = new_score
+
+    print(f"   📈 r/{subreddit}: match={match_rate:.1%}, fresh={freshness:.1%} → score={new_score:.2f}")
+    return score
+
+
+def get_sorted_candidates(location: str) -> list:
+    """
+    Get subreddit candidates sorted by performance scores.
+    High-scoring subreddits first, new candidates mixed in for exploration.
+
+    Returns: sorted list of subreddit names
+    """
+    pool = LOCATION_SUBREDDIT_POOLS.get(location, {})
+    candidates = pool.get("candidates", [])
+
+    if not candidates:
+        return []
+
+    # Get scores for this location
+    location_scores = SUBREDDIT_SCORES.get(location, {})
+
+    # Sort by score (descending) with exploration boost for new subreddits
+    def score_key(sr):
+        score = location_scores.get(sr, 0.5)  # Default 0.5 for new subreddits
+        # Boost for new subreddits (not yet evaluated)
+        if sr not in location_scores:
+            score += 0.1  # Explore new candidates
+        return score
+
+    sorted_candidates = sorted(candidates, key=score_key, reverse=True)
+
+    print(f"   Candidate order: {sorted_candidates}")
+    return sorted_candidates
 
 
 def translate_text(text: str, target_lang: str = "en") -> str:
@@ -375,12 +560,16 @@ def get_jobs_data():
 
 
 def parse_days(text: str) -> int:
-    """Extract days from message"""
+    """Extract days from message. Returns None if no specific day filter requested."""
     if "3일" in text or "3day" in text:
         return 3
     elif "1일" in text or "1day" in text or "오늘" in text:
         return 1
-    return 7  # default
+    elif "7일" in text or "7day" in text or "일주" in text:
+        return 7
+    elif "30일" in text or "30day" in text or "한달" in text or "한 달" in text:
+        return 30
+    return None  # No specific filter requested
 
 
 def get_news_by_keyword(keyword: str):
@@ -427,17 +616,23 @@ def handle_reddit_request(text: str):
         query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
         query_original = query
 
-    # Remove location keywords from query for cleaner search
+    # Detect location from query (for performance tracking)
+    detected_location = None
     query_lower = query.lower()
-    for location_keyword in LOCATION_SUBREDDIT_MAP.keys():
-        if location_keyword.lower() in query_lower:
-            query = query.replace(location_keyword, " ").strip()
+    for location, pool_data in LOCATION_SUBREDDIT_POOLS.items():
+        keywords = pool_data.get("keywords", [])
+        for keyword in keywords:
+            if keyword.lower() in query_lower:
+                detected_location = location
+                break
+        if detected_location:
+            break
 
-    # Check for days filter (e.g., "3일", "1day", "최근 7일")
-    if any(keyword in query for keyword in ["일", "day", "최근"]):
-        days_filter = parse_days(query)
+    # Check for days filter (only if explicitly specified: "1일", "3일", "7일", etc.)
+    days_filter = parse_days(query)
+    if days_filter:
         # Remove the date keyword from query for Reddit search
-        for keyword in ["3일", "1일", "7일", "3day", "1day", "최근"]:
+        for keyword in ["1일", "3일", "7일", "30일", "1day", "3day", "7day", "30day", "오늘", "일주", "한달", "한 달"]:
             query = query.replace(keyword, "").strip()
 
     # Check for custom limit (e.g., "30개", "30개", "30", but not "3일")
@@ -458,6 +653,15 @@ def handle_reddit_request(text: str):
                 result_limit = potential_limit
                 query = re.sub(r'\d+$', '', query).strip()  # Remove trailing number
 
+    # Keep location in query for better filtering
+    # Remove duplicate location keywords only
+    query_lower = query.lower()
+    for location, pool_data in LOCATION_SUBREDDIT_POOLS.items():
+        keywords = pool_data.get("keywords", [])
+        for keyword in keywords[1:]:  # Skip first keyword, remove duplicates
+            if keyword.lower() in query_lower:
+                query = query.replace(keyword, " ").strip()
+
     # Translate query to English for Reddit search (if Korean detected)
     query_en = translate_text(query, target_lang="en")
     print(f"🌐 Translated '{query}' → '{query_en}'")
@@ -468,23 +672,42 @@ def handle_reddit_request(text: str):
         fetch_limit = max(50, result_limit * 2) if days_filter else result_limit * 2
         posts = fetch_reddit_posts(query_en, subreddit, limit=fetch_limit)
     else:
-        # Multi-subreddit adaptive search with dynamic score-based collection
+        # Multi-subreddit adaptive search with priority-based collection
         candidates = get_subreddit_candidates(query_original, query_en.split())
-        print(f"🔍 Searching subreddits: {candidates[:5]}")
+
+        # Log candidates by priority
+        high = candidates.get("high", [])
+        medium = candidates.get("medium", [])
+        low = candidates.get("low", [])
+        print(f"📋 Subreddit candidates:")
+        if high:
+            print(f"   🔴 HIGH (location): {high[:3]}{'...' if len(high) > 3 else ''}")
+        if medium:
+            print(f"   🟡 MEDIUM (topic/expat): {medium[:3]}{'...' if len(medium) > 3 else ''}")
+        if low:
+            print(f"   🟢 LOW (fallback): {low[:3]}{'...' if len(low) > 3 else ''}")
 
         # Extract keywords for filtering
         query_keywords_en = [kw.strip() for kw in query_en.split() if len(kw.strip()) > 2]
 
         # Adaptive search: collect until target_count is reached with dynamic min_score adjustment
-        posts = adaptive_reddit_search(query_en, candidates, query_keywords_en, target_count=result_limit)
+        # Pass detected_location for performance tracking
+        posts = adaptive_reddit_search(query_en, candidates, query_keywords_en, target_count=result_limit, location=detected_location)
 
     # Filter by days if specified
+    posts_before_date_filter = len(posts)
     if days_filter:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days_filter)
+        print(f"📅 Applying date filter: last {days_filter} days (cutoff: {cutoff})")
         posts = [p for p in posts if p.get("created_utc", 0) > cutoff.timestamp()]
+        print(f"   After date filter: {posts_before_date_filter} → {len(posts)}")
 
     # Limit to requested number of results
     posts = posts[:result_limit]
+    print(f"   Final result (limited to {result_limit}): {len(posts)}")
+
+    # Save performance scores
+    save_subreddit_scores()
 
     if posts:
         # Build header with time filter info if present
@@ -546,10 +769,10 @@ def handle_message(text: str):
     all_jobs = jobs_data.get("all_tracked_jobs", [])
 
     # Check if it's a date filter or search query
-    is_date_query = any(keyword in text for keyword in ["일", "day", "최근"])
+    days = parse_days(text)
+    is_date_query = days is not None
 
     if is_date_query:
-        days = parse_days(text)
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         job_results = [
             j for j in all_jobs
@@ -628,6 +851,9 @@ def handle_message(text: str):
 
 def poll_messages():
     """Poll Telegram API for new messages"""
+    # Load previous subreddit performance scores
+    load_subreddit_scores()
+
     if not TELEGRAM_TOKEN:
         print("❌ TELEGRAM_BOT_TOKEN not set")
         return
