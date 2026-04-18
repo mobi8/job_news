@@ -77,7 +77,7 @@ def handle_reddit_request(text: str):
     from utils.scrapers import fetch_reddit_posts
     from utils.notifications import send_telegram_messages_chunked
 
-    # Parse: "레딧. r/dubai 두바이 취업" or "레딧. 두바이 취업"
+    # Parse: 레딧. r/dubai 두바이 취업 or 레딧. 두바이 취업
     _, query_part = text.split(".", 1)
     query_part = query_part.strip()
 
@@ -121,7 +121,7 @@ def handle_message(text: str):
     if not text:
         return
 
-    # Check for Reddit request first (must be exact match with ". " separator)
+    # Check for Reddit request first (must be exact match with . separator)
     if "." in text:
         parts = text.split(".", 1)
         prefix = parts[0].strip().lower()
