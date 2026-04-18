@@ -31,6 +31,172 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 
+# Subreddit candidate mapping for keyword-based search
+TOPIC_SUBREDDIT_MAP = {
+    "job": ["jobs", "hiring", "jobsearch", "careerguidance"],
+    "취업": ["jobs", "hiring", "jobsearch"],
+    "hiring": ["hiring", "jobs", "recruits"],
+    "recruit": ["recruits", "hiring", "jobs"],
+    "채용": ["jobs", "hiring", "recruits"],
+    "개발": ["learnprogramming", "programming", "webdev", "cscareerquestions"],
+    "개발자": ["learnprogramming", "programming", "cscareerquestions"],
+    "developer": ["learnprogramming", "programming", "webdev", "cscareerquestions"],
+    "python": ["Python", "learnprogramming"],
+    "javascript": ["javascript", "learnprogramming"],
+    "golang": ["golang", "learnprogramming"],
+    "visa": ["ImmigrationCanada", "ukvisa", "immigrationau"],
+    "비자": ["ImmigrationCanada", "ukvisa"],
+    "salary": ["cscareerquestions", "jobs"],
+    "연봉": ["jobs", "cscareerquestions"],
+}
+
+LOCATION_SUBREDDIT_MAP = {
+    "두바이": ["dubaijobs", "dubai", "uaejobs"],
+    "dubai": ["dubaijobs", "dubai", "uaejobs"],
+    "uae": ["uaejobs", "dubai"],
+    "조지아": ["georgia", "tbilisi"],
+    "georgia": ["georgia", "tbilisi"],
+    "tbilisi": ["georgia", "tbilisi"],
+    "트빌리시": ["georgia", "tbilisi"],
+    "몰타": ["malta"],
+    "malta": ["malta"],
+    "바레인": ["bahrain"],
+    "bahrain": ["bahrain"],
+    "카타르": ["qatar"],
+    "qatar": ["qatar"],
+    "사우디": ["saudiarabia"],
+    "saudi": ["saudiarabia"],
+}
+
+
+def get_subreddit_candidates(query_original: str, query_parts: list) -> list:
+    """
+    Extract subreddit candidates from query based on keywords.
+    Returns list of subreddit names sorted by priority.
+
+    Args:
+        query_original: Original query string
+        query_parts: List of keywords extracted from query
+
+    Returns:
+        List of subreddit candidates (e.g., ["dubaijobs", "jobs", "dubai"])
+    """
+    candidates = []
+    candidates_set = set()
+
+    query_lower = query_original.lower()
+
+    # 1. Topic-based subreddits (highest priority)
+    for keyword, subs in TOPIC_SUBREDDIT_MAP.items():
+        if keyword.lower() in query_lower:
+            for sub in subs:
+                if sub not in candidates_set:
+                    candidates.append(sub)
+                    candidates_set.add(sub)
+
+    # 2. Location-based subreddits
+    for keyword, subs in LOCATION_SUBREDDIT_MAP.items():
+        if keyword.lower() in query_lower:
+            for sub in subs:
+                if sub not in candidates_set:
+                    candidates.append(sub)
+                    candidates_set.add(sub)
+
+    # 3. If no candidates found, use general subreddits
+    if not candidates:
+        candidates = ["jobs", "learnprogramming", "AskReddit"]
+
+    return candidates
+
+
+def search_multiple_subreddits(query: str, candidates: list, fetch_limit: int = 50) -> list:
+    """
+    Search multiple subreddits and combine results.
+
+    Args:
+        query: Search query
+        candidates: List of subreddit names
+        fetch_limit: How many posts to fetch per subreddit
+
+    Returns:
+        Combined list of posts from all subreddits
+    """
+    from utils.scrapers import fetch_reddit_posts
+
+    all_posts = []
+
+    for sr in candidates[:5]:  # Limit to 5 subreddits max
+        try:
+            posts = fetch_reddit_posts(query, subreddit=sr, limit=fetch_limit)
+            # Ensure posts is a list
+            if not isinstance(posts, list):
+                print(f"⚠️ r/{sr}: Invalid response type (expected list, got {type(posts).__name__})")
+                continue
+
+            # Add subreddit to each post for tracking
+            for post in posts:
+                if isinstance(post, dict):
+                    post["_searched_subreddit"] = sr
+            all_posts.extend(posts)
+        except Exception as e:
+            print(f"⚠️ Error searching r/{sr}: {str(e)[:80]}")
+            continue
+
+    return all_posts
+
+
+def calculate_relevance_score(post: dict, query_keywords: list) -> float:
+    """
+    Calculate relevance score based on keyword matching.
+
+    Args:
+        post: Reddit post dict
+        query_keywords: List of search keywords
+
+    Returns:
+        Relevance score (0.0 to 1.0)
+    """
+    if not query_keywords:
+        return 0.0
+
+    title = (post.get("title", "") or "").lower()
+    summary = (post.get("summary", "") or "").lower()
+    text = f"{title} {summary}"
+
+    matches = 0
+    for keyword in query_keywords:
+        if keyword.lower() in text:
+            matches += 1
+
+    # Score: number of matched keywords / total keywords
+    return matches / len(query_keywords) if query_keywords else 0.0
+
+
+def filter_and_rank_posts(posts: list, query_keywords: list, min_score: float = 0.3) -> list:
+    """
+    Filter posts by relevance score and sort by score.
+
+    Args:
+        posts: List of posts to filter
+        query_keywords: List of search keywords
+        min_score: Minimum relevance score to include (0.0 to 1.0)
+
+    Returns:
+        Sorted list of relevant posts
+    """
+    # Calculate scores for all posts
+    posts_with_scores = []
+    for post in posts:
+        score = calculate_relevance_score(post, query_keywords)
+        if score >= min_score:
+            post["_relevance_score"] = score
+            posts_with_scores.append(post)
+
+    # Sort by score (descending)
+    posts_with_scores.sort(key=lambda p: p["_relevance_score"], reverse=True)
+
+    return posts_with_scores
+
 
 def translate_text(text: str, target_lang: str = "en") -> str:
     """
@@ -117,52 +283,31 @@ def get_news_by_keyword(keyword: str):
 
 
 def handle_reddit_request(text: str):
-    """Handle Reddit on-demand scraping request with translation"""
-    from utils.scrapers import fetch_reddit_posts
+    """Handle Reddit on-demand scraping request with translation and multi-subreddit search"""
     from utils.notifications import send_telegram_messages_chunked
 
     # Parse: 레딧. r/dubai 두바이 취업 or 레딧. 두바이 취업
     _, query_part = text.split(".", 1)
     query_part = query_part.strip()
+    query_original = query_part
 
     subreddit = None
     query = query_part
     days_filter = None
     result_limit = 20  # Default number of results to show
 
-    # Location keyword mapping for automatic subreddit detection
-    location_subreddit_map = {
-        "두바이": ["dubai", "uae", "abudhabi"],
-        "dubai": ["dubai", "uae", "abudhabi"],
-        "uae": ["uae", "dubai", "abudhabi"],
-        "조지아": ["georgia", "tbilisi"],
-        "georgia": ["georgia", "tbilisi"],
-        "tbilisi": ["georgia", "tbilisi"],
-        "트빌리시": ["georgia", "tbilisi"],
-        "몰타": ["malta"],
-        "malta": ["malta"],
-        "바레인": ["bahrain"],
-        "bahrain": ["bahrain"],
-        "카타르": ["qatar"],
-        "qatar": ["qatar"],
-        "사우디": ["saudiarabia"],
-        "saudi": ["saudiarabia"],
-    }
-
     # Check if subreddit is explicitly specified (r/name format)
     parts = query_part.split(None, 1)  # Split on first whitespace
     if parts and parts[0].startswith("r/"):
         subreddit = parts[0][2:]  # Remove "r/" prefix
         query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
-    else:
-        # Auto-detect location from query and suggest subreddits
-        query_lower = query_part.lower()
-        for location_keyword, suggested_subs in location_subreddit_map.items():
-            if location_keyword in query_lower:
-                subreddit = suggested_subs[0]  # Use first suggested subreddit
-                # Remove location keyword from query to avoid noise
-                query = query.replace(location_keyword, " ").strip()
-                break
+        query_original = query
+
+    # Remove location keywords from query for cleaner search
+    query_lower = query.lower()
+    for location_keyword in LOCATION_SUBREDDIT_MAP.keys():
+        if location_keyword.lower() in query_lower:
+            query = query.replace(location_keyword, " ").strip()
 
     # Check for days filter (e.g., "3일", "1day", "최근 7일")
     if any(keyword in query for keyword in ["일", "day", "최근"]):
@@ -193,9 +338,21 @@ def handle_reddit_request(text: str):
     query_en = translate_text(query, target_lang="en")
     print(f"🌐 Translated '{query}' → '{query_en}'")
 
-    # Fetch Reddit posts with translated query (fetch more to account for time filtering)
-    fetch_limit = max(50, result_limit * 2) if days_filter else result_limit * 2
-    posts = fetch_reddit_posts(query_en, subreddit, limit=fetch_limit)
+    # If explicit subreddit specified, search only that one
+    if subreddit:
+        from utils.scrapers import fetch_reddit_posts
+        fetch_limit = max(50, result_limit * 2) if days_filter else result_limit * 2
+        posts = fetch_reddit_posts(query_en, subreddit, limit=fetch_limit)
+    else:
+        # Multi-subreddit search with relevance filtering
+        fetch_limit = max(50, result_limit * 3) if days_filter else result_limit * 3
+        candidates = get_subreddit_candidates(query_original, query_en.split())
+        print(f"🔍 Searching subreddits: {candidates[:5]}")
+        posts = search_multiple_subreddits(query_en, candidates, fetch_limit=fetch_limit)
+
+        # Filter by relevance using original query keywords
+        query_keywords = [kw for kw in query_original.split() if len(kw) > 2]
+        posts = filter_and_rank_posts(posts, query_keywords, min_score=0.25)
 
     # Filter by days if specified
     if days_filter:
