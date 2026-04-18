@@ -72,9 +72,63 @@ def get_news_by_keyword(keyword: str):
         return []
 
 
+def handle_reddit_request(text: str):
+    """Handle Reddit on-demand scraping request"""
+    from utils.scrapers import fetch_reddit_posts
+    from utils.notifications import send_telegram_messages_chunked
+
+    # Parse: "레딧. r/dubai 두바이 취업" or "레딧. 두바이 취업"
+    _, query_part = text.split(".", 1)
+    query_part = query_part.strip()
+
+    subreddit = None
+    query = query_part
+
+    # Check if subreddit is specified (r/name format)
+    parts = query_part.split(None, 1)  # Split on first whitespace
+    if parts and parts[0].startswith("r/"):
+        subreddit = parts[0][2:]  # Remove "r/" prefix
+        query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
+
+    # Fetch Reddit posts
+    posts = fetch_reddit_posts(query, subreddit, limit=15)
+
+    if posts:
+        lines = [f"🔗 Reddit '{query}' 검색 결과 ({len(posts)}개)"]
+        if subreddit:
+            lines[0] = f"🔗 r/{subreddit} '{query}' 검색 결과 ({len(posts)}개)"
+
+        for i, post in enumerate(posts, 1):
+            title = post.get("title", "?")
+            url = post.get("url", "")
+            sr = post.get("subreddit", "")
+            score = post.get("score", 0)
+
+            if url:
+                title_link = f'<a href="{url}">{title}</a>'
+            else:
+                title_link = title
+
+            lines.append(f"{i}. {title_link} (r/{sr}, ⬆️ {score})")
+
+        send_telegram_messages_chunked(lines)
+    else:
+        send_telegram_text(f"'{query}' 관련 Reddit 포스트가 없습니다.")
+
+
 def handle_message(text: str):
     """Process incoming message and send response"""
     if not text:
+        return
+
+    # Check for Reddit request first
+    if text.strip().startswith("레딧.") or text.strip().lower().startswith("reddit."):
+        try:
+            handle_reddit_request(text)
+        except Exception as e:
+            print(f"❌ Reddit request error: {e}")
+            from utils.notifications import send_telegram_text
+            send_telegram_text(f"❌ Reddit 요청 처리 중 오류: {str(e)}")
         return
 
     from utils.notifications import send_telegram_messages_chunked

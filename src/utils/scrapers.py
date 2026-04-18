@@ -867,3 +867,67 @@ def fetch_all_rss_news() -> List[NewsItem]:
             continue
 
     return all_items
+
+
+def fetch_reddit_posts(query: str, subreddit: str = None, limit: int = 10) -> List[dict]:
+    """
+    Fetch posts from Reddit via JSON API (on-demand).
+
+    Args:
+        query: Search keyword
+        subreddit: Optional subreddit name (e.g., "dubai", "jobs", "igaming")
+        limit: Number of results (default 10)
+
+    Returns:
+        List of dicts with: title, url, subreddit, score, created_utc, selftext (first 150 chars)
+    """
+    try:
+        # Build URL
+        if subreddit:
+            url = f"https://www.reddit.com/r/{subreddit}/search.json?q={urllib.parse.quote(query)}&restrict_sr=on&sort=new&limit={limit}"
+        else:
+            url = f"https://www.reddit.com/search.json?q={urllib.parse.quote(query)}&sort=new&limit={limit}"
+
+        # Custom User-Agent for Reddit
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "python:agent-job-scout:v1.0 (by /u/agent)"
+            }
+        )
+
+        with urllib.request.urlopen(request, timeout=20) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        posts = []
+        for child in data.get("data", {}).get("children", []):
+            post_data = child.get("data", {})
+
+            # Skip stickied/pinned posts and removed content
+            if post_data.get("stickied") or post_data.get("removed_by_category"):
+                continue
+
+            # Extract fields
+            title = post_data.get("title", "")
+            post_url = post_data.get("url", "")
+            if post_data.get("is_self"):  # Self-post, use permalink
+                post_url = f"https://reddit.com{post_data.get('permalink', '')}"
+
+            selftext = post_data.get("selftext", "")
+            summary = selftext[:150] + "..." if len(selftext) > 150 else selftext
+
+            posts.append({
+                "title": title,
+                "url": post_url,
+                "subreddit": post_data.get("subreddit", "unknown"),
+                "score": post_data.get("score", 0),
+                "created_utc": post_data.get("created_utc", 0),
+                "summary": summary,
+            })
+
+        logger.info("Fetched %d posts from Reddit (query='%s', subreddit=%s)", len(posts), query, subreddit or "all")
+        return posts
+
+    except Exception as e:
+        logger.warning("Failed to fetch Reddit posts (query='%s', subreddit=%s): %s", query, subreddit, e)
+        return []

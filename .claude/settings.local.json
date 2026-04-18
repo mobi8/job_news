@@ -152,7 +152,9 @@
       "Bash(python src/api/telegram_poller.py)",
       "Bash(echo \"✅ Poller started \\(PID: $!\\)\")",
       "Bash(pkill -f telegram_poller)",
-      "Bash(python3 /Users/lewis/Desktop/agent/src/api/telegram_poller.py)"
+      "Bash(python3 /Users/lewis/Desktop/agent/src/api/telegram_poller.py)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -I {} lsof -p {})"
     ]
   }
 }
