@@ -9,6 +9,7 @@ JOBS_DIR="${WORKDIR}/outputs"
 UVICORN_PID=""
 VITE_PID=""
 WATCH_LOOP_PID=""
+TELEGRAM_POLLER_PID=""
 CLEANUP_IN_PROGRESS=0
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
@@ -66,6 +67,7 @@ kill_matching_processes() {
 }
 
 # Clean up any older dashboard/watch processes before starting fresh.
+kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
 kill_matching_processes "watch loop" "src/watch/loop.py"
 kill_matching_processes "scraper" "src/watch/scraper.py"
 kill_matching_processes "backend" "uvicorn src.api.app:app"
@@ -102,6 +104,13 @@ if [[ ! -f "${JOBS_DIR}/jobs_analysis.json" ]] || [[ ! -f "${JOBS_DIR}/job_stats
   echo "⚠️  Data files missing. Run scraper first or use: NO_SCRAPE=1 bash run_dashboard.sh"
   exit 1
 fi
+
+# Start Telegram poller (for on-demand Reddit scraping, etc.)
+cd "${WORKDIR}"
+python3 src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
+TELEGRAM_POLLER_PID=$!
+echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
+sleep 1
 
 # Start watch loop detached from the shell so it survives terminal closure.
 cd "${WORKDIR}"
@@ -146,6 +155,11 @@ cleanup() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   # Step 1: Send SIGTERM (graceful shutdown)
+  if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
+    echo "  → Stopping Telegram poller (PID: $TELEGRAM_POLLER_PID)..."
+    kill -TERM "$TELEGRAM_POLLER_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  → Stopping watch loop (PID: $WATCH_LOOP_PID)..."
     kill -TERM "$WATCH_LOOP_PID" 2>/dev/null || true
@@ -164,11 +178,13 @@ cleanup() {
   # Step 2: Wait up to 3 seconds for graceful shutdown
   local wait_count=0
   while [[ $wait_count -lt 30 ]]; do
-    if [[ -z "$WATCH_LOOP_PID" ]] || ! kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
-      if [[ -z "$VITE_PID" ]] || ! kill -0 "$VITE_PID" 2>/dev/null; then
-        if [[ -z "$UVICORN_PID" ]] || ! kill -0 "$UVICORN_PID" 2>/dev/null; then
-          echo "✓ All processes stopped gracefully"
-          return
+    if [[ -z "$TELEGRAM_POLLER_PID" ]] || ! kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
+      if [[ -z "$WATCH_LOOP_PID" ]] || ! kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
+        if [[ -z "$VITE_PID" ]] || ! kill -0 "$VITE_PID" 2>/dev/null; then
+          if [[ -z "$UVICORN_PID" ]] || ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+            echo "✓ All processes stopped gracefully"
+            return
+          fi
         fi
       fi
     fi
@@ -178,6 +194,11 @@ cleanup() {
 
   # Step 3: Force kill if still running (after 3 seconds)
   echo "  → Forcing shutdown..."
+  if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
+    echo "  ⚠ Force killing Telegram poller (PID: $TELEGRAM_POLLER_PID)"
+    kill -KILL "$TELEGRAM_POLLER_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  ⚠ Force killing watch loop (PID: $WATCH_LOOP_PID)"
     kill -KILL "$WATCH_LOOP_PID" 2>/dev/null || true
@@ -206,4 +227,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
-wait $WATCH_LOOP_PID $VITE_PID $UVICORN_PID 2>/dev/null || true
+wait $TELEGRAM_POLLER_PID $WATCH_LOOP_PID $VITE_PID $UVICORN_PID 2>/dev/null || true

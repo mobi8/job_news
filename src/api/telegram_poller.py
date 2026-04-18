@@ -8,6 +8,7 @@ import time
 import sqlite3
 import urllib.request
 import urllib.error
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -29,6 +30,49 @@ from utils.notifications import send_telegram_text
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
+
+
+def translate_text(text: str, target_lang: str = "en") -> str:
+    """
+    Translate text using Google Translate free API (no API key needed).
+
+    Args:
+        text: Text to translate
+        target_lang: Target language code (en, ko, etc.)
+
+    Returns:
+        Translated text, or original text if translation fails
+    """
+    try:
+        if not text or len(text.strip()) == 0:
+            return text
+
+        # URL encode the text
+        encoded_text = urllib.parse.quote(text)
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_lang}&dt=t&q={encoded_text}"
+
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+
+        with urllib.request.urlopen(request, timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        # Extract translated text from response
+        # Response format: [[[translated_text, original_text, ...], ...], ...]
+        if data and len(data) > 0 and isinstance(data[0], list):
+            translated_parts = []
+            for item in data[0]:
+                if isinstance(item, list) and len(item) > 0:
+                    translated_parts.append(item[0])
+            if translated_parts:
+                return "".join(translated_parts)
+
+        return text
+    except Exception as e:
+        print(f"⚠️ Translation error (returning original): {e}")
+        return text
 
 
 def get_jobs_data():
@@ -73,7 +117,7 @@ def get_news_by_keyword(keyword: str):
 
 
 def handle_reddit_request(text: str):
-    """Handle Reddit on-demand scraping request"""
+    """Handle Reddit on-demand scraping request with translation"""
     from utils.scrapers import fetch_reddit_posts
     from utils.notifications import send_telegram_messages_chunked
 
@@ -90,8 +134,12 @@ def handle_reddit_request(text: str):
         subreddit = parts[0][2:]  # Remove "r/" prefix
         query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
 
-    # Fetch Reddit posts
-    posts = fetch_reddit_posts(query, subreddit, limit=15)
+    # Translate query to English for Reddit search (if Korean detected)
+    query_en = translate_text(query, target_lang="en")
+    print(f"🌐 Translated '{query}' → '{query_en}'")
+
+    # Fetch Reddit posts with translated query
+    posts = fetch_reddit_posts(query_en, subreddit, limit=15)
 
     if posts:
         lines = [f"🔗 Reddit '{query}' 검색 결과 ({len(posts)}개)"]
@@ -103,13 +151,23 @@ def handle_reddit_request(text: str):
             url = post.get("url", "")
             sr = post.get("subreddit", "")
             score = post.get("score", 0)
+            summary = post.get("summary", "")
+
+            # Translate title and summary to Korean
+            title_ko = translate_text(title, target_lang="ko")
+            summary_ko = translate_text(summary, target_lang="ko") if summary else ""
 
             if url:
-                title_link = f'<a href="{url}">{title}</a>'
+                title_link = f'<a href="{url}">{title_ko}</a>'
             else:
-                title_link = title
+                title_link = title_ko
 
-            lines.append(f"{i}. {title_link} (r/{sr}, ⬆️ {score})")
+            # Build post line with translation
+            if summary_ko and len(summary_ko) > 0:
+                summary_short = summary_ko[:100] + "..." if len(summary_ko) > 100 else summary_ko
+                lines.append(f"{i}. {title_link}\n   {summary_short}\n   r/{sr} | ⬆️ {score}")
+            else:
+                lines.append(f"{i}. {title_link} (r/{sr}, ⬆️ {score})")
 
         send_telegram_messages_chunked(lines)
     else:
