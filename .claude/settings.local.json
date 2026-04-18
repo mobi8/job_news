@@ -154,7 +154,8 @@
       "Bash(pkill -f telegram_poller)",
       "Bash(python3 /Users/lewis/Desktop/agent/src/api/telegram_poller.py)",
       "Bash(awk '{print $2}')",
-      "Bash(xargs -I {} lsof -p {})"
+      "Bash(xargs -I {} lsof -p {})",
+      "Bash(kill 834)"
     ]
   }
 }
