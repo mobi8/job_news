@@ -127,12 +127,20 @@ def handle_reddit_request(text: str):
 
     subreddit = None
     query = query_part
+    days_filter = None
 
     # Check if subreddit is specified (r/name format)
     parts = query_part.split(None, 1)  # Split on first whitespace
     if parts and parts[0].startswith("r/"):
         subreddit = parts[0][2:]  # Remove "r/" prefix
         query = parts[1] if len(parts) > 1 else subreddit  # Use second part as query
+
+    # Check for days filter (e.g., "3일", "1day", "최근 7일")
+    if any(keyword in query for keyword in ["일", "day", "최근"]):
+        days_filter = parse_days(query)
+        # Remove the date keyword from query for Reddit search
+        for keyword in ["3일", "1일", "7일", "3day", "1day", "최근"]:
+            query = query.replace(keyword, "").strip()
 
     # Translate query to English for Reddit search (if Korean detected)
     query_en = translate_text(query, target_lang="en")
@@ -141,10 +149,17 @@ def handle_reddit_request(text: str):
     # Fetch Reddit posts with translated query
     posts = fetch_reddit_posts(query_en, subreddit, limit=15)
 
+    # Filter by days if specified
+    if days_filter:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_filter)
+        posts = [p for p in posts if p.get("created_utc", 0) > cutoff.timestamp()]
+
     if posts:
-        lines = [f"🔗 Reddit '{query}' 검색 결과 ({len(posts)}개)"]
+        # Build header with time filter info if present
+        time_filter_text = f" (최근 {days_filter}일)" if days_filter else ""
+        lines = [f"🔗 Reddit '{query}' 검색 결과 ({len(posts)}개){time_filter_text}"]
         if subreddit:
-            lines[0] = f"🔗 r/{subreddit} '{query}' 검색 결과 ({len(posts)}개)"
+            lines[0] = f"🔗 r/{subreddit} '{query}' 검색 결과 ({len(posts)}개){time_filter_text}"
 
         for i, post in enumerate(posts, 1):
             title = post.get("title", "?")
