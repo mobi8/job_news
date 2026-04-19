@@ -112,11 +112,11 @@ TELEGRAM_POLLER_PID=$!
 echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
 sleep 1
 
-# Start watch loop detached from the shell so it survives terminal closure.
+# Start watch loop with caffeinate (prevent sleep) detached from the shell so it survives terminal closure.
 cd "${WORKDIR}"
-nohup python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
+nohup caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
 WATCH_LOOP_PID=$!
-echo "  Watch loop started (PID: $WATCH_LOOP_PID)"
+echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
 
 cd "${WORKDIR}"
 uvicorn src.api.app:app --reload --log-level info &
