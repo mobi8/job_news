@@ -759,7 +759,6 @@ def handle_message(text: str):
                 handle_reddit_request(text)
             except Exception as e:
                 print(f"❌ Reddit request error: {e}")
-                from utils.notifications import send_telegram_text
                 send_telegram_text(f"❌ Reddit 요청 처리 중 오류: {str(e)}")
             return
 

@@ -68,12 +68,15 @@ def start_telegram_poller():
     try:
         poller_path = str(Path(__file__).parent.parent / "api" / "telegram_poller.py")
         if Path(poller_path).exists():
-            subprocess.Popen(
-                [sys.executable, poller_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            # Log to file instead of suppressing output
+            log_path = str(Path(__file__).parent.parent.parent / "logs" / "telegram_poller.log")
+            with open(log_path, "a") as log_file:
+                subprocess.Popen(
+                    [sys.executable, poller_path],
+                    stdout=log_file,
+                    stderr=log_file,
+                    start_new_session=True,
+                )
             watch_logger.info("Started Telegram poller")
     except Exception as e:
         watch_logger.warning(f"Failed to start Telegram poller: {e}")
