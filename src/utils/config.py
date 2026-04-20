@@ -25,6 +25,11 @@ TELEGRAM_CHANNELS = [
         "source": "telegram_cryptojobslist",
         "company": "CryptoJobsList",
     },
+    {
+        "url": "https://t.me/s/hr1win",
+        "source": "telegram_hr1win",
+        "company": "1Win HR",
+    },
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 INDEED_SEARCH_URLS = [

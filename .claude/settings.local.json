@@ -159,7 +159,12 @@
       "Bash(pkill -f \"src/api/telegram_poller.py\")",
       "Bash(echo \"Telegram poller started with PID: $!\")",
       "Bash(echo \"Started with PID: $!\")",
-      "Bash(echo \"✓ Telegram poller started \\(PID: $!\\)\")"
+      "Bash(echo \"✓ Telegram poller started \\(PID: $!\\)\")",
+      "Bash(find /Users/lewis/Desktop/agent/logs -name \"*.log\" -type f -exec ls -lht {} +)",
+      "Bash(log stream *)",
+      "Bash(awk '{print $6, $7, $8, $9}')",
+      "Bash(vm_stat)",
+      "Bash(log show *)"
     ]
   }
 }

@@ -9,6 +9,7 @@ JOBS_DIR="${WORKDIR}/outputs"
 UVICORN_PID=""
 VITE_PID=""
 WATCH_LOOP_PID=""
+WATCH_LOOP_MONITOR_PID=""
 TELEGRAM_POLLER_PID=""
 CLEANUP_IN_PROGRESS=0
 
@@ -112,11 +113,20 @@ TELEGRAM_POLLER_PID=$!
 echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
 sleep 1
 
-# Start watch loop with caffeinate (prevent sleep) detached from the shell so it survives terminal closure.
+# Start watch loop monitor (auto-restart if crashes)
 cd "${WORKDIR}"
-nohup caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
-WATCH_LOOP_PID=$!
-echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
+{
+  while true; do
+    nohup caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
+    WATCH_LOOP_PID=$!
+    echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
+    wait $WATCH_LOOP_PID
+    echo "  ⚠ Watch loop crashed (exit code: $?), restarting in 10s..."
+    sleep 10
+  done
+} &
+WATCH_LOOP_MONITOR_PID=$!
+echo "  Watch loop monitor started (PID: $WATCH_LOOP_MONITOR_PID)"
 
 cd "${WORKDIR}"
 uvicorn src.api.app:app --reload --log-level info &
@@ -160,6 +170,11 @@ cleanup() {
     kill -TERM "$TELEGRAM_POLLER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$WATCH_LOOP_MONITOR_PID" ]] && kill -0 "$WATCH_LOOP_MONITOR_PID" 2>/dev/null; then
+    echo "  → Stopping watch loop monitor (PID: $WATCH_LOOP_MONITOR_PID)..."
+    kill -TERM "$WATCH_LOOP_MONITOR_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  → Stopping watch loop (PID: $WATCH_LOOP_PID)..."
     kill -TERM "$WATCH_LOOP_PID" 2>/dev/null || true
@@ -199,6 +214,11 @@ cleanup() {
     kill -KILL "$TELEGRAM_POLLER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$WATCH_LOOP_MONITOR_PID" ]] && kill -0 "$WATCH_LOOP_MONITOR_PID" 2>/dev/null; then
+    echo "  ⚠ Force killing watch loop monitor (PID: $WATCH_LOOP_MONITOR_PID)"
+    kill -KILL "$WATCH_LOOP_MONITOR_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  ⚠ Force killing watch loop (PID: $WATCH_LOOP_PID)"
     kill -KILL "$WATCH_LOOP_PID" 2>/dev/null || true
@@ -227,4 +247,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
-wait $TELEGRAM_POLLER_PID $WATCH_LOOP_PID $VITE_PID $UVICORN_PID 2>/dev/null || true
+wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID 2>/dev/null || true

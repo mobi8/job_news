@@ -448,9 +448,9 @@ def parse_cryptojobslist_jobs(raw_html: str) -> List[JobPosting]:
         if "Apply" not in message_html or "💼" not in message_html or "🏛️" not in message_html:
             continue
 
-        title_match = re.search(r"💼</b></i>\s*<b>(?P<title>.*?)</b><br/>", message_html, re.DOTALL)
-        company_match = re.search(r"🏛️</b></i>\s*at\s*(?P<company>.*?)<br/>", message_html, re.DOTALL)
-        location_match = re.search(r"🌍</b></i>\s*(?P<location>.*?)<br/>", message_html, re.DOTALL)
+        title_match = re.search(r"💼.*?</i>\s*<b>(?P<title>.*?)</b>", message_html, re.DOTALL)
+        company_match = re.search(r"🏛️.*?</i>\s*at\s+(?P<company>[^<]+)<br", message_html, re.DOTALL)
+        location_match = re.search(r"🌍.*?</i>\s*(?P<location>[^<]+)<br", message_html, re.DOTALL)
         apply_match = re.search(r'Apply\s*→\s*<a href="(?P<url>https://cjl\.ist/[^"]+)"', message_html, re.DOTALL)
 
         if not title_match or not company_match or not apply_match:
