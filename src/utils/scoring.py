@@ -436,6 +436,16 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
     if "lead" in title_lower or "head" in title_lower:
         score += 4
 
+    # Domain-role pairing bonuses reflecting job search priorities:
+    # - iGaming: AM / BD / PM all targeted
+    # - Crypto/Payments: PM/PO primary focus
+    is_igaming = any(t in text_blob for t in ["igaming", "casino", "sportsbook", "betting", "gaming platform", "live casino"])
+    is_crypto_payments = any(t in text_blob for t in ["crypto", "web3", "digital asset", "stablecoin", "blockchain", "wallet", "exchange", "payment", "neobank"])
+    if is_igaming and (commercial_role_tags or product_role_tags):
+        score += 8
+    if is_crypto_payments and product_role_tags:
+        score += 10
+
     if not location_ok:
         score -= 35
     if not domain_tags:
