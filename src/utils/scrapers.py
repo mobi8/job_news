@@ -524,42 +524,60 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
     return jobs
 
 
-def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
+def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
+    """Fetch browser pages in parallel batches. Returns list of page results."""
     if not BROWSER_PROBE_PATH.exists():
-        logger.warning("Skipping Indeed: browser probe script not found at %s", BROWSER_PROBE_PATH)
+        logger.warning("Browser probe script not found at %s", BROWSER_PROBE_PATH)
+        return []
+
+    batches = [urls[i:i + batch_size] for i in range(0, len(urls), batch_size)]
+    all_results = []
+
+    def run_batch(batch: List[str]) -> List[dict]:
+        command = ["node", str(BROWSER_PROBE_PATH)] + batch
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=600,
+            )
+            stdout = completed.stdout.strip()
+            if not stdout:
+                return [{"jobs": [], "error": "empty output"} for _ in batch]
+
+            pages = json.loads(stdout)
+            if not isinstance(pages, list):
+                pages = [pages]
+            return pages
+        except Exception as exc:
+            logger.warning("Batch processing failed: %s", exc)
+            return [{"jobs": [], "error": str(exc)} for _ in batch]
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(run_batch, batch): batch for batch in batches}
+        for future in as_completed(futures):
+            try:
+                results = future.result()
+                all_results.extend(results)
+            except Exception as e:
+                logger.warning("Batch fetch failed: %s", e)
+
+    return all_results
+
+
+def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
+    if not INDEED_SEARCH_URLS:
         return []
 
     jobs: List[JobPosting] = []
     seen_urls = set()
     collected_at = utc_now().isoformat()
 
-    # Batch all Indeed URLs in one node call
-    command = ["node", str(BROWSER_PROBE_PATH)] + INDEED_SEARCH_URLS
-
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=600,
-        )
-    except (subprocess.SubprocessError, FileNotFoundError) as exc:
-        logger.warning("Indeed browser scraping failed: %s", exc)
-        return []
-
-    stdout = completed.stdout.strip()
-    if not stdout:
-        logger.warning("Indeed: empty browser output")
-        return []
-
-    try:
-        pages = json.loads(stdout)
-        # Handle both single page and array of pages
-        if not isinstance(pages, list):
-            pages = [pages]
-    except json.JSONDecodeError as exc:
-        logger.warning("Indeed: invalid JSON output (%s)", exc)
+    pages = _batch_browser_fetch(INDEED_SEARCH_URLS, batch_size=4)
+    if not pages:
+        logger.warning("Indeed: no results from browser fetch")
         return []
 
     for search_url, page in zip(INDEED_SEARCH_URLS, pages):
@@ -572,19 +590,16 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
             seen_urls.add(url)
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
 
-            # Location 필드를 확인해서 country 결정
             location_str = clean_text(item.get("location", "")).lower()
             source_name = "indeed_uae"
             country = "UAE"
 
-            # Location 기반 국가 판단 (우선순위 높음)
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
                 source_name = "indeed_malta"
             elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str:
                 country = "Georgia"
                 source_name = "indeed_georgia"
-            # URL 기반 판단 (location이 없을 때 폴백)
             elif "ge.indeed.com" in search_url:
                 country = "Georgia"
                 source_name = "indeed_georgia"
@@ -608,46 +623,20 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
 
 
 def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
-    if not BROWSER_PROBE_PATH.exists():
-        logger.warning("Skipping LinkedIn: browser probe script not found at %s", BROWSER_PROBE_PATH)
+    all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
+    if not all_urls:
         return []
 
     jobs: List[JobPosting] = []
     seen_urls = set()
-    all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
     collected_at = utc_now().isoformat()
 
-    # Batch all LinkedIn URLs in one node call
-    command = ["node", str(BROWSER_PROBE_PATH)] + all_urls
-
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=600,
-        )
-    except (subprocess.SubprocessError, FileNotFoundError) as exc:
-        logger.warning("LinkedIn browser scraping failed: %s", exc)
-        return []
-
-    stdout = completed.stdout.strip()
-    if not stdout:
-        logger.warning("LinkedIn: empty browser output")
-        return []
-
-    try:
-        pages = json.loads(stdout)
-        # Handle both single page and array of pages
-        if not isinstance(pages, list):
-            pages = [pages]
-    except json.JSONDecodeError as exc:
-        logger.warning("LinkedIn: invalid JSON output (%s)", exc)
+    pages = _batch_browser_fetch(all_urls, batch_size=5)
+    if not pages:
+        logger.warning("LinkedIn: no results from browser fetch")
         return []
 
     for search_url, page in zip(all_urls, pages):
-
         for item in page.get("jobs", []):
             url = item.get("url", "").strip()
             title = clean_text(item.get("title", ""))
@@ -657,20 +646,17 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             seen_urls.add(url)
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
 
-            # Location 필드를 확인해서 country 결정
             location_str = clean_text(item.get("location", "")).lower()
             source_name = "linkedin_public"
             country = "UAE"
             search_lower = search_url.lower()
 
-            # Location 기반 국가 판단 (우선순위 높음)
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
                 source_name = "linkedin_malta"
             elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str or "batumi" in location_str or "바투미" in location_str:
                 country = "Georgia"
                 source_name = "linkedin_georgia"
-            # URL 기반 판단 (location이 없을 때 폴백)
             elif "malta" in search_lower or "valletta" in search_lower:
                 country = "Malta"
                 source_name = "linkedin_malta"
