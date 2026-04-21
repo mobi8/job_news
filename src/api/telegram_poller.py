@@ -31,6 +31,15 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 
+def _resolve_url(key: str) -> str:
+    """Look up full URL from url_map.json by short key."""
+    import json as _json
+    url_map_path = OUTPUT_DIR / "url_map.json"
+    if url_map_path.exists():
+        url_map = _json.loads(url_map_path.read_text())
+        return url_map.get(key, key)
+    return key
+
 # Subreddit candidate mapping for keyword-based search
 TOPIC_SUBREDDIT_MAP = {
     "job": ["jobs", "hiring", "jobsearch", "careerguidance"],
@@ -762,6 +771,27 @@ def handle_message(text: str):
                 send_telegram_text(f"❌ Reddit 요청 처리 중 오류: {str(e)}")
             return
 
+        if prefix in ("분석", "analyze"):
+            query = parts[1].strip()
+            if not query:
+                send_telegram_text("사용법: 분석. 회사명 포지션 위치\n예) 분석. Stake.com Product Manager UAE")
+                return
+            try:
+                send_telegram_text(f"🔍 career-ops 분석 중...\n{query}")
+                from services.career_bridge import analyze
+                result = analyze(query)
+                # Split if too long for Telegram (4096 char limit)
+                if len(result) <= 4000:
+                    send_telegram_text(result)
+                else:
+                    chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
+                    for chunk in chunks:
+                        send_telegram_text(chunk)
+            except Exception as e:
+                print(f"❌ Career bridge error: {e}")
+                send_telegram_text(f"❌ 분석 오류: {str(e)}")
+            return
+
     from utils.notifications import send_telegram_messages_chunked
 
     jobs_data = get_jobs_data()
@@ -870,6 +900,34 @@ def poll_messages():
                 continue
 
             for update in data.get("result", []):
+                # Handle inline button callback
+                callback = update.get("callback_query")
+                if callback:
+                    callback_id = callback.get("id")
+                    callback_data = callback.get("data", "")
+                    user = callback.get("from", {}).get("first_name", "User")
+                    # Acknowledge the callback immediately
+                    ack_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/answerCallbackQuery?callback_query_id={callback_id}"
+                    try:
+                        urllib.request.urlopen(ack_url, timeout=5)
+                    except Exception:
+                        pass
+                    if callback_data.startswith("a:"):
+                        key = callback_data[2:]
+                        url = _resolve_url(key)
+                        print(f"📨 {user} [분석 버튼]: {url}")
+                        try:
+                            send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
+                            from services.career_bridge import analyze
+                            result = analyze(url)
+                            chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
+                            for chunk in chunks:
+                                send_telegram_text(chunk)
+                        except Exception as e:
+                            send_telegram_text(f"❌ 분석 오류: {e}")
+                    offset = update.get("update_id", 0) + 1
+                    continue
+
                 msg = update.get("message", {})
                 text = msg.get("text", "").strip()
                 user = msg.get("from", {}).get("first_name", "User")

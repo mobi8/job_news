@@ -23,6 +23,7 @@ from .utils import (
     save_telegram_sent_history,
     utc_now,
 )
+from .config import OUTPUT_DIR
 from .logger import notifications_logger
 from .template_renderer import render_template
 
@@ -229,6 +230,60 @@ def send_telegram_text(text: str) -> bool:
     return False
 
 
+def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
+    """Send individual job cards with inline [🔍 분석] button for high-score jobs."""
+    import json as _json
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return
+
+    # Load/update URL map (short numeric key → full URL)
+    url_map_path = OUTPUT_DIR / "url_map.json"
+    url_map = _json.loads(url_map_path.read_text()) if url_map_path.exists() else {}
+    next_id = max((int(k) for k in url_map), default=0) + 1
+
+    country_emoji = {"UAE": "🇦🇪", "Georgia": "🇬🇪", "Malta": "🇲🇹", "Bahrain": "🇧🇭", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦"}
+    high_score_jobs = [j for j in jobs if _job_score(j) >= min_score and j.get("url")]
+
+    for job in high_score_jobs:
+        url = job.get("url", "")
+        # Reuse existing key or assign new one
+        existing = next((k for k, v in url_map.items() if v == url), None)
+        if existing:
+            key = existing
+        else:
+            key = str(next_id)
+            url_map[key] = url
+            next_id += 1
+
+        flag = country_emoji.get(job.get("country", ""), "")
+        title = html.escape(job.get("title", "?"))
+        company = html.escape(job.get("company", "?"))
+        score = _job_score(job)
+        country = job.get("country", "")
+
+        text = f"{flag} <b>{company}</b> — {title}\nScore: {score} | {country}"
+        reply_markup = _json.dumps({
+            "inline_keyboard": [[{"text": "🔍 career-ops 분석", "callback_data": f"a:{key}"}]]
+        })
+        payload = urllib.parse.urlencode({
+            "chat_id": chat_id, "text": text, "parse_mode": "HTML",
+            "disable_web_page_preview": "true", "reply_markup": reply_markup,
+        }).encode("utf-8")
+        try:
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            urllib.request.urlopen(req, timeout=10)
+            logger.info("Sent analysis card: %s - %s", company, title)
+        except Exception as e:
+            logger.warning("Failed to send analysis card: %s", e)
+
+    url_map_path.write_text(_json.dumps(url_map))
+
+
 def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
     prepared_jobs = _prepare_notification_jobs(jobs)
     qualifying_jobs = [job for job in prepared_jobs if _job_score(job) >= min_score]
@@ -271,6 +326,8 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
         )
         if not send_telegram_messages_chunked(message_text.splitlines()):
             return
+
+    send_job_analysis_cards(qualifying_jobs, min_score=30)
 
 
 def send_incremental_summary(
