@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bridge: runs career-ops via claude -p and returns result as text"""
 
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +18,7 @@ def analyze(query: str) -> str:
     if not CAREER_OPS_DIR.exists():
         return "❌ career-ops 폴더를 찾을 수 없습니다."
 
-    prompt = f"/career-ops oferta {query}"
+    prompt = f"/career-ops oferta {shlex.quote(query)}"
 
     try:
         result = subprocess.run(

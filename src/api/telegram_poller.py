@@ -425,7 +425,7 @@ def adaptive_reddit_search(query_en: str, candidates: dict, query_keywords_en: l
     return final_result
 
 
-def load_subreddit_scores():
+def load_subreddit_scores() -> None:
     """Load subreddit performance scores from file"""
     global SUBREDDIT_SCORES
     scores_file = OUTPUT_DIR / "subreddit_scores.json"
@@ -433,7 +433,7 @@ def load_subreddit_scores():
         try:
             SUBREDDIT_SCORES = json.loads(scores_file.read_text(encoding="utf-8"))
             print(f"📊 Loaded subreddit scores from {scores_file}")
-        except:
+        except (json.JSONDecodeError, OSError):
             SUBREDDIT_SCORES = {}
     else:
         SUBREDDIT_SCORES = {}
@@ -564,7 +564,7 @@ def get_jobs_data():
         return {}
     try:
         return json.loads(JOBS_DATA_PATH.read_text(encoding="utf-8"))
-    except:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 
@@ -604,7 +604,7 @@ def get_news_by_keyword(keyword: str):
         return []
 
 
-def handle_reddit_request(text: str):
+def handle_reddit_request(text: str) -> None:
     """Handle Reddit on-demand scraping request with translation and multi-subreddit search"""
     from utils.notifications import send_telegram_messages_chunked
 
@@ -753,7 +753,7 @@ def handle_reddit_request(text: str):
         send_telegram_text(f"'{query}' 관련 Reddit 포스트가 없습니다.")
 
 
-def handle_message(text: str):
+def handle_message(text: str) -> None:
     """Process incoming message and send response"""
     if not text:
         return
@@ -878,7 +878,7 @@ def handle_message(text: str):
             send_telegram_text(f"'{text}' 관련 공고나 뉴스가 없습니다.")
 
 
-def poll_messages():
+def poll_messages() -> None:
     """Poll Telegram API for new messages"""
     # Load previous subreddit performance scores
     load_subreddit_scores()
