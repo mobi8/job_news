@@ -164,7 +164,16 @@
       "Bash(log stream *)",
       "Bash(awk '{print $6, $7, $8, $9}')",
       "Bash(vm_stat)",
-      "Bash(log show *)"
+      "Bash(log show *)",
+      "WebSearch",
+      "Bash(timeout 20 /Applications/cmux.app/Contents/Resources/bin/claude -p --dangerously-skip-permissions \"안녕\")",
+      "Bash(echo \"exit: $?\")",
+      "Read(//private/tmp/**)",
+      "Bash(kill 48042 48024)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(pkill -f telegram_poller.py)",
+      "Bash(kill %1)",
+      "Bash(awk '{print \"PID:\",$2}')"
     ]
   }
 }
