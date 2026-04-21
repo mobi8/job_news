@@ -10,6 +10,7 @@ import subprocess
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import List
@@ -843,28 +844,31 @@ def fetch_all_player_rss_news() -> List[NewsItem]:
 
 
 def fetch_all_rss_news() -> List[NewsItem]:
-    """Fetch all configured RSS feeds, skip individual failures, deduplicate by URL."""
+    """Fetch all configured RSS feeds in parallel, skip individual failures, deduplicate by URL."""
     all_items: List[NewsItem] = []
     seen_urls: set[str] = set()
 
-    for feed_config in NEWS_RSS_FEEDS:
-        try:
-            url = feed_config.get("url")
-            source = feed_config.get("source")
-            label = feed_config.get("label", source)
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {
+            executor.submit(fetch_rss_news, feed_config.get("url"), feed_config.get("source")): feed_config
+            for feed_config in NEWS_RSS_FEEDS
+        }
 
-            logger.info("Fetching RSS feed: %s", label)
-            items = fetch_rss_news(url, source)
-            logger.info("Collected %d items from %s", len(items), label)
+        for future in as_completed(futures):
+            feed_config = futures[future]
+            label = feed_config.get("label", feed_config.get("source"))
+            try:
+                logger.info("Fetching RSS feed: %s", label)
+                items = future.result()
+                logger.info("Collected %d items from %s", len(items), label)
 
-            for item in items:
-                if item.url not in seen_urls:
-                    all_items.append(item)
-                    seen_urls.add(item.url)
+                for item in items:
+                    if item.url not in seen_urls:
+                        all_items.append(item)
+                        seen_urls.add(item.url)
 
-        except Exception as e:
-            logger.warning("Failed to fetch RSS feed %s: %s", feed_config.get("label", "unknown"), e)
-            continue
+            except Exception as e:
+                logger.warning("Failed to fetch RSS feed %s: %s", label, e)
 
     return all_items
 

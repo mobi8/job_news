@@ -68,62 +68,78 @@ class Database:
             pass
 
     def upsert_jobs(self, jobs: List[JobPosting], return_jobs: bool = False) -> int | tuple[int, List[JobPosting]]:
+        if not jobs:
+            if return_jobs:
+                return 0, []
+            return 0
+
         now = utc_now().isoformat()
         inserted = 0
         inserted_jobs: List[JobPosting] = []
 
+        # Normalize all jobs first
         for job in jobs:
             if job.source in LINKEDIN_SOURCES:
                 job.url = normalize_linkedin_url(job.url)
                 job.source_job_id = normalize_linkedin_identifier(job.source, job.source_job_id)
-            row = self.conn.execute(
-                "SELECT first_seen_at FROM jobs WHERE fingerprint = ?",
-                (job.fingerprint,),
-            ).fetchone()
 
-            first_seen_at = row["first_seen_at"] if row else now
-            if row is None:
+        # Batch lookup existing fingerprints
+        fingerprints = [job.fingerprint for job in jobs]
+        existing_rows = self.conn.execute(
+            f"SELECT fingerprint, first_seen_at FROM jobs WHERE fingerprint IN ({','.join('?' * len(fingerprints))})",
+            fingerprints,
+        ).fetchall()
+        existing_map = {row["fingerprint"]: row["first_seen_at"] for row in existing_rows}
+
+        # Prepare batch upsert data
+        upsert_data = []
+        for job in jobs:
+            first_seen_at = existing_map.get(job.fingerprint, now)
+            if job.fingerprint not in existing_map:
                 inserted += 1
                 inserted_jobs.append(job)
 
             job.first_seen_at = first_seen_at
             job.last_seen_at = now
 
-            self.conn.execute(
-                """
-                INSERT INTO jobs (
-                    fingerprint, source, source_job_id, title, company, location,
-                    url, description, remote, country, first_seen_at, last_seen_at, match_score
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(fingerprint) DO UPDATE SET
-                    source = excluded.source,
-                    source_job_id = excluded.source_job_id,
-                    title = excluded.title,
-                    company = excluded.company,
-                    location = excluded.location,
-                    url = excluded.url,
-                    description = excluded.description,
-                    remote = excluded.remote,
-                    country = excluded.country,
-                    last_seen_at = excluded.last_seen_at,
-                    match_score = excluded.match_score
-                """,
-                (
-                    job.fingerprint,
-                    job.source,
-                    job.source_job_id,
-                    job.title,
-                    job.company,
-                    job.location,
-                    job.url,
-                    job.description,
-                    int(job.remote),
-                    job.country,
-                    job.first_seen_at,
-                    job.last_seen_at,
-                    job.match_score,
-                ),
-            )
+            upsert_data.append((
+                job.fingerprint,
+                job.source,
+                job.source_job_id,
+                job.title,
+                job.company,
+                job.location,
+                job.url,
+                job.description,
+                int(job.remote),
+                job.country,
+                job.first_seen_at,
+                job.last_seen_at,
+                job.match_score,
+            ))
+
+        # Batch insert/update all jobs
+        self.conn.executemany(
+            """
+            INSERT INTO jobs (
+                fingerprint, source, source_job_id, title, company, location,
+                url, description, remote, country, first_seen_at, last_seen_at, match_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(fingerprint) DO UPDATE SET
+                source = excluded.source,
+                source_job_id = excluded.source_job_id,
+                title = excluded.title,
+                company = excluded.company,
+                location = excluded.location,
+                url = excluded.url,
+                description = excluded.description,
+                remote = excluded.remote,
+                country = excluded.country,
+                last_seen_at = excluded.last_seen_at,
+                match_score = excluded.match_score
+            """,
+            upsert_data,
+        )
 
         self.conn.commit()
         if return_jobs:
@@ -131,45 +147,58 @@ class Database:
         return inserted
 
     def upsert_news(self, items: List[NewsItem], return_items: bool = False) -> int | tuple[int, List[NewsItem]]:
+        if not items:
+            if return_items:
+                return 0, []
+            return 0
+
         now = utc_now().isoformat()
         inserted = 0
         inserted_items: List[NewsItem] = []
 
-        for item in items:
-            row = self.conn.execute(
-                "SELECT first_seen_at FROM news WHERE fingerprint = ?",
-                (item.fingerprint,),
-            ).fetchone()
+        # Batch lookup existing fingerprints
+        fingerprints = [item.fingerprint for item in items]
+        existing_rows = self.conn.execute(
+            f"SELECT fingerprint, first_seen_at FROM news WHERE fingerprint IN ({','.join('?' * len(fingerprints))})",
+            fingerprints,
+        ).fetchall()
+        existing_map = {row["fingerprint"]: row["first_seen_at"] for row in existing_rows}
 
-            first_seen_at = row["first_seen_at"] if row else now
-            if row is None:
+        # Prepare batch upsert data
+        upsert_data = []
+        for item in items:
+            first_seen_at = existing_map.get(item.fingerprint, now)
+            if item.fingerprint not in existing_map:
                 inserted += 1
                 inserted_items.append(item)
 
-            self.conn.execute(
-                """
-                INSERT INTO news (
-                    fingerprint, source, title, url, published_at, summary, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(fingerprint) DO UPDATE SET
-                    source = excluded.source,
-                    title = excluded.title,
-                    url = excluded.url,
-                    published_at = excluded.published_at,
-                    summary = excluded.summary,
-                    last_seen_at = excluded.last_seen_at
-                """,
-                (
-                    item.fingerprint,
-                    item.source,
-                    item.title,
-                    item.url,
-                    item.published_at,
-                    item.summary,
-                    first_seen_at,
-                    now,
-                ),
-            )
+            upsert_data.append((
+                item.fingerprint,
+                item.source,
+                item.title,
+                item.url,
+                item.published_at,
+                item.summary,
+                first_seen_at,
+                now,
+            ))
+
+        # Batch insert/update all news items
+        self.conn.executemany(
+            """
+            INSERT INTO news (
+                fingerprint, source, title, url, published_at, summary, first_seen_at, last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(fingerprint) DO UPDATE SET
+                source = excluded.source,
+                title = excluded.title,
+                url = excluded.url,
+                published_at = excluded.published_at,
+                summary = excluded.summary,
+                last_seen_at = excluded.last_seen_at
+            """,
+            upsert_data,
+        )
 
         self.conn.commit()
         if return_items:
