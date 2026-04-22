@@ -16,23 +16,24 @@ def main():
     data = json.loads(jobs_path.read_text(encoding='utf-8'))
     all_jobs = data.get('all_tracked_jobs', [])
 
-    # Filter and sort by score, skip jobs that already have descriptions
+    # Filter and sort by score, skip jobs that already have full descriptions (3000+ chars)
     linkedin_jobs = sorted(
-        [j for j in all_jobs if j.get('source') == 'linkedin_public' and j.get('match_score', 0) >= 30 and len(j.get('description', '')) < 500],
+        [j for j in all_jobs if j.get('source') == 'linkedin_public' and j.get('match_score', 0) >= 30 and len(j.get('description', '')) < 3000],
         key=lambda x: x.get('match_score', 0),
         reverse=True
     )
 
     indeed_jobs = sorted(
-        [j for j in all_jobs if j.get('source') == 'indeed_uae' and j.get('match_score', 0) >= 30 and len(j.get('description', '')) < 500],
+        [j for j in all_jobs if j.get('source') == 'indeed_uae' and j.get('match_score', 0) >= 30 and len(j.get('description', '')) < 3000],
         key=lambda x: x.get('match_score', 0),
         reverse=True
     )
 
-    print(f"\n📊 배치 계획 (병렬 6개)")
+    total_jobs = len(linkedin_jobs) + len(indeed_jobs)
+    print(f"\n📊 배치 계획 (병렬 6개, ~{(total_jobs * 130 // 360 + 1):d}분 예상)")
     print(f"  LinkedIn: {len(linkedin_jobs)}개 수집")
     print(f"  Indeed: {len(indeed_jobs)}개 수집")
-    print(f"  총 {len(linkedin_jobs) + len(indeed_jobs)}개 job detail 스크래핑\n")
+    print(f"  총 {total_jobs}개 job detail 스크래핑\n")
 
     linkedin_batch = linkedin_jobs
     indeed_batch = indeed_jobs
