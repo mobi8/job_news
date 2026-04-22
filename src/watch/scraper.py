@@ -17,13 +17,22 @@ All logic lives in the modules below:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import subprocess
 import sys
 import urllib.error
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List
+
+# JobSpy for LinkedIn + Indeed scraping
+try:
+    sys.path.insert(0, '/Users/lewis/Desktop/agent/jobspy_env/lib/python3.14/site-packages')
+    from jobspy import scrape_jobs
+except ImportError:
+    scrape_jobs = None
 
 # Load .env file if it exists
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -69,8 +78,6 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
-    fetch_indeed_jobs_via_browser,
-    fetch_linkedin_jobs_via_browser,
     fetch_telegram_channel_jobs,
     parse_igaming_recruitment_jobs,
     parse_jobrapido_jobs,
@@ -96,12 +103,64 @@ logger = scraper_logger
 
 
 def load_browser_lookback_hours() -> int:
-    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "72")
+    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "24")
     try:
         return max(1, int(raw_value))
     except ValueError:
-        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 72.", raw_value)
-        return 72
+        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 24.", raw_value)
+        return 24
+
+
+def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]:
+    """Scrape LinkedIn and Indeed jobs using JobSpy with description fetching."""
+    from utils.models import JobPosting
+
+    if not scrape_jobs:
+        logger.warning("JobSpy not available, skipping LinkedIn/Indeed scraping")
+        return [], []
+
+    try:
+        logger.info("Scraping LinkedIn + Indeed via JobSpy...")
+        jobs_df = scrape_jobs(
+            site_name=["linkedin", "indeed"],
+            search_term="operations",
+            location="Dubai",
+            results_wanted=20,
+            hours_old=168,
+            verbose=0,
+            linkedin_fetch_description=True,
+            country_indeed="united arab emirates",
+        )
+
+        linkedin_jobs = []
+        indeed_jobs = []
+        now_iso = datetime.utcnow().isoformat()
+
+        for _, row in jobs_df.iterrows():
+            job = JobPosting(
+                source=f"{row['site']}_jobspy",
+                source_job_id=row.get('id', row['job_url']),
+                title=row['title'] or "",
+                company=row['company'] or "",
+                location=row['location'] or "Dubai, UAE",
+                url=row['job_url'],
+                description=row.get('description', "") or "",
+                remote=bool(row.get('is_remote', False)),
+                country="UAE",
+                collected_at=now_iso,
+            )
+
+            if row['site'] == 'linkedin':
+                linkedin_jobs.append(job)
+            else:
+                indeed_jobs.append(job)
+
+        logger.info(f"Collected {len(linkedin_jobs)} LinkedIn + {len(indeed_jobs)} Indeed jobs via JobSpy")
+        return linkedin_jobs, indeed_jobs
+
+    except Exception as e:
+        logger.error(f"Error scraping via JobSpy: {e}")
+        return [], []
 
 
 def run(mode: str = "collect") -> Dict[str, Any]:
@@ -175,22 +234,15 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         sources.append(("Telegram public channels", telegram_jobs))
 
 
-    if allowed_sources is None or "indeed_uae" in allowed_sources:
-        logger.info("Fetching Indeed UAE via browser session...")
-        indeed_jobs = fetch_indeed_jobs_via_browser()
-        # Apply browser lookback filtering (collected_at >= cutoff_time)
-        cutoff_time_iso = cutoff_time.isoformat()
-        indeed_jobs = [j for j in indeed_jobs if j.collected_at and j.collected_at >= cutoff_time_iso]
-        logger.info("Collected %s jobs from Indeed UAE.", len(indeed_jobs))
-        sources.append(("Indeed UAE browser searches", indeed_jobs))
+    # Scrape LinkedIn + Indeed via JobSpy (includes descriptions)
+    cutoff_time_iso = cutoff_time.isoformat()
+    linkedin_jobs, indeed_jobs = scrape_linkedin_indeed_via_jobspy(cutoff_time_iso)
 
-    if allowed_sources is None or "linkedin_public" in allowed_sources:
-        logger.info("Fetching LinkedIn public jobs via browser session...")
-        linkedin_jobs = fetch_linkedin_jobs_via_browser()
-        # Apply browser lookback filtering (collected_at >= cutoff_time)
-        linkedin_jobs = [j for j in linkedin_jobs if j.collected_at and j.collected_at >= cutoff_time_iso]
-        logger.info("Collected %s jobs from LinkedIn.", len(linkedin_jobs))
-        sources.append(("LinkedIn public browser searches", linkedin_jobs))
+    if (allowed_sources is None or "linkedin_public" in allowed_sources) and linkedin_jobs:
+        sources.append(("LinkedIn jobspy", linkedin_jobs))
+
+    if (allowed_sources is None or "indeed_uae" in allowed_sources) and indeed_jobs:
+        sources.append(("Indeed jobspy", indeed_jobs))
 
     jobs = [
         job

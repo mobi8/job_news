@@ -173,7 +173,23 @@
       "Bash(echo \"PID: $!\")",
       "Bash(pkill -f telegram_poller.py)",
       "Bash(kill %1)",
-      "Bash(awk '{print \"PID:\",$2}')"
+      "Bash(awk '{print \"PID:\",$2}')",
+      "Bash(pkill -f \"uvicorn src.api.app\")",
+      "Bash(pkill -f \"browser_probe.js\")",
+      "Bash(pstree *)",
+      "Bash(tee batch_scrape.log)",
+      "Bash(kill 92539 92537 45773 46017)",
+      "Bash(pkill -f batch_scrape_descriptions.py)",
+      "Bash(pkill -f browser_probe.js)",
+      "Bash(ps *)",
+      "Bash(kill 98079)",
+      "Bash(pkill -9 python3)",
+      "Bash(echo \"스크래퍼 시작됨. PID: $!\")",
+      "mcp__plugin_ecc_exa__web_fetch_exa",
+      "Bash(/opt/homebrew/bin/python3 -m pip install python-jobspy -q)",
+      "Bash(/opt/homebrew/bin/python3 -c \"from jobspy import scrape_jobs; print\\('✓ JobSpy installed'\\)\")",
+      "Bash(/opt/homebrew/bin/python3 -m pip install --user python-jobspy -q)",
+      "Bash(/opt/homebrew/bin/python3 -c \"from jobspy import scrape_jobs; print\\('✓ JobSpy ready'\\)\")"
     ]
   }
 }

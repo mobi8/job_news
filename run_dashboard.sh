@@ -96,10 +96,9 @@ fi
 
 cd "${WORKDIR}"
 if [[ "${SKIP_SCRAPE}" != "1" ]]; then
-  echo "Running scraper..."
+  echo "Running scraper (with detailed descriptions)..."
   if python3 src/watch/scraper.py collect; then
-    echo "Running batch description scraper..."
-    python3 batch_scrape_descriptions.py || echo "Batch scrape error (continuing)"
+    echo "✓ Scraper completed with detailed descriptions"
   else
     echo "Scraper error (continuing)"
   fi

@@ -911,6 +911,19 @@
   box-shadow: 0 0 8px rgba(96, 165, 250, 0.15);
 }
 
+.status-btn.info-btn {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.2));
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.status-btn.link-btn:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.4));
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+}
+
 /* Stats Panel Compact */
 .stats-panel.compact {
   margin-bottom: 1rem;
@@ -1041,4 +1054,168 @@
   background: linear-gradient(135deg, rgba(6, 182, 212, 0.9), rgba(8, 145, 178, 0.9));
   border-color: rgba(6, 182, 212, 0.8);
   box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+}
+
+/* Job Detail Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: rgba(12, 18, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(10, 25, 47, 0.8);
+  backdrop-filter: blur(18px);
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #e4e8f7;
+  font-size: 2rem;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.modal-close:hover {
+  opacity: 1;
+}
+
+.modal-header {
+  margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.modal-company {
+  margin: 0;
+  font-size: 1rem;
+  color: #a8b4ff;
+  font-weight: 500;
+}
+
+.modal-meta {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-location,
+.modal-score {
+  font-size: 0.95rem;
+  color: #c9d2f7;
+}
+
+.modal-description {
+  margin-bottom: 1.5rem;
+}
+
+.modal-description h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e8f7;
+}
+
+.description-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #b8c5f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: rgba(10, 25, 47, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.modal-link-button {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8));
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.modal-link-button:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 1), rgba(37, 99, 235, 1));
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+}
+
+.modal-loading,
+.modal-error {
+  padding: 2rem;
+  text-align: center;
+  font-size: 1rem;
+  color: #a8b4ff;
+}
+
+.modal-error {
+  color: #ff6b6b;
 }

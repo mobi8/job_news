@@ -40,6 +40,26 @@ def _resolve_url(key: str) -> str:
         return url_map.get(key, key)
     return key
 
+
+def _get_job_description(key: str) -> str | None:
+    """Look up job description by dashboard_key or url from jobs_analysis.json."""
+    if not JOBS_DATA_PATH.exists():
+        return None
+    try:
+        # Resolve numerical key to actual URL first
+        resolved_url = _resolve_url(key)
+
+        data = json.loads(JOBS_DATA_PATH.read_text(encoding="utf-8"))
+        all_jobs = data.get("all_tracked_jobs", data.get("filtered_jobs", []))
+        for job in all_jobs:
+            if job.get("url") == resolved_url:
+                description = job.get("description", "").strip()
+                if description:
+                    return description[:2000]
+        return None
+    except Exception:
+        return None
+
 # Subreddit candidate mapping for keyword-based search
 TOPIC_SUBREDDIT_MAP = {
     "job": ["jobs", "hiring", "jobsearch", "careerguidance"],
@@ -914,12 +934,18 @@ def poll_messages() -> None:
                         pass
                     if callback_data.startswith("a:"):
                         key = callback_data[2:]
+                        description = _get_job_description(key)
                         url = _resolve_url(key)
                         print(f"📨 {user} [분석 버튼]: {url}")
                         try:
-                            send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
-                            from services.career_bridge import analyze
-                            result = analyze(url)
+                            if description:
+                                send_telegram_text(f"🔍 career-ops 분석 중...\n(공고 요약)")
+                                from services.career_bridge import analyze
+                                result = analyze(description)
+                            else:
+                                send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
+                                from services.career_bridge import analyze
+                                result = analyze(url)
                             chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
                             for chunk in chunks:
                                 send_telegram_text(chunk)

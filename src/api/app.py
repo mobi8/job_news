@@ -262,6 +262,21 @@ def get_player_mentions() -> Dict[str, Any]:
     return {"player_mentions": stats.get("player_mentions", {})}
 
 
+@app.get("/api/job/{job_url:path}", summary="Get job detail with description")
+def get_job_detail(job_url: str) -> Dict[str, Any]:
+    """Get full job details including description by url"""
+    jobs_data = load_jobs_data()
+    all_jobs = jobs_data.get("all_tracked_jobs", jobs_data.get("filtered_jobs", []))
+
+    for job in all_jobs:
+        if job.get("url") == job_url:
+            job.setdefault("country", detect_country(job))
+            job.setdefault("source_label", source_label(job.get("source", "")))
+            return {"job": job}
+
+    raise HTTPException(status_code=404, detail=f"Job not found: {job_url}")
+
+
 @app.get("/api/job-statuses")
 def get_job_statuses() -> Dict[str, Any]:
     """Get all job statuses and rejected job details"""

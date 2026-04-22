@@ -6,9 +6,10 @@ import {
   fetchNews,
   fetchStats,
   fetchJobStatuses,
+  fetchJobDetail,
   updateJobStatus as apiUpdateJobStatus,
 } from "./lib/api.ts";
-import type { JobsResponse, StatsResponse } from "./lib/api.ts";
+import type { JobsResponse, StatsResponse, JobPosting } from "./lib/api.ts";
 import "./App.css";
 
 const filterOptions = [
@@ -289,6 +290,7 @@ function JobsList({
   subStatus,
   jobStatuses,
   onUpdateJobStatus,
+  onJobCardClick,
 }: {
   jobsData?: any;
   isLoading: boolean;
@@ -297,6 +299,7 @@ function JobsList({
   subStatus: string;
   jobStatuses: Record<string, StatusKey>;
   onUpdateJobStatus: (jobKey: string, status: StatusKey) => void;
+  onJobCardClick: (jobKey: string, jobUrl: string) => void;
 }) {
 
   const sortedAndFiltered = useMemo(() => {
@@ -389,12 +392,12 @@ function JobsList({
         const hue = (job.match_score / 100) * 120;
         const gaugeGradient = `linear-gradient(90deg, hsl(${hue}, 80%, 40%), hsl(${hue}, 100%, 55%))`;
         return (
-        <a
+        <div
           key={jobKey}
-          href={job.url}
-          target="_blank"
-          rel="noreferrer"
           className="list-card"
+          onClick={() => window.open(job.url, '_blank')}
+          role="button"
+          tabIndex={0}
         >
           <div className="card-header">
             <div className="card-title">{job.title}</div>
@@ -420,6 +423,7 @@ function JobsList({
               className={`status-btn ${currentStatus === "unseen" ? "active" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onUpdateJobStatus(jobKey, "unseen");
               }}
             >
@@ -429,6 +433,7 @@ function JobsList({
               className={`status-btn ${currentStatus === "viewed" ? "active" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onUpdateJobStatus(jobKey, "viewed");
               }}
             >
@@ -438,6 +443,7 @@ function JobsList({
               className={`status-btn ${currentStatus === "applied" ? "active" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onUpdateJobStatus(jobKey, "applied");
               }}
             >
@@ -447,17 +453,28 @@ function JobsList({
               className={`status-btn ${currentStatus === "removed" ? "active" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onUpdateJobStatus(jobKey, "removed");
               }}
             >
               제거
+            </button>
+            <button
+              className="status-btn info-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onJobCardClick(jobKey, job.url);
+              }}
+            >
+              정보
             </button>
           </div>
           <span className="time-badge">
             <span className="source-label">{job.source}</span>
             {formatTime(job.first_seen_at)}
           </span>
-        </a>
+        </div>
       );
       })}
     </div>
@@ -505,6 +522,56 @@ function NewsList({
   );
 }
 
+// Job Detail Modal
+function JobDetailModal({
+  job,
+  isOpen,
+  isLoading,
+  onClose,
+}: {
+  job: JobPosting | null;
+  isOpen: boolean;
+  isLoading: boolean;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        {isLoading ? (
+          <div className="modal-loading">로딩 중...</div>
+        ) : job ? (
+          <>
+            <div className="modal-header">
+              <h2>{job.title}</h2>
+              <p className="modal-company">{job.company}</p>
+            </div>
+            <div className="modal-meta">
+              <span className="modal-location">📍 {job.location}</span>
+              <span className="modal-score">점수: {job.match_score}</span>
+            </div>
+            {job.description && (
+              <div className="modal-description">
+                <h3>공고 상세</h3>
+                <div className="description-text">{job.description}</div>
+              </div>
+            )}
+            <div className="modal-actions">
+              <a href={job.url} target="_blank" rel="noreferrer" className="modal-link-button">
+                원문 링크 보기 →
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="modal-error">공고를 불러올 수 없습니다.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Content Section with Tabs
 function ContentSection({
   jobsData,
@@ -516,6 +583,7 @@ function ContentSection({
   subStatus,
   jobStatuses,
   onUpdateJobStatus,
+  onJobCardClick,
 }: {
   jobsData?: any;
   jobsLoading: boolean;
@@ -526,6 +594,7 @@ function ContentSection({
   subStatus: string;
   jobStatuses: Record<string, StatusKey>;
   onUpdateJobStatus: (jobKey: string, status: StatusKey) => void;
+  onJobCardClick: (jobKey: string, jobUrl: string) => void;
 }) {
   return (
     <div className="section-content">
@@ -538,6 +607,7 @@ function ContentSection({
           subStatus={subStatus}
           jobStatuses={jobStatuses}
           onUpdateJobStatus={onUpdateJobStatus}
+          onJobCardClick={onJobCardClick}
         />
       )}
       {activeTab === "news" && <NewsList newsData={newsData} />}
@@ -550,6 +620,9 @@ function App() {
   const [mainStatus, setMainStatus] = useState("unseen");
   const [subStatus, setSubStatus] = useState("");
   const [jobStatuses, setJobStatuses] = useState<Record<string, StatusKey>>({});
+  const [selectedJobKey, setSelectedJobKey] = useState<string | null>(null);
+  const [selectedJobDetail, setSelectedJobDetail] = useState<JobPosting | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     source: "",
     country: "",
@@ -693,6 +766,25 @@ function App() {
     };
   }, [jobsQuery.data?.jobs, jobStatuses]);
 
+  const openJobDetail = async (jobKey: string, jobUrl: string) => {
+    setSelectedJobKey(jobKey);
+    setIsLoadingDetail(true);
+    try {
+      const data = await fetchJobDetail(jobUrl);
+      setSelectedJobDetail(data.job);
+    } catch (err) {
+      console.error("Failed to fetch job detail:", err);
+      setSelectedJobDetail(null);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const closeJobDetail = () => {
+    setSelectedJobKey(null);
+    setSelectedJobDetail(null);
+  };
+
   return (
     <div className="app-shell">
       <div className="main-tabs-row top-tabs">
@@ -783,8 +875,16 @@ function App() {
           subStatus={subStatus}
           jobStatuses={jobStatuses}
           onUpdateJobStatus={updateJobStatus}
+          onJobCardClick={openJobDetail}
         />
       </section>
+
+      <JobDetailModal
+        job={selectedJobDetail}
+        isOpen={selectedJobKey !== null}
+        isLoading={isLoadingDetail}
+        onClose={closeJobDetail}
+      />
     </div>
   );
 }
