@@ -29,6 +29,7 @@ from utils.logger import watch_logger
 
 # Updated path: scraper.py is in src/watch/
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
+BATCH_SCRAPE_PATH = str(Path(__file__).parent.parent.parent / "batch_scrape_descriptions.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
 
@@ -57,6 +58,16 @@ def run_once() -> int:
         env=env,
         check=False,
     )
+
+    if result.returncode == 0:
+        watch_logger.info("Scraper completed; collecting job descriptions for score >= 30...")
+        batch_result = subprocess.run(
+            [sys.executable, BATCH_SCRAPE_PATH],
+            env=env,
+            check=False,
+        )
+        if batch_result.returncode != 0:
+            watch_logger.warning(f"Batch scrape failed with code {batch_result.returncode}")
 
     return result.returncode
 
