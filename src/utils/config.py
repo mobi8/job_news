@@ -601,12 +601,19 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "offline",
     "Surveillance",
     "food",
-    "3D",
+    "3d",
     "frontend",
     "backend",
-    "DevOps",
-    "Developer",
-    "Room",
+    "devops",
+    "engineer",
+    "supply chain",
+    "supply chain manager",
+    "supply chain specialist",
+    "supply chain coordinator",
+    "logistics",
+    "procurement",
+    "purchasing",
+    "room",
     "print"
 
 ]

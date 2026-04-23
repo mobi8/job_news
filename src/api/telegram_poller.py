@@ -33,30 +33,6 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 JOBS_DB_PATH = OUTPUT_DIR / "jobs.sqlite3"
 MAX_DESCRIPTION_CHARS = 12000
-JD_SECTION_HINTS = (
-    "jd",
-    "job description",
-    "role",
-    "overview",
-    "summary",
-    "about the role",
-    "what you'll do",
-    "what you will do",
-    "what you will be doing",
-    "responsibilit",
-    "duties",
-    "requirements",
-    "requirement",
-    "qualifications",
-    "qualification",
-    "skills",
-    "experience",
-    "what we're looking for",
-    "what we are looking for",
-    "ideal candidate",
-    "who you are",
-    "you will",
-)
 
 def _resolve_url(key: str) -> str:
     """Look up full URL from url_map.json by short key."""
@@ -66,78 +42,6 @@ def _resolve_url(key: str) -> str:
         url_map = _json.loads(url_map_path.read_text())
         return url_map.get(key, key)
     return key
-
-
-def _get_job_description(key: str) -> str | None:
-    """Look up job description by dashboard_key or url from jobs_analysis.json."""
-    if not JOBS_DATA_PATH.exists():
-        return None
-    try:
-        # Resolve numerical key to actual URL first
-        resolved_url = _resolve_url(key)
-
-        data = json.loads(JOBS_DATA_PATH.read_text(encoding="utf-8"))
-        all_jobs = data.get("all_tracked_jobs", data.get("filtered_jobs", []))
-        for job in all_jobs:
-            if job.get("url") == resolved_url:
-                description = job.get("description", "").strip()
-                if description:
-                    return description[:MAX_DESCRIPTION_CHARS]
-        return None
-    except Exception:
-        return None
-
-
-def _looks_like_section_heading(line: str) -> bool:
-    normalized = line.strip()
-    if not normalized:
-        return False
-
-    lowered = normalized.lower()
-    return (
-        normalized.endswith(":")
-        or normalized.startswith(("##", "###", "—", "-", "*"))
-        or len(normalized) <= 80
-        and any(term in lowered for term in JD_SECTION_HINTS)
-    )
-
-
-def _extract_priority_snippets(description: str, max_lines: int = 24) -> str:
-    """Extract JD lines that are likely to belong to the main JD / requirements sections."""
-    if not description:
-        return ""
-
-    lines = [line.rstrip() for line in description.splitlines()]
-    if not lines:
-        return ""
-
-    selected: list[str] = []
-    seen: set[str] = set()
-    for idx, line in enumerate(lines):
-        normalized = line.strip()
-        if not normalized:
-            continue
-
-        lowered = normalized.lower()
-        if _looks_like_section_heading(normalized) or normalized.startswith(("•", "·")):
-            start = max(0, idx - 1)
-            end = min(len(lines), idx + 8)
-            for chunk in lines[start:end]:
-                text = chunk.strip()
-                if not text or text in seen:
-                    continue
-                # Prefer bullet-heavy or list-like areas under the detected section.
-                if text.startswith(("•", "-", "*")) or _looks_like_section_heading(text) or len(selected) < 4:
-                    selected.append(text)
-                    seen.add(text)
-                    if len(selected) >= max_lines:
-                        return "\n".join(selected)
-
-    if selected:
-        return "\n".join(selected)
-
-    # Fallback: keep the opening portion of the JD if no section markers are found.
-    return "\n".join(line.strip() for line in lines[:max_lines] if line.strip())
 
 
 def _get_job_record(key: str) -> dict[str, str] | None:
@@ -169,44 +73,43 @@ def _get_job_record(key: str) -> dict[str, str] | None:
 
 
 def _build_job_context(key: str) -> str | None:
-    """Build a richer prompt payload from the DB row and cached description."""
+    """Build a compact prompt payload for a quick oferta pass."""
     resolved_url = _resolve_url(key)
     record = _get_job_record(key)
     if not record:
-        description = _get_job_description(key)
-        if not description:
-            return f"Job URL for reread: {resolved_url}"
         return "\n".join([
-            "Job description from cached JSON:",
-            f"Job URL for reread: {resolved_url}",
-            "",
-            _extract_priority_snippets(description),
+            "Job context:",
+            f"Job URL: {resolved_url}",
+            "Instruction: give a quick first-pass fit check only.",
         ]).strip()
 
-    description = (record.get("description") or "").strip()
-    description = description[:MAX_DESCRIPTION_CHARS] if description else ""
-    priority_snippets = _extract_priority_snippets(description) if description else ""
-
-    parts = [
-        "Job context from local database:",
+    return "\n".join([
+        "Job context:",
         f"Title: {record.get('title', '')}",
         f"Company: {record.get('company', '')}",
         f"Location: {record.get('location', '')}",
-        f"Source: {record.get('source', '')}",
-        f"Job URL for reread: {record.get('url', '') or resolved_url}",
-    ]
+        "Instruction: give a quick first-pass fit check only. Use the candidate summary and the job header.",
+    ]).strip()
 
-    if priority_snippets:
-        parts.append("")
-        parts.append("JD priority snippets:")
-        parts.append(priority_snippets)
 
-    if description:
-        parts.append("")
-        parts.append("Full description excerpt:")
-        parts.append(description)
+def _get_job_description(key: str) -> str | None:
+    """Look up job description by dashboard_key or url from jobs_analysis.json."""
+    if not JOBS_DATA_PATH.exists():
+        return None
+    try:
+        # Resolve numerical key to actual URL first
+        resolved_url = _resolve_url(key)
 
-    return "\n".join(parts).strip()
+        data = json.loads(JOBS_DATA_PATH.read_text(encoding="utf-8"))
+        all_jobs = data.get("all_tracked_jobs", data.get("filtered_jobs", []))
+        for job in all_jobs:
+            if job.get("url") == resolved_url:
+                description = job.get("description", "").strip()
+                if description:
+                    return description[:MAX_DESCRIPTION_CHARS]
+        return None
+    except Exception:
+        return None
 
 # Subreddit candidate mapping for keyword-based search
 TOPIC_SUBREDDIT_MAP = {

@@ -98,3 +98,12 @@ class TestSendNewsSummary:
 
         # 배치 기준으로 다시 보내는 것이 정상
         mock_send.assert_called_once()
+
+
+def test_build_job_context_is_compact():
+    from api.telegram_poller import _build_job_context
+
+    context = _build_job_context("missing-key")
+    assert context is not None
+    assert "full description" not in context.lower()
+    assert "jd priority snippets" not in context.lower()

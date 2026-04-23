@@ -270,6 +270,26 @@ class TestMaybeSendTelegram:
         assert "0 new" in message
 
     @patch("utils.notifications.send_telegram_text")
+    @patch("utils.notifications.send_job_analysis_cards")
+    def test_maybe_send_telegram_hard_excluded_job_not_sent(self, mock_cards, mock_send):
+        """Test that hard excluded jobs are filtered out before notification"""
+        job = JobPosting(
+            source="indeed_uae",
+            source_job_id="123",
+            title="Senior DevOps Engineer",
+            company="TechCorp",
+            location="Dubai",
+            url="https://indeed.com/123",
+            description="DevOps manager role",
+            match_score=85,
+        )
+        maybe_send_telegram(1, [job])
+        assert mock_send.called
+        message = mock_send.call_args[0][0]
+        assert "알림 조건" in message or "0 new" in message
+        mock_cards.assert_not_called()
+
+    @patch("utils.notifications.send_telegram_text")
     def test_maybe_send_telegram_negative_inserted(self, mock_send):
         """Test with negative inserted count"""
         jobs = []
@@ -335,7 +355,7 @@ class TestMaybeSendTelegram:
             JobPosting(
                 source="indeed_uae",
                 source_job_id="1",
-                title="Senior Developer",
+                title="Product Manager",
                 company="TechCorp",
                 location="Dubai",
                 url="https://indeed.com/1",
@@ -344,7 +364,7 @@ class TestMaybeSendTelegram:
             JobPosting(
                 source="indeed_uae",
                 source_job_id="2",
-                title="Senior Developer",
+                title="Product Manager",
                 company="TechCorp",
                 location="Dubai",
                 url="https://indeed.com/2",

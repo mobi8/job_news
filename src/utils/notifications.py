@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from .db import Database
 from .models import JobPosting
-from .scoring import focus_records, source_label
+from .scoring import focus_records, is_hard_excluded_job, source_label
 from .utils import (
     dedupe_records_for_display,
     load_resume_text,
@@ -178,7 +178,17 @@ def _job_score(job: Any) -> int:
 
 
 def _prepare_notification_jobs(jobs: List[Any]) -> List[Dict[str, Any]]:
-    normalized = [_coerce_job_record(job) for job in jobs]
+    normalized = []
+    for job in jobs:
+        record = _coerce_job_record(job)
+        if is_hard_excluded_job(
+            record.get("title", ""),
+            record.get("company", ""),
+            record.get("location", ""),
+            record.get("description", ""),
+        ):
+            continue
+        normalized.append(record)
     normalized.sort(
         key=lambda job: (
             -_job_score(job),
@@ -242,7 +252,12 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
     next_id = max((int(k) for k in url_map), default=0) + 1
 
     country_emoji = {"UAE": "🇦🇪", "Georgia": "🇬🇪", "Malta": "🇲🇹", "Bahrain": "🇧🇭", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦"}
-    high_score_jobs = [j for j in jobs if _job_score(j) >= min_score and j.get("url")]
+    high_score_jobs = [
+        j for j in jobs
+        if _job_score(j) >= min_score
+        and j.get("url")
+        and not is_hard_excluded_job(j.get("title", ""), j.get("company", ""), j.get("location", ""), j.get("description", ""))
+    ]
 
     for job in high_score_jobs:
         url = job.get("url", "")

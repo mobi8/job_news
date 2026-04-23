@@ -189,7 +189,15 @@
       "Bash(/opt/homebrew/bin/python3 -m pip install python-jobspy -q)",
       "Bash(/opt/homebrew/bin/python3 -c \"from jobspy import scrape_jobs; print\\('✓ JobSpy installed'\\)\")",
       "Bash(/opt/homebrew/bin/python3 -m pip install --user python-jobspy -q)",
-      "Bash(/opt/homebrew/bin/python3 -c \"from jobspy import scrape_jobs; print\\('✓ JobSpy ready'\\)\")"
+      "Bash(/opt/homebrew/bin/python3 -c \"from jobspy import scrape_jobs; print\\('✓ JobSpy ready'\\)\")",
+      "Bash(pkill -9 -f \"src/watch/scraper.py\")",
+      "Bash(pkill -9 -f \"src/watch/loop.py\")",
+      "Bash(pkill -9 -f \"uvicorn\\\\|vite\\\\|node\\\\|telegram_poller\")",
+      "Bash(pkill -9 -f \"uvicorn|vite|node|telegram_poller\")",
+      "Bash(pkill -f \"python.*loop.py\")",
+      "Bash(pkill -f \"python.*scraper.py\")",
+      "Bash(pkill -f \"caffeinate\")",
+      "Bash(pkill -f \"telegram_poller\")"
     ]
   }
 }

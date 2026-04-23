@@ -109,6 +109,16 @@ class TestIsHardExcludedJob:
         with patch("utils.scoring.HARD_EXCLUDE_TITLE_TERMS", ["recruiter"]):
             assert is_hard_excluded_job("RECRUITER POSITION") is True
 
+    def test_hard_excluded_devops_and_engineer(self):
+        """Test that common engineering terms can be excluded when configured"""
+        with patch("utils.scoring.HARD_EXCLUDE_TITLE_TERMS", ["devops", "engineer"]):
+            assert is_hard_excluded_job("Senior DevOps Engineer") is True
+
+    def test_hard_excluded_supply_chain(self):
+        """Test that supply chain roles can be excluded when configured"""
+        with patch("utils.scoring.HARD_EXCLUDE_TITLE_TERMS", ["supply chain"]):
+            assert is_hard_excluded_job("Supply Chain Manager") is True
+
 
 class TestIsExecTechRejectJob:
     """Tests for is_exec_tech_reject_job function"""

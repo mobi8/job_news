@@ -433,7 +433,7 @@ class Database:
 
     def purge_hard_excluded_jobs(self) -> None:
         clauses = " OR ".join(["lower(title) LIKE ?"] * len(HARD_EXCLUDE_TITLE_TERMS))
-        params = [f"%{term}%" for term in HARD_EXCLUDE_TITLE_TERMS]
+        params = [f"%{term.lower()}%" for term in HARD_EXCLUDE_TITLE_TERMS]
         self.conn.execute(
             f"DELETE FROM jobs WHERE ({clauses})",
             params,

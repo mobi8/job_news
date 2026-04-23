@@ -41,7 +41,7 @@ def is_hard_excluded_job(title: str, company: str | None = None, location: str =
     text_blob = " ".join([title, company or "", location, description]).lower()
 
     # Check title/company/description terms
-    if any(term in text_blob for term in HARD_EXCLUDE_TITLE_TERMS):
+    if any(term.lower() in text_blob for term in HARD_EXCLUDE_TITLE_TERMS):
         return True
 
     # Check location patterns (e.g., "Georgia, USA")
