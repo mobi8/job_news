@@ -37,8 +37,8 @@ def is_language_filtered_out(text: str) -> bool:
     return False if has_allowed else False
 
 
-def is_hard_excluded_job(title: str, company: str = "", location: str = "", description: str = "") -> bool:
-    text_blob = " ".join([str(title), str(company), str(location), str(description)]).lower()
+def is_hard_excluded_job(title: str, company: str | None = None, location: str = "", description: str = "") -> bool:
+    text_blob = " ".join([title, company or "", location, description]).lower()
 
     # Check title/company/description terms
     if any(term in text_blob for term in HARD_EXCLUDE_TITLE_TERMS):

@@ -31,7 +31,7 @@ class Database:
                 source TEXT NOT NULL,
                 source_job_id TEXT NOT NULL,
                 title TEXT NOT NULL,
-                company TEXT NOT NULL,
+                company TEXT,
                 location TEXT NOT NULL,
                 url TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
