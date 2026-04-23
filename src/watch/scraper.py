@@ -115,6 +115,7 @@ def load_browser_lookback_hours() -> int:
 def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]:
     """Scrape LinkedIn and Indeed jobs using JobSpy with description fetching."""
     from utils.models import JobPosting
+    from utils.config import LINKEDIN_SEARCH_KEYWORDS, INDEED_SEARCH_KEYWORDS
 
     if not scrape_jobs:
         logger.warning("JobSpy not available, skipping LinkedIn/Indeed scraping")
@@ -125,62 +126,73 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
         indeed_jobs = []
         now_iso = datetime.utcnow().isoformat()
 
-        # Scrape LinkedIn
-        logger.info("Scraping LinkedIn via JobSpy...")
-        linkedin_df = scrape_jobs(
-            site_name=["linkedin"],
-            search_term="operations",
-            location="Dubai",
-            results_wanted=20,
-            hours_old=168,
-            verbose=0,
-            linkedin_fetch_description=True,
-        )
-        for _, row in linkedin_df.iterrows():
-            job = JobPosting(
-                source=f"{row['site']}_jobspy",
-                source_job_id=row.get('id', row['job_url']),
-                title=row['title'] or "",
-                company=row['company'] or "",
-                location=row['location'] or "Dubai, UAE",
-                url=row['job_url'],
-                description=row.get('description', "") or "",
-                remote=bool(row.get('is_remote', False)),
-                country="UAE",
-                collected_at=now_iso,
-            )
-            linkedin_jobs.append(job)
+        # Scrape LinkedIn with all keywords
+        logger.info(f"Scraping LinkedIn via JobSpy ({len(LINKEDIN_SEARCH_KEYWORDS)} keywords)...")
+        for keyword in LINKEDIN_SEARCH_KEYWORDS:
+            try:
+                linkedin_df = scrape_jobs(
+                    site_name=["linkedin"],
+                    search_term=keyword,
+                    location="Dubai",
+                    results_wanted=20,
+                    hours_old=168,
+                    verbose=0,
+                    linkedin_fetch_description=True,
+                )
+                for _, row in linkedin_df.iterrows():
+                    job = JobPosting(
+                        source="linkedin_jobspy",
+                        source_job_id=row.get('id', row['job_url']),
+                        title=row['title'] or "",
+                        company=row['company'] or "",
+                        location=row['location'] or "Dubai, UAE",
+                        url=row['job_url'],
+                        description=row.get('description', "") or "",
+                        remote=bool(row.get('is_remote', False)),
+                        country="UAE",
+                        collected_at=now_iso,
+                    )
+                    linkedin_jobs.append(job)
+                time.sleep(10)
+            except Exception as e:
+                logger.warning(f"Error scraping LinkedIn keyword '{keyword}': {e}")
+                continue
+
         logger.info(f"Collected {len(linkedin_jobs)} LinkedIn jobs")
-        time.sleep(10)
 
-        # Scrape Indeed
-        logger.info("Scraping Indeed via JobSpy...")
-        indeed_df = scrape_jobs(
-            site_name=["indeed"],
-            search_term="operations",
-            location="Dubai",
-            results_wanted=20,
-            hours_old=168,
-            verbose=0,
-            country_indeed="united arab emirates",
-        )
-        for _, row in indeed_df.iterrows():
-            job = JobPosting(
-                source=f"{row['site']}_jobspy",
-                source_job_id=row.get('id', row['job_url']),
-                title=row['title'] or "",
-                company=row['company'] or "",
-                location=row['location'] or "Dubai, UAE",
-                url=row['job_url'],
-                description=row.get('description', "") or "",
-                remote=bool(row.get('is_remote', False)),
-                country="UAE",
-                collected_at=now_iso,
-            )
-            indeed_jobs.append(job)
+        # Scrape Indeed with all keywords
+        logger.info(f"Scraping Indeed via JobSpy ({len(INDEED_SEARCH_KEYWORDS)} keywords)...")
+        for keyword in INDEED_SEARCH_KEYWORDS:
+            try:
+                indeed_df = scrape_jobs(
+                    site_name=["indeed"],
+                    search_term=keyword,
+                    location="Dubai",
+                    results_wanted=20,
+                    hours_old=168,
+                    verbose=0,
+                    country_indeed="united arab emirates",
+                )
+                for _, row in indeed_df.iterrows():
+                    job = JobPosting(
+                        source="indeed_jobspy",
+                        source_job_id=row.get('id', row['job_url']),
+                        title=row['title'] or "",
+                        company=row['company'] or "",
+                        location=row['location'] or "Dubai, UAE",
+                        url=row['job_url'],
+                        description=row.get('description', "") or "",
+                        remote=bool(row.get('is_remote', False)),
+                        country="UAE",
+                        collected_at=now_iso,
+                    )
+                    indeed_jobs.append(job)
+                time.sleep(10)
+            except Exception as e:
+                logger.warning(f"Error scraping Indeed keyword '{keyword}': {e}")
+                continue
+
         logger.info(f"Collected {len(indeed_jobs)} Indeed jobs")
-        time.sleep(10)
-
         return linkedin_jobs, indeed_jobs
 
     except Exception as e:
