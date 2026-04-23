@@ -22,6 +22,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -156,6 +157,10 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
                 indeed_jobs.append(job)
 
         logger.info(f"Collected {len(linkedin_jobs)} LinkedIn + {len(indeed_jobs)} Indeed jobs via JobSpy")
+
+        # Add delay to reduce rate limiting risk
+        time.sleep(5)
+
         return linkedin_jobs, indeed_jobs
 
     except Exception as e:
