@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from services.career_bridge import run, route_command
 from utils.config import OUTPUT_DIR
 from utils.scoring import source_label
 
@@ -374,6 +375,33 @@ async def telegram_webhook(data: Dict[str, Any]) -> Dict[str, Any]:
         chat_id = msg.get("chat", {}).get("id")
 
         if not text or not chat_id:
+            return {"ok": True}
+
+        mode, query = route_command(text)
+        if mode:
+            from utils.notifications import send_telegram_text
+
+            if not query:
+                if mode == "oferta":
+                    send_telegram_text("사용법: 분석. 회사명 포지션 위치\n예) 분석. Stake.com Product Manager UAE")
+                elif mode == "deep":
+                    send_telegram_text("사용법: deep. 회사명 또는 URL\n예) deep. Stake.com")
+                else:
+                    send_telegram_text(f"사용법: {mode}. 질문")
+                return {"ok": True}
+
+            label = {
+                "oferta": "분석",
+                "deep": "회사정보",
+                "contacto": "연락",
+            }.get(mode, mode)
+            send_telegram_text(f"🔍 career-ops {label} 중...\n{query}")
+            result = run(mode, query)
+            if len(result) <= 4000:
+                send_telegram_text(result)
+            else:
+                for i in range(0, len(result), 4000):
+                    send_telegram_text(result[i:i + 4000])
             return {"ok": True}
 
         # Parse days from message ("최근 3일", "3일" 등)

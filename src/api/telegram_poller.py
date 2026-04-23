@@ -24,6 +24,7 @@ if env_path.exists():
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from services.career_bridge import analyze, route_command, run
 from utils.config import OUTPUT_DIR
 from utils.notifications import send_telegram_text
 
@@ -791,15 +792,24 @@ def handle_message(text: str) -> None:
                 send_telegram_text(f"❌ Reddit 요청 처리 중 오류: {str(e)}")
             return
 
-        if prefix in ("분석", "analyze"):
-            query = parts[1].strip()
+        mode, query = route_command(text)
+        if mode:
+            usage = {
+                "oferta": "사용법: 분석. 회사명 포지션 위치\n예) 분석. Stake.com Product Manager UAE",
+                "deep": "사용법: deep. 회사명 또는 URL\n예) deep. Stake.com",
+                "contacto": "사용법: contact. 회사명 또는 URL",
+            }.get(mode)
             if not query:
-                send_telegram_text("사용법: 분석. 회사명 포지션 위치\n예) 분석. Stake.com Product Manager UAE")
+                send_telegram_text(usage or f"사용법: {mode}. 질문")
                 return
             try:
-                send_telegram_text(f"🔍 career-ops 분석 중...\n{query}")
-                from services.career_bridge import analyze
-                result = analyze(query)
+                label = {
+                    "oferta": "분석",
+                    "deep": "회사정보",
+                    "contacto": "연락",
+                }.get(mode, mode)
+                send_telegram_text(f"🔍 career-ops {label} 중...\n{query}")
+                result = run(mode, query)
                 # Split if too long for Telegram (4096 char limit)
                 if len(result) <= 4000:
                     send_telegram_text(result)
@@ -940,11 +950,9 @@ def poll_messages() -> None:
                         try:
                             if description:
                                 send_telegram_text(f"🔍 career-ops 분석 중...\n(공고 요약)")
-                                from services.career_bridge import analyze
                                 result = analyze(description)
                             else:
                                 send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
-                                from services.career_bridge import analyze
                                 result = analyze(url)
                             chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
                             for chunk in chunks:
