@@ -104,12 +104,12 @@ logger = scraper_logger
 
 
 def load_browser_lookback_hours() -> int:
-    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "24")
+    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "6")
     try:
         return max(1, int(raw_value))
     except ValueError:
-        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 24.", raw_value)
-        return 24
+        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 6.", raw_value)
+        return 6
 
 
 def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]:
