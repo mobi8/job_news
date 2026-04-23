@@ -11,7 +11,7 @@ from .config import EXCLUDED_LANGUAGE_TERMS, HARD_EXCLUDE_TITLE_TERMS
 from .models import JobPosting, NewsItem
 from .utils import normalize_linkedin_identifier, normalize_linkedin_url, utc_now
 
-LINKEDIN_SOURCE_NAMES = ("linkedin_public", "linkedin_georgia", "linkedin_malta")
+LINKEDIN_SOURCE_NAMES = ("linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy")
 LINKEDIN_SOURCES = set(LINKEDIN_SOURCE_NAMES)
 
 

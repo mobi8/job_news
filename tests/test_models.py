@@ -220,6 +220,26 @@ class TestJobPosting:
         assert isinstance(job.fingerprint, str)
         assert len(job.fingerprint) == 40  # SHA1 hex length
 
+    def test_job_posting_fingerprint_uses_source_job_id_when_company_missing(self):
+        """Missing company should not collapse unrelated jobs onto one fingerprint."""
+        job1 = JobPosting(
+            source="indeed_uae",
+            source_job_id="job-1",
+            title="Backend Engineer",
+            company="",
+            location="Dubai",
+            url="https://example.com/1",
+        )
+        job2 = JobPosting(
+            source="indeed_uae",
+            source_job_id="job-2",
+            title="Backend Engineer",
+            company="",
+            location="Dubai",
+            url="https://example.com/2",
+        )
+        assert job1.fingerprint != job2.fingerprint
+
     def test_job_posting_unicode_characters(self):
         """Test JobPosting with unicode characters"""
         job = JobPosting(

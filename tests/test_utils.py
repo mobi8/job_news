@@ -30,6 +30,8 @@ from utils.utils import (
     normalize_phrase,
     save_scrape_state,
     save_telegram_sent_history,
+    safe_bool,
+    safe_text,
     utc_now,
 )
 
@@ -151,6 +153,34 @@ class TestCleanText:
         result = clean_text(text)
         assert "مرحبا" in result
         assert "<p>" not in result
+
+
+class TestSafeText:
+    """Tests for safe_text function"""
+
+    def test_safe_text_handles_none(self):
+        assert safe_text(None) == ""
+
+    def test_safe_text_handles_nan(self):
+        assert safe_text(float("nan")) == ""
+
+    def test_safe_text_trims_whitespace(self):
+        assert safe_text("  hello  ") == "hello"
+
+    def test_safe_text_handles_na_like_strings(self):
+        assert safe_text("NaN") == ""
+        assert safe_text("<NA>") == ""
+
+
+class TestSafeBool:
+    """Tests for safe_bool function"""
+
+    def test_safe_bool_handles_strings(self):
+        assert safe_bool("true") is True
+        assert safe_bool("False") is False
+
+    def test_safe_bool_handles_none(self):
+        assert safe_bool(None) is False
 
 
 class TestNormalizeLinkedInUrl:

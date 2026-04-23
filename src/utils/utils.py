@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 import os
 import re
 import urllib.parse
@@ -55,6 +56,57 @@ def clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", unescaped).strip()
 
 
+def safe_text(value: Any, default: str = "") -> str:
+    """Return a trimmed string for external data, handling NaN/None-like values safely."""
+    if value is None:
+        return default
+
+    if isinstance(value, str):
+        text = value.strip()
+        return default if text.lower() in {"", "nan", "none", "null", "<na>"} else text
+
+    if isinstance(value, bool):
+        return "True" if value else "False"
+
+    if isinstance(value, (int,)):
+        return str(value)
+
+    if isinstance(value, float):
+        if math.isnan(value):
+            return default
+        return str(value)
+
+    try:
+        # pandas.NA and similar scalar sentinels often fail truthiness checks,
+        # so we only use a string round-trip after explicit missing-value guards.
+        text = str(value).strip()
+    except Exception:
+        return default
+
+    return default if text.lower() in {"", "nan", "none", "null", "<na>"} else text
+
+
+def safe_bool(value: Any) -> bool:
+    """Normalize loosely-typed truthy values from third-party data sources."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "t"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "f", "", "nan", "none", "null", "<na>"}:
+            return False
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return False
+    try:
+        return bool(value)
+    except Exception:
+        return False
+
+
 def normalize_linkedin_url(url: str) -> str:
     if not url or "linkedin.com" not in url:
         return url
@@ -68,7 +120,7 @@ def normalize_linkedin_url(url: str) -> str:
     return urllib.parse.urlunparse(("https", "www.linkedin.com", normalized_path, "", "", ""))
 
 def normalize_linkedin_identifier(source: str, value: str) -> str:
-    if source in ["linkedin_public", "linkedin_georgia", "linkedin_malta"]:
+    if source in ["linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy"]:
         return normalize_linkedin_url(value)
     return value
 
@@ -213,7 +265,7 @@ def save_scrape_state(
     all_job_sources = [
         "jobvite_pragmaticplay", "smartrecruitment", "igamingrecruitment",
         "jobrapido_uae", "jobleads", "telegram_job_crypto_uae", "telegram_cryptojobslist",
-        "indeed_uae", "linkedin_public"
+        "indeed_uae", "linkedin_public", "linkedin_jobspy"
     ]
 
     for src_key in all_job_sources:
@@ -438,8 +490,12 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "igaming recruitment": "igamingrecruitment",
         "indeed": "indeed_uae",
         "indeed_uae": "indeed_uae",
+        "indeed_jobspy": "indeed_uae",
+        "jobspy_indeed": "indeed_uae",
         "linkedin": "linkedin_public",
         "linkedin_public": "linkedin_public",
+        "linkedin_jobspy": "linkedin_public",
+        "jobspy_linkedin": "linkedin_public",
         "linkedin_malta": "linkedin_malta",
         "jobrapido": "jobrapido_uae",
         "jobrapido_uae": "jobrapido_uae",

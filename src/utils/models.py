@@ -25,10 +25,11 @@ class JobPosting:
 
     @property
     def fingerprint(self) -> str:
+        company_key = self.company.strip().lower() or self.source_job_id.strip().lower()
         raw = "|".join(
             [
                 self.title.strip().lower(),
-                self.company.strip().lower(),
+                company_key,
                 self.location.strip().lower(),
             ]
         )

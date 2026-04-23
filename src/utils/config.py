@@ -87,29 +87,39 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20DTC&location=Malta",
 ]
 
-# JobSpy search keywords (unified, deduplicated)
+# JobSpy search keywords
+# - Keep each query materially distinct to reduce duplicate fetches and rate-limit pressure.
+# - Broad fallbacks are kept intentionally small so they complement the focused queries above them.
 SEARCH_KEYWORDS = [
+    # Language / market-specific
     "korean",
-    "crypto payment OR stablecoin payment OR crypto payments OR neobanking",
-    "web3 OR stablecoin OR crypto OR wallet OR neobanking",
     "ADGM OR FSRA OR VARA",
     "igaming",
-    "payment OR crypto OR igaming OR neobanking",
+
+    # Payments / crypto / wallet
+    "crypto payment OR stablecoin payment OR crypto payments OR neobanking",
+    "web3 OR stablecoin OR crypto OR neobanking",
+    "payments engineer OR payments developer OR crypto payments OR stablecoin",
+    "wallet OR wallet specialist OR exchange operations OR digital asset operations",
+    "custody OR digital asset OR digital assets OR digital asset custody OR stable coin",
+
+    # Product / commercial roles
     "crypto product manager OR product owner OR neobank OR digital asset OR stable coin",
-    "custody OR digital asset OR digital assets OR digital asset custody OR stable coin OR game OR gaming",
+    "product manager OR product owner OR business development OR sales",
+    "sales manager OR business development OR account manager",
+    "designer OR ux OR ui",
+
+    # Gaming / platform operators
     "casino OR gaming resort OR wynn OR al marjan OR IT product manager",
     "crypto casino OR sportsbook OR live casino OR gaming platform",
     "DMCC OR DTC OR gaming",
     "binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc",
-    "xsolla OR payment platform OR payment gateway",
-    "payments engineer OR payments developer OR crypto payments OR stablecoin",
-    "sales manager OR business development OR account manager",
-    "designer OR ux OR ui",
-    "wallet specialist OR exchange operations OR digital asset operations",
-    "crypto OR custody OR digital asset OR stable coin OR game OR gaming OR payments OR neobanking",  # SA/QA/BA
-    "crypto OR web3 OR blockchain OR igaming OR casino OR payment OR neobanking",  # Georgia/Malta
-    "product manager OR product owner OR business development OR sales",  # Georgia/Malta
-    "backend OR engineer OR developer OR software",  # Georgia/Malta
+
+    # Geography / broad fallback
+    "crypto OR web3 OR blockchain OR payment OR neobanking",
+    "backend OR engineer OR developer OR software",
+
+    # Mobile game / DTC
     "mobile game OR game developer OR unity OR unreal OR game engine OR DTC",
     "game studio OR indie game OR game design OR game artist OR DTC",
 ]
