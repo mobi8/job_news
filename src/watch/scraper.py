@@ -115,7 +115,7 @@ def load_browser_lookback_hours() -> int:
 def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]:
     """Scrape LinkedIn and Indeed jobs using JobSpy with description fetching."""
     from utils.models import JobPosting
-    from utils.config import LINKEDIN_SEARCH_KEYWORDS, INDEED_SEARCH_KEYWORDS
+    from utils.config import SEARCH_KEYWORDS
 
     if not scrape_jobs:
         logger.warning("JobSpy not available, skipping LinkedIn/Indeed scraping")
@@ -127,8 +127,8 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
         now_iso = datetime.utcnow().isoformat()
 
         # Scrape LinkedIn with all keywords
-        logger.info(f"Scraping LinkedIn via JobSpy ({len(LINKEDIN_SEARCH_KEYWORDS)} keywords)...")
-        for keyword in LINKEDIN_SEARCH_KEYWORDS:
+        logger.info(f"Scraping LinkedIn via JobSpy ({len(SEARCH_KEYWORDS)} keywords)...")
+        for keyword in SEARCH_KEYWORDS:
             try:
                 linkedin_df = scrape_jobs(
                     site_name=["linkedin"],
@@ -161,8 +161,8 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
         logger.info(f"Collected {len(linkedin_jobs)} LinkedIn jobs")
 
         # Scrape Indeed with all keywords
-        logger.info(f"Scraping Indeed via JobSpy ({len(INDEED_SEARCH_KEYWORDS)} keywords)...")
-        for keyword in INDEED_SEARCH_KEYWORDS:
+        logger.info(f"Scraping Indeed via JobSpy ({len(SEARCH_KEYWORDS)} keywords)...")
+        for keyword in SEARCH_KEYWORDS:
             try:
                 indeed_df = scrape_jobs(
                     site_name=["indeed"],
