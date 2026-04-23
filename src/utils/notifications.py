@@ -17,10 +17,6 @@ from .scoring import focus_records, source_label
 from .utils import (
     dedupe_records_for_display,
     load_resume_text,
-    load_telegram_sent_history,
-    notification_key,
-    prune_telegram_sent_history,
-    save_telegram_sent_history,
     utc_now,
 )
 from .config import OUTPUT_DIR
