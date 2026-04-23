@@ -89,6 +89,7 @@ from utils.scrapers import (
 )
 from utils.utils import (
     dedupe_job_postings,
+    fingerprint,
     load_reject_feedback,
     load_resume_text,
     load_last_scrape_completed_at,
@@ -112,7 +113,7 @@ def load_browser_lookback_hours() -> int:
         return 6
 
 
-def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]:
+def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
     """Scrape LinkedIn and Indeed jobs using JobSpy with description fetching."""
     from utils.models import JobPosting
     from utils.config import SEARCH_KEYWORDS
@@ -126,6 +127,9 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
         indeed_jobs = []
         now_iso = datetime.utcnow().isoformat()
 
+        # Get fingerprints of jobs seen in last 24 hours to avoid re-fetching descriptions
+        existing_fingerprints = db.get_recent_fingerprints(hours=24)
+
         # Scrape LinkedIn with all keywords
         logger.info(f"Scraping LinkedIn via JobSpy ({len(SEARCH_KEYWORDS)} keywords)...")
         for keyword in SEARCH_KEYWORDS:
@@ -135,16 +139,20 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
                     search_term=keyword,
                     location="Dubai",
                     results_wanted=20,
-                    hours_old=168,
+                    hours_old=24,
                     verbose=0,
                     linkedin_fetch_description=True,
                 )
                 for _, row in linkedin_df.iterrows():
+                    fp = fingerprint(row['title'], row['company'] or "", row['location'], row['job_url'])
+                    if fp in existing_fingerprints:
+                        continue
+
                     job = JobPosting(
                         source="linkedin_jobspy",
                         source_job_id=row.get('id', row['job_url']),
                         title=row['title'] or "",
-                        company=row['company'] or None,
+                        company=row['company'] or "",
                         location=row['location'] or "Dubai, UAE",
                         url=row['job_url'],
                         description=row.get('description', "") or "",
@@ -169,16 +177,20 @@ def scrape_linkedin_indeed_via_jobspy(cutoff_time_iso: str) -> tuple[list, list]
                     search_term=keyword,
                     location="Dubai",
                     results_wanted=20,
-                    hours_old=168,
+                    hours_old=24,
                     verbose=0,
                     country_indeed="united arab emirates",
                 )
                 for _, row in indeed_df.iterrows():
+                    fp = fingerprint(row['title'], row['company'] or "", row['location'], row['job_url'])
+                    if fp in existing_fingerprints:
+                        continue
+
                     job = JobPosting(
                         source="indeed_jobspy",
                         source_job_id=row.get('id', row['job_url']),
                         title=row['title'] or "",
-                        company=row['company'] or None,
+                        company=row['company'] or "",
                         location=row['location'] or "Dubai, UAE",
                         url=row['job_url'],
                         description=row.get('description', "") or "",
@@ -209,13 +221,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     resume_text = load_resume_text()
     reject_feedback = load_reject_feedback()
 
-    # Use the most recent completed batch time as the anchor for lookback filtering.
-    # This keeps the window aligned with the last successful run instead of the current start time.
-    browser_lookback_hours = load_browser_lookback_hours()
-    batch_time_str = load_last_scrape_completed_at() or utc_now().isoformat()
-    batch_time = datetime.fromisoformat(batch_time_str)
-    cutoff_time = batch_time - timedelta(hours=browser_lookback_hours)
-    cutoff_time_iso = cutoff_time.isoformat()
 
     # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
     if reject_feedback:
@@ -271,9 +276,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         sources.append(("Telegram public channels", telegram_jobs))
 
 
-    # Scrape LinkedIn + Indeed via JobSpy (includes descriptions)
-    cutoff_time_iso = cutoff_time.isoformat()
-    linkedin_jobs, indeed_jobs = scrape_linkedin_indeed_via_jobspy(cutoff_time_iso)
+    # Scrape LinkedIn + Indeed via JobSpy (includes descriptions, with dedup filter)
+    linkedin_jobs, indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
 
     if (allowed_sources is None or "linkedin_public" in allowed_sources) and linkedin_jobs:
         sources.append(("LinkedIn jobspy", linkedin_jobs))

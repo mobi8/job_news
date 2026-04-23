@@ -31,7 +31,7 @@ class Database:
                 source TEXT NOT NULL,
                 source_job_id TEXT NOT NULL,
                 title TEXT NOT NULL,
-                company TEXT,
+                company TEXT NOT NULL,
                 location TEXT NOT NULL,
                 url TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
@@ -305,6 +305,15 @@ class Database:
         if updated:
             self.conn.commit()
         return updated
+
+    def get_recent_fingerprints(self, hours: int = 24) -> set:
+        """Get fingerprints of jobs seen in the last N hours."""
+        cutoff = (utc_now() - timedelta(hours=hours)).isoformat()
+        rows = self.conn.execute(
+            "SELECT fingerprint FROM jobs WHERE first_seen_at >= ?",
+            (cutoff,),
+        ).fetchall()
+        return {row["fingerprint"] for row in rows}
 
     def fetch_all_jobs(self) -> List[Dict[str, Any]]:
         rows = self.conn.execute(
