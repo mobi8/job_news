@@ -64,6 +64,25 @@ def _run_claude(prompt: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _mode_system_prompt(mode: str) -> str:
+    mode = (mode or "").strip()
+    if mode == "oferta":
+        return (
+            "When evaluating a job offer, you must complete the full workflow end-to-end. "
+            "Do not ask the user whether to save the report. "
+            "Always write the final markdown report to reports/ and update data/applications.md before finishing. "
+            "If you have enough information to draft the report, continue until the files are saved. "
+            "End with a brief completion message that names the saved report path and tracker entry."
+        )
+    if mode == "auto-pipeline":
+        return (
+            "Run the full auto-pipeline end-to-end. "
+            "Do not ask for permission to save. "
+            "Always save the report markdown and update the tracker before finishing."
+        )
+    return ""
+
+
 def run(mode: str, query: str = "") -> str:
     """Run a career-ops mode and return the output as text."""
     if not CAREER_OPS_DIR.exists():
@@ -77,6 +96,10 @@ def run(mode: str, query: str = "") -> str:
     prompt = f"/career-ops {mode}"
     if query:
         prompt = f"{prompt} {query}"
+
+    mode_prompt = _mode_system_prompt(mode)
+    if mode_prompt:
+        prompt = f"{prompt}\n\n{mode_prompt}"
 
     try:
         last_error = ""
