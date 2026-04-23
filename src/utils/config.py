@@ -89,39 +89,38 @@ LINKEDIN_SEARCH_URLS = [
 
 # JobSpy search keywords
 # - Keep each query materially distinct to reduce duplicate fetches and rate-limit pressure.
-# - Broad fallbacks are kept intentionally small so they complement the focused queries above them.
+# - AI is treated as a first-class bucket, so we keep one explicit set of AI queries rather than
+#   spraying the same intent across many overlapping searches.
 SEARCH_KEYWORDS = [
     # Language / market-specific
     "korean",
     "ADGM OR FSRA OR VARA",
-    "igaming",
 
     # Payments / crypto / wallet
     "crypto payment OR stablecoin payment OR crypto payments OR neobanking",
     "web3 OR stablecoin OR crypto OR neobanking",
-    "payments engineer OR payments developer OR crypto payments OR stablecoin",
-    "wallet OR wallet specialist OR exchange operations OR digital asset operations",
-    "custody OR digital asset OR digital assets OR digital asset custody OR stable coin",
+    "payments engineer OR payments developer OR crypto payments OR stablecoin OR wallet OR custody",
 
     # Product / commercial roles
     "crypto product manager OR product owner OR neobank OR digital asset OR stable coin",
-    "product manager OR product owner OR business development OR sales",
-    "sales manager OR business development OR account manager",
-    "designer OR ux OR ui",
+    "product manager OR product owner OR business development OR sales OR account manager",
+
+    # AI / ML / LLM roles
+    "ai engineer OR machine learning engineer OR llm engineer OR genai engineer",
+    "ai product manager OR genai product manager OR machine learning product manager OR prompt engineer OR rag",
+    "data scientist OR research scientist OR applied scientist OR mlops OR inference OR embeddings",
 
     # Gaming / platform operators
+    "igaming",
     "casino OR gaming resort OR wynn OR al marjan OR IT product manager",
     "crypto casino OR sportsbook OR live casino OR gaming platform",
-    "DMCC OR DTC OR gaming",
     "binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc",
 
     # Geography / broad fallback
     "crypto OR web3 OR blockchain OR payment OR neobanking",
-    "backend OR engineer OR developer OR software",
 
     # Mobile game / DTC
-    "mobile game OR game developer OR unity OR unreal OR game engine OR DTC",
-    "game studio OR indie game OR game design OR game artist OR DTC",
+    "mobile game OR game developer OR unity OR unreal OR game engine OR game studio OR indie game OR game design OR game artist OR DTC",
 ]
 
 RECRUITER_COMPANIES = [
@@ -456,6 +455,27 @@ STRONG_DOMAIN_TERMS = [
     "crypto.com",
     "mexc",
     "xsolla",
+    "ai",
+    "artificial intelligence",
+    "genai",
+    "generative ai",
+    "machine learning",
+    "mlops",
+    "llm",
+    "llmops",
+    "prompt engineering",
+    "prompt engineer",
+    "rag",
+    "retrieval augmented generation",
+    "fine tuning",
+    "model training",
+    "inference",
+    "embeddings",
+    "data scientist",
+    "research scientist",
+    "applied scientist",
+    "computer vision",
+    "natural language processing",
 ]
 
 GENERIC_PAYMENT_TERMS = [
@@ -477,6 +497,12 @@ FOCUS_ROLE_TERMS = [
     "technical",
     "ops",
     "operations",
+    "ai",
+    "machine learning",
+    "ml",
+    "llm",
+    "genai",
+    "prompt",
 ]
 
 COMMERCIAL_ROLE_TERMS = [
@@ -515,6 +541,9 @@ PRODUCT_ROLE_TERMS = [
     "product lead",
     "payments product",
     "growth product",
+    "ai product manager",
+    "genai product manager",
+    "machine learning product manager",
 ]
 
 NEGATIVE_ROLE_TERMS = [
@@ -654,6 +683,17 @@ RESUME_SKILL_LEXICON = [
     "custody",
     "digital assets",
     "operations",
+    "ai",
+    "machine learning",
+    "llm",
+    "genai",
+    "mlops",
+    "prompt engineering",
+    "rag",
+    "data science",
+    "data scientist",
+    "applied scientist",
+    "research scientist",
 ]
 
 ALLOWED_LANGUAGE_TERMS = [

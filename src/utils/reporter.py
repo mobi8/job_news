@@ -197,7 +197,6 @@ def save_dashboard(
         safe_seen_raw = html.escape(job.get("first_seen_at", ""), quote=True)
         safe_tags = html.escape(", ".join(job.get("fit_tags", [])))
         safe_key = html.escape(job["dashboard_key"], quote=True)
-        safe_auto_category = html.escape(job.get("auto_category", ""), quote=True)
         qualifies_value = "Yes" if job.get("qualifies") else "No"
         meta_bits = [safe_company]
         if safe_location:
@@ -213,18 +212,6 @@ def save_dashboard(
               <td>
                 <div class="job-meta-line" style="margin-top:0;color:var(--ink);">{safe_company}</div>
                 <div class="job-meta-line">{safe_location or '-'}</div>
-                <div style="margin-top:8px;">
-                  <select class="compact-select" data-job-key="{safe_key}" data-field="category" data-default-category="{safe_auto_category}" aria-label="분류">
-                    <option value="">분류</option>
-                    <option value="crypto_product">Crypto Product</option>
-                    <option value="payments">Payments</option>
-                    <option value="casino">Casino / Sportsbook</option>
-                    <option value="commercial">BD / Account / Sales</option>
-                    <option value="recruiter">Recruiter-sourced</option>
-                    <option value="compliance">Compliance / Regulation</option>
-                    <option value="watchlist">Watchlist</option>
-                  </select>
-                </div>
               </td>
               <td>
                 <div class="job-meta-line" style="margin-top:0;">{safe_seen}</div>
@@ -851,12 +838,6 @@ def save_dashboard(
       gap: 14px;
       margin-top: 12px;
     }}
-    .category-board {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-top: 12px;
-    }}
     .status-card {{
       border: 0;
       border-radius: 0;
@@ -879,12 +860,6 @@ def save_dashboard(
       font-size: 13px;
       color: var(--muted);
     }}
-    .category-card {{
-      border: 0;
-      border-radius: 0;
-      padding: 14px;
-      background: rgba(255,255,255,0.7);
-    }}
     .row-muted {{
       opacity: 0.78;
     }}
@@ -905,10 +880,6 @@ def save_dashboard(
     }}
     .job-tags {{
       color: var(--accent);
-    }}
-    .compact-select {{
-      margin-top: 0;
-      margin-bottom: 0;
     }}
     .reject-hidden .reject-reason-select {{
       display: none;
@@ -1055,15 +1026,6 @@ def save_dashboard(
             <option value="jobleads">JobLeads</option>
             <option value="telegram_job_crypto_uae">TG Jobs UAE</option>
             <option value="telegram_cryptojobslist">TG Crypto</option>
-          </select>
-          <select id="filter-track">
-            <option value="">전체 분야</option>
-            <option value="crypto">Crypto / Web3</option>
-            <option value="payments">Payments / PSP / MTO</option>
-            <option value="casino">Casino / Sportsbook / Live Casino</option>
-            <option value="product">Product / Owner / Platform</option>
-            <option value="commercial">BD / Account / Sales</option>
-            <option value="regulation">ADGM / VARA / FSRA</option>
           </select>
           <select id="filter-status">
             <option value="">전체 상태</option>
@@ -1229,26 +1191,6 @@ def save_dashboard(
       localStorage.setItem(autoRejectExecKey, "1");
     }};
 
-    const trackMatchers = {{
-      crypto: ['crypto', 'web3', 'blockchain', 'digital assets', 'custody', 'stablecoin', 'wallet'],
-      payments: ['payment', 'payments', 'psp', 'mto', 'settlement', 'fintech'],
-      casino: ['casino', 'sportsbook', 'live casino', 'gaming platform', 'betting', 'igaming'],
-      product: ['product', 'owner', 'platform', 'it product'],
-      commercial: ['account manager', 'business development', 'sales', 'country manager', 'affiliate'],
-      regulation: ['adgm', 'vara', 'vera', 'fsra', 'compliance', 'regulatory'],
-    }};
-
-    const categoryLabels = {{
-      "": "Unsorted",
-      crypto_product: "Crypto Product",
-      payments: "Payments",
-      casino: "Casino / Sportsbook",
-      commercial: "BD / Account / Sales",
-      recruiter: "Recruiter-sourced",
-      compliance: "Compliance / Regulation",
-      watchlist: "Watchlist",
-    }};
-
     const syncRejectVisibility = () => {{
       document.querySelectorAll('.job-row input[data-field="removed"]').forEach((checkbox) => {{
         const row = checkbox.closest("tr");
@@ -1340,7 +1282,6 @@ def save_dashboard(
     const rowMatches = (row, bucketKey = "") => {{
       const searchValue = (document.getElementById("filter-search")?.value || "").trim().toLowerCase();
       const sourceValue = document.getElementById("filter-source")?.value || "";
-      const trackValue = document.getElementById("filter-track")?.value || "";
       const statusValue = document.getElementById("filter-status")?.value || "";
       const recruiterOnly = Boolean(document.getElementById("filter-recruiter")?.checked);
       const passOnly = Boolean(document.getElementById("filter-pass")?.checked);
@@ -1368,10 +1309,6 @@ def save_dashboard(
       if (appliedOnly && !applied) return false;
       if (!showRemoved && removed && bucketKey !== "rejected") return false;
       if (statusValue && statusValue !== bucket && !(statusValue === "inbox" && (bucket === "inbox_high" || bucket === "inbox_low"))) return false;
-      if (trackValue) {{
-        const keywords = trackMatchers[trackValue] || [];
-        if (!keywords.some((keyword) => textBlob.includes(keyword))) return false;
-      }}
 
       // inbox 섹션에서 스코어 필터 적용
       if ((bucket === "inbox_high" || bucket === "inbox_low") && !applied && !removed) {{
@@ -1490,11 +1427,6 @@ def save_dashboard(
           preserveScroll(() => applyTableFilters());
           syncRejectFeedback();
         }});
-      }} else if (field === "category") {{
-        el.value = state.category || el.dataset.defaultCategory || "";
-        el.addEventListener("change", () => {{
-          writeState(key, "category", el.value);
-        }});
       }} else if (field === "removed") {{
         el.checked = Boolean(state.removed);
         el.addEventListener("change", () => {{
@@ -1511,7 +1443,7 @@ def save_dashboard(
         }});
       }}
     }});
-    ['filter-search','filter-sort','filter-source','filter-track','filter-status','filter-recruiter','filter-pass','filter-applied','filter-show-removed'].forEach((id) => {{
+    ['filter-search','filter-sort','filter-source','filter-status','filter-recruiter','filter-pass','filter-applied','filter-show-removed'].forEach((id) => {{
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener(id === 'filter-search' ? 'input' : 'change', applyTableFilters);
