@@ -34,10 +34,16 @@ SOURCE_COUNTRY_OVERRIDES = {
     "telegram_job_crypto_uae": "UAE",
     "telegram_cryptojobslist": "UAE",
     "indeed_uae": "UAE",
+    "indeed_georgia": "Georgia",
+    "indeed_malta": "Malta",
     "linkedin_public": "UAE",
     "linkedin_jobspy": "UAE",
     "linkedin_malta": "Malta",
+    "linkedin_georgia": "Georgia",
     "indeed_jobspy": "UAE",
+    "google_uae": "UAE",
+    "google_georgia": "Georgia",
+    "google_malta": "Malta",
 }
 
 

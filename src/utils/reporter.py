@@ -1018,8 +1018,14 @@ def save_dashboard(
           <select id="filter-source">
             <option value="">전체 출처</option>
             <option value="linkedin_public">LinkedIn</option>
+            <option value="linkedin_georgia">LinkedIn Georgia</option>
             <option value="linkedin_malta">LinkedIn Malta</option>
             <option value="indeed_uae">Indeed UAE</option>
+            <option value="indeed_georgia">Indeed Georgia</option>
+            <option value="indeed_malta">Indeed Malta</option>
+            <option value="google_uae">Google UAE</option>
+            <option value="google_georgia">Google Georgia</option>
+            <option value="google_malta">Google Malta</option>
             <option value="jobvite_pragmaticplay">Jobvite</option>
             <option value="smartrecruitment">SmartRecruitment</option>
             <option value="igamingrecruitment">iGaming Recruitment</option>

@@ -242,6 +242,58 @@ def calculate_match_score(job: JobPosting, resume_text: str) -> int:
     return evaluate_fit(job.to_dict(), resume_text)["score"]
 
 
+def auto_category_for_record(record: Dict[str, Any]) -> str:
+    title = str(record.get("title", "") or "").lower()
+    company = str(record.get("company", "") or "").lower()
+    description = str(record.get("description", "") or "").lower()
+    fit_tags = [str(tag).lower() for tag in record.get("fit_tags", []) if tag]
+    text_blob = " ".join([title, company, description, " ".join(fit_tags)])
+
+    if any(recruiter.lower() in company for recruiter in RECRUITER_COMPANIES):
+        return "recruiter"
+
+    if any(term in text_blob for term in ["compliance", "aml", "risk", "regulatory", "governance"]):
+        return "compliance"
+
+    if any(term in text_blob for term in ["casino", "igaming", "sportsbook", "live casino", "gaming platform", "betting"]):
+        return "casino"
+
+    if any(term in title for term in ["account manager", "business development", "sales", "partnership", "commercial"]):
+        return "commercial"
+
+    has_crypto_domain = any(
+        term in text_blob
+        for term in [
+            "crypto",
+            "web3",
+            "blockchain",
+            "wallet",
+            "digital asset",
+            "digital assets",
+            "stablecoin",
+            "custody",
+            "exchange",
+        ]
+    )
+    has_product_signal = any(
+        term in title
+        for term in [
+            "product manager",
+            "product owner",
+            "product lead",
+            "head of product",
+        ]
+    ) or "product" in fit_tags
+
+    if has_crypto_domain and has_product_signal:
+        return "crypto_product"
+
+    if any(term in text_blob for term in ["payment", "payments", "wallet", "psp"]):
+        return "payments"
+
+    return ""
+
+
 def annotate_records(records: List[Dict[str, Any]], resume_text: str) -> List[Dict[str, Any]]:
     annotated = []
     for record in records:
@@ -308,10 +360,14 @@ def source_label(source: str) -> str:
         "indeed_uae": "Indeed UAE",
         "indeed_jobspy": "Indeed UAE",
         "indeed_georgia": "Indeed Georgia",
+        "indeed_malta": "Indeed Malta",
         "linkedin_public": "LinkedIn",
         "linkedin_jobspy": "LinkedIn",
         "linkedin_georgia": "LinkedIn Georgia",
         "linkedin_malta": "LinkedIn Malta",
+        "google_uae": "Google UAE",
+        "google_georgia": "Google Georgia",
+        "google_malta": "Google Malta",
         "jobrapido_uae": "Jobrapido",
         "jobleads": "JobLeads",
         "telegram_job_crypto_uae": "TG Jobs UAE",

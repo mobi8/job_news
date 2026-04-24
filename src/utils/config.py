@@ -114,39 +114,214 @@ LINKEDIN_SEARCH_URLS = [
 ]
 
 # JobSpy search keywords
-# - Keep each query materially distinct to reduce duplicate fetches and rate-limit pressure.
-# - AI is treated as a first-class bucket, so we keep one explicit set of AI queries rather than
-#   spraying the same intent across many overlapping searches.
-SEARCH_KEYWORDS = [
+# - LinkedIn / Indeed: use tighter, more exact phrase-style searches so the results stay focused.
+# - Google: reuse the same topic buckets, but keep the broader OR-style searches that Google Jobs
+#   handles better.
+#
+# Multi-word phrases are quoted intentionally to push JobSpy toward exact-match style queries.
+LINKEDIN_SEARCH_KEYWORDS = [
     # Language / market-specific
     "korean",
-    "ADGM OR FSRA OR VARA",
+    '"ADGM"',
+    '"FSRA"',
+    '"VARA"',
 
     # Payments / crypto / wallet
+    '"crypto payment"',
+    '"stablecoin payment"',
+    '"crypto payments"',
+    '"crypto wallet"',
+    '"digital asset wallet"',
+    '"stablecoin"',
+    '"web3"',
+    '"neobanking"',
+    '"payments engineer"',
+    '"payments developer"',
+    '"wallet"',
+    '"custody"',
+
+    # Product / commercial roles
+    '"crypto product manager"',
+    '"product owner"',
+    '"business development"',
+    '"sales"',
+    '"account manager"',
+
+    # AI / ML / LLM roles
+    '"ai engineer"',
+    '"machine learning engineer"',
+    '"llm engineer"',
+    '"genai engineer"',
+    '"ai product manager"',
+    '"genai product manager"',
+    '"machine learning product manager"',
+    '"prompt engineer"',
+    '"data scientist"',
+    '"research scientist"',
+    '"applied scientist"',
+    '"mlops"',
+    '"inference"',
+    '"embeddings"',
+
+    # Gaming / platform operators
+    '"igaming"',
+    '"casino"',
+    '"gaming resort"',
+    '"wynn"',
+    '"al marjan"',
+    '"it product manager"',
+    '"crypto casino"',
+    '"sportsbook"',
+    '"live casino"',
+    '"gaming platform"',
+    '"binance"',
+    '"bybit"',
+    '"okx"',
+    '"coinbase"',
+    '"kraken"',
+    '"bitget"',
+    '"gate.io"',
+    '"kucoin"',
+    '"htx"',
+    '"crypto.com"',
+    '"mexc"',
+
+    # Mobile game / DTC
+    '"mobile game"',
+    '"game developer"',
+    '"unity"',
+    '"unreal"',
+    '"game engine"',
+    '"game studio"',
+    '"indie game"',
+    '"game design"',
+    '"game artist"',
+    '"DTC"',
+]
+
+# Indeed also prefers narrower search terms here, but we keep the set a little more practical
+# for the broader Indeed description matcher.
+INDEED_SEARCH_KEYWORDS = [
+    "korean",
+    '"ADGM"',
+    '"FSRA"',
+    '"VARA"',
+    '"crypto payment"',
+    '"stablecoin payment"',
+    '"crypto payments"',
+    '"crypto wallet"',
+    '"digital asset wallet"',
+    '"stablecoin"',
+    '"web3"',
+    '"neobanking"',
+    '"payments engineer"',
+    '"payments developer"',
+    '"wallet"',
+    '"custody"',
+    '"crypto product manager"',
+    '"product owner"',
+    '"business development"',
+    '"sales"',
+    '"account manager"',
+    '"ai engineer"',
+    '"machine learning engineer"',
+    '"llm engineer"',
+    '"genai engineer"',
+    '"ai product manager"',
+    '"prompt engineer"',
+    '"data scientist"',
+    '"research scientist"',
+    '"mlops"',
+    '"igaming"',
+    '"casino"',
+    '"gaming resort"',
+    '"wynn"',
+    '"al marjan"',
+    '"it product manager"',
+    '"crypto casino"',
+    '"sportsbook"',
+    '"live casino"',
+    '"gaming platform"',
+    '"binance"',
+    '"bybit"',
+    '"okx"',
+    '"coinbase"',
+    '"kraken"',
+    '"bitget"',
+    '"gate.io"',
+    '"kucoin"',
+    '"htx"',
+    '"crypto.com"',
+    '"mexc"',
+    '"mobile game"',
+    '"game developer"',
+    '"unity"',
+    '"unreal"',
+    '"game engine"',
+    '"game studio"',
+    '"indie game"',
+    '"game design"',
+    '"game artist"',
+    '"DTC"',
+]
+
+# Google Jobs keeps the broader, current-style probes. We convert these into google_search_term
+# queries so each keyword bucket stays visible and easy to compare against LinkedIn / Indeed.
+GOOGLE_SEARCH_KEYWORDS = [
+    "korean",
+    "ADGM OR FSRA OR VARA",
     "crypto payment OR stablecoin payment OR crypto payments OR neobanking",
     "web3 OR stablecoin OR crypto OR neobanking",
     "payments engineer OR payments developer OR crypto payments OR stablecoin OR wallet OR custody",
-
-    # Product / commercial roles
     "crypto product manager OR product owner OR neobank OR digital asset OR stable coin",
     "product manager OR product owner OR business development OR sales OR account manager",
-
-    # AI / ML / LLM roles
     "ai engineer OR machine learning engineer OR llm engineer OR genai engineer",
     "ai product manager OR genai product manager OR machine learning product manager OR prompt engineer OR rag",
     "data scientist OR research scientist OR applied scientist OR mlops OR inference OR embeddings",
-
-    # Gaming / platform operators
     "igaming",
     "casino OR gaming resort OR wynn OR al marjan OR IT product manager",
     "crypto casino OR sportsbook OR live casino OR gaming platform",
     "binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc",
-
-    # Geography / broad fallback
     "crypto OR web3 OR blockchain OR payment OR neobanking",
-
-    # Mobile game / DTC
     "mobile game OR game developer OR unity OR unreal OR game engine OR game studio OR indie game OR game design OR game artist OR DTC",
+]
+
+# Preserve the old name as a LinkedIn-oriented alias so any older callers still behave sensibly.
+SEARCH_KEYWORDS = LINKEDIN_SEARCH_KEYWORDS
+
+JOBSPY_COUNTRY_PLANS = [
+    {
+        "country": "UAE",
+        "linkedin_source": "linkedin_public",
+        "linkedin_location": "Dubai, United Arab Emirates",
+        "indeed_source": "indeed_uae",
+        "indeed_location": "Dubai, United Arab Emirates",
+        "indeed_country": "United Arab Emirates",
+        "google_source": "google_uae",
+        "google_location": "Dubai, United Arab Emirates",
+    },
+    {
+        "country": "Georgia",
+        # Use Tbilisi to avoid pulling US Georgia / Atlanta-style results.
+        "linkedin_source": "linkedin_georgia",
+        "linkedin_location": "Tbilisi, Georgia",
+        "indeed_source": "indeed_georgia",
+        "indeed_location": "Tbilisi, Georgia",
+        # Indeed does not accept "Georgia" as a country filter in JobSpy, so we rely on location.
+        "indeed_country": None,
+        "google_source": "google_georgia",
+        "google_location": "Tbilisi, Georgia",
+    },
+    {
+        "country": "Malta",
+        "linkedin_source": "linkedin_malta",
+        "linkedin_location": "Malta",
+        "indeed_source": "indeed_malta",
+        "indeed_location": "Valletta, Malta",
+        "indeed_country": "Malta",
+        "google_source": "google_malta",
+        "google_location": "Malta",
+    },
 ]
 
 RECRUITER_COMPANIES = [

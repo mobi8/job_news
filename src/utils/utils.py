@@ -266,7 +266,9 @@ def save_scrape_state(
     all_job_sources = [
         "jobvite_pragmaticplay", "smartrecruitment", "igamingrecruitment",
         "jobrapido_uae", "jobleads", "telegram_job_crypto_uae", "telegram_cryptojobslist",
-        "indeed_uae", "linkedin_public", "linkedin_jobspy"
+        "indeed_uae", "indeed_georgia", "indeed_malta",
+        "linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy",
+        "google_uae", "google_georgia", "google_malta",
     ]
 
     for src_key in all_job_sources:
@@ -493,11 +495,18 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "indeed_uae": "indeed_uae",
         "indeed_jobspy": "indeed_uae",
         "jobspy_indeed": "indeed_uae",
+        "indeed_georgia": "indeed_georgia",
+        "indeed_malta": "indeed_malta",
         "linkedin": "linkedin_public",
         "linkedin_public": "linkedin_public",
         "linkedin_jobspy": "linkedin_public",
         "jobspy_linkedin": "linkedin_public",
+        "linkedin_georgia": "linkedin_georgia",
         "linkedin_malta": "linkedin_malta",
+        "google": "google_uae",
+        "google_uae": "google_uae",
+        "google_georgia": "google_georgia",
+        "google_malta": "google_malta",
         "jobrapido": "jobrapido_uae",
         "jobrapido_uae": "jobrapido_uae",
         "jobleads": "jobleads",

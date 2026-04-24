@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from utils.models import JobPosting
+from utils.config import INDEED_SEARCH_KEYWORDS
 from utils.scoring import (
     annotate_records,
     auto_category_for_record,
@@ -239,6 +240,15 @@ class TestAutoCategoryForRecord:
             }
             result = auto_category_for_record(record)
             assert isinstance(result, str)
+
+
+class TestIndeedKeywordCoverage:
+    """Regression tests for Indeed search coverage."""
+
+    def test_indeed_keywords_include_wallet_probes(self):
+        lowered = [keyword.lower() for keyword in INDEED_SEARCH_KEYWORDS]
+        assert any("wallet" in keyword for keyword in lowered)
+        assert any("crypto wallet" in keyword for keyword in lowered)
 
 
 class TestUniquePreserveOrder:
