@@ -28,6 +28,7 @@ import urllib.error
 import signal
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from threading import Lock
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List
@@ -225,6 +226,7 @@ def _run_jobspy_keyword_bucket(
     location: str,
     results_wanted: int,
     hours_old: int,
+    dedupe_lock: Lock,
     linkedin_fetch_description: bool = False,
     country_indeed: str | None = None,
     use_google_search_term: bool = False,
@@ -259,6 +261,7 @@ def _run_jobspy_keyword_bucket(
                 default_location=location,
                 now_iso=now_iso,
                 existing_fingerprints=existing_fingerprints,
+                dedupe_lock=dedupe_lock,
             )
         if inter_keyword_delay_seconds > 0:
             time.sleep(inter_keyword_delay_seconds)
@@ -368,6 +371,7 @@ def _append_jobspy_rows(
     default_location: str,
     now_iso: str,
     existing_fingerprints: set[str],
+    dedupe_lock: Lock,
 ) -> int:
     added = 0
     if rows is None:
@@ -396,24 +400,25 @@ def _append_jobspy_rows(
             company.strip().lower(),
             location.strip().lower(),
         ]).encode("utf-8")).hexdigest()
-        if fp in existing_fingerprints:
-            continue
 
-        existing_fingerprints.add(fp)
-        job = JobPosting(
-            source=source,
-            source_job_id=source_job_id or url,
-            title=title,
-            company=company,
-            location=location,
-            url=url,
-            description=description,
-            remote=safe_bool(_row_value(row, "is_remote")),
-            country=country,
-            collected_at=now_iso,
-        )
-        jobs.append(job)
-        added += 1
+        with dedupe_lock:
+            if fp in existing_fingerprints:
+                continue
+            existing_fingerprints.add(fp)
+            job = JobPosting(
+                source=source,
+                source_job_id=source_job_id or url,
+                title=title,
+                company=company,
+                location=location,
+                url=url,
+                description=description,
+                remote=safe_bool(_row_value(row, "is_remote")),
+                country=country,
+                collected_at=now_iso,
+            )
+            jobs.append(job)
+            added += 1
 
     return added
 
@@ -434,6 +439,7 @@ def _process_jobspy_country(
     existing_fingerprints: set,
     now_iso: str,
     jobspy_lookback_hours: int,
+    dedupe_lock: Lock,
 ) -> tuple[list, list]:
     """Process LinkedIn and Indeed scraping for a single country. Returns (linkedin_jobs, indeed_jobs)."""
     linkedin_jobs: list = []
@@ -453,6 +459,7 @@ def _process_jobspy_country(
         location=plan["linkedin_location"],
         results_wanted=JOBSPY_RESULTS_WANTED,
         hours_old=jobspy_lookback_hours,
+        dedupe_lock=dedupe_lock,
         linkedin_fetch_description=True,
         inter_keyword_delay_seconds=JOBSPY_INTER_KEYWORD_DELAY_SECONDS,
     )
@@ -469,6 +476,7 @@ def _process_jobspy_country(
             location=plan["indeed_location"],
             results_wanted=JOBSPY_INDEED_RESULTS_WANTED,
             hours_old=jobspy_lookback_hours,
+            dedupe_lock=dedupe_lock,
             country_indeed=plan["indeed_country"],
             inter_keyword_delay_seconds=JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS,
         )
@@ -498,6 +506,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
 
         # Reuse one fingerprint set across LinkedIn / Indeed so they don't re-add the same posting in the same run.
         existing_fingerprints = db.get_recent_fingerprints(hours=jobspy_lookback_hours)
+        dedupe_lock = Lock()
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = [
@@ -507,6 +516,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
                     existing_fingerprints,
                     now_iso,
                     jobspy_lookback_hours,
+                    dedupe_lock,
                 )
                 for plan in JOBSPY_COUNTRY_PLANS
             ]
