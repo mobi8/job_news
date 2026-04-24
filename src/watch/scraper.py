@@ -26,6 +26,7 @@ import sys
 import time
 import urllib.error
 import signal
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -428,16 +429,62 @@ def load_browser_lookback_hours() -> int:
         return BROWSER_LOOKBACK_HOURS
 
 
-def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list, list]:
-    """Scrape LinkedIn, Indeed, and Google jobs using JobSpy."""
+def _process_jobspy_country(
+    plan: dict,
+    existing_fingerprints: set,
+    now_iso: str,
+    jobspy_lookback_hours: int,
+) -> tuple[list, list]:
+    """Process LinkedIn and Indeed scraping for a single country. Returns (linkedin_jobs, indeed_jobs)."""
+    linkedin_jobs: list = []
+    indeed_jobs: list = []
+    country = plan["country"]
+
+    logger.info("Scraping JobSpy country bucket: %s", country)
+
+    _run_jobspy_keyword_bucket(
+        jobs=linkedin_jobs,
+        existing_fingerprints=existing_fingerprints,
+        now_iso=now_iso,
+        site_name="linkedin",
+        keywords=LINKEDIN_SEARCH_KEYWORDS,
+        source=plan["linkedin_source"],
+        country=country,
+        location=plan["linkedin_location"],
+        results_wanted=JOBSPY_RESULTS_WANTED,
+        hours_old=jobspy_lookback_hours,
+        linkedin_fetch_description=True,
+        inter_keyword_delay_seconds=JOBSPY_INTER_KEYWORD_DELAY_SECONDS,
+    )
+
+    if country == "UAE":
+        _run_jobspy_keyword_bucket(
+            jobs=indeed_jobs,
+            existing_fingerprints=existing_fingerprints,
+            now_iso=now_iso,
+            site_name="indeed",
+            keywords=INDEED_SEARCH_KEYWORDS,
+            source=plan["indeed_source"],
+            country=country,
+            location=plan["indeed_location"],
+            results_wanted=JOBSPY_INDEED_RESULTS_WANTED,
+            hours_old=jobspy_lookback_hours,
+            country_indeed=plan["indeed_country"],
+            inter_keyword_delay_seconds=JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS,
+        )
+
+    return linkedin_jobs, indeed_jobs
+
+
+def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
+    """Scrape LinkedIn and Indeed jobs using JobSpy."""
     if not scrape_jobs:
         logger.warning("JobSpy not available, skipping LinkedIn/Indeed/Google scraping")
-        return [], [], []
+        return [], []
 
     try:
         linkedin_jobs: list = []
         indeed_jobs: list = []
-        google_jobs: list = []
         now_iso = utc_now().isoformat()
         last_completed_at = load_last_scrape_completed_at()
         jobspy_lookback_hours = _compute_jobspy_lookback_hours()
@@ -449,70 +496,35 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list, list]:
             last_completed_at or "n/a",
         )
 
-        # Reuse one fingerprint set across all JobSpy sites so LinkedIn / Indeed / Google
-        # do not re-add the same posting in the same run.
+        # Reuse one fingerprint set across LinkedIn / Indeed so they don't re-add the same posting in the same run.
         existing_fingerprints = db.get_recent_fingerprints(hours=jobspy_lookback_hours)
 
-        for plan in JOBSPY_COUNTRY_PLANS:
-            country = plan["country"]
-            logger.info("Scraping JobSpy country bucket: %s", country)
-
-            _run_jobspy_keyword_bucket(
-                jobs=linkedin_jobs,
-                existing_fingerprints=existing_fingerprints,
-                now_iso=now_iso,
-                site_name="linkedin",
-                keywords=LINKEDIN_SEARCH_KEYWORDS,
-                source=plan["linkedin_source"],
-                country=country,
-                location=plan["linkedin_location"],
-                results_wanted=JOBSPY_RESULTS_WANTED,
-                hours_old=jobspy_lookback_hours,
-                linkedin_fetch_description=True,
-                inter_keyword_delay_seconds=JOBSPY_INTER_KEYWORD_DELAY_SECONDS,
-            )
-
-            _run_jobspy_keyword_bucket(
-                jobs=indeed_jobs,
-                existing_fingerprints=existing_fingerprints,
-                now_iso=now_iso,
-                site_name="indeed",
-                keywords=INDEED_SEARCH_KEYWORDS,
-                source=plan["indeed_source"],
-                country=country,
-                location=plan["indeed_location"],
-                results_wanted=JOBSPY_INDEED_RESULTS_WANTED,
-                hours_old=jobspy_lookback_hours,
-                country_indeed=plan["indeed_country"],
-                inter_keyword_delay_seconds=JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS,
-            )
-
-            _run_jobspy_keyword_bucket(
-                jobs=google_jobs,
-                existing_fingerprints=existing_fingerprints,
-                now_iso=now_iso,
-                site_name="google",
-                keywords=GOOGLE_SEARCH_KEYWORDS,
-                source=plan["google_source"],
-                country=country,
-                location=plan["google_location"],
-                results_wanted=JOBSPY_GOOGLE_RESULTS_WANTED,
-                hours_old=jobspy_lookback_hours,
-                use_google_search_term=True,
-                inter_keyword_delay_seconds=JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS,
-            )
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(
+                    _process_jobspy_country,
+                    plan,
+                    existing_fingerprints,
+                    now_iso,
+                    jobspy_lookback_hours,
+                )
+                for plan in JOBSPY_COUNTRY_PLANS
+            ]
+            for future in futures:
+                country_linkedin, country_indeed = future.result()
+                linkedin_jobs.extend(country_linkedin)
+                indeed_jobs.extend(country_indeed)
 
         logger.info(
-            "Collected %s LinkedIn jobs, %s Indeed jobs, %s Google jobs",
+            "Collected %s LinkedIn jobs, %s Indeed jobs",
             len(linkedin_jobs),
             len(indeed_jobs),
-            len(google_jobs),
         )
-        return linkedin_jobs, indeed_jobs, google_jobs
+        return linkedin_jobs, indeed_jobs
 
     except Exception as e:
         logger.error(f"Error scraping via JobSpy: {e}")
-        return [], [], []
+        return [], []
 
 
 def run(mode: str = "collect") -> Dict[str, Any]:
@@ -579,22 +591,18 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         sources.append(("Telegram public channels", telegram_jobs))
 
 
-    # Scrape LinkedIn + Indeed + Google via JobSpy (includes descriptions, with dedup filter)
-    linkedin_jobs, indeed_jobs, google_jobs = scrape_linkedin_indeed_via_jobspy(db)
+    # Scrape LinkedIn + Indeed via JobSpy (includes descriptions, with dedup filter)
+    linkedin_jobs, indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
 
     if allowed_sources is not None:
         linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
         indeed_jobs = [job for job in indeed_jobs if job.source in allowed_sources]
-        google_jobs = [job for job in google_jobs if job.source in allowed_sources]
 
     if linkedin_jobs:
         sources.append(("LinkedIn jobspy", linkedin_jobs))
 
     if indeed_jobs:
         sources.append(("Indeed jobspy", indeed_jobs))
-
-    if google_jobs:
-        sources.append(("Google jobspy", google_jobs))
 
     jobs = [
         job
