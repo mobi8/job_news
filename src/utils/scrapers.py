@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+import os
 import re
 import subprocess
 import urllib.parse
@@ -34,6 +35,10 @@ from .scoring import evaluate_fit
 from .utils import clean_text, normalize_linkedin_identifier, normalize_linkedin_url, utc_now
 
 logger = logging.getLogger(__name__)
+
+BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "6")))
+BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "6")))
+BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "6")))
 
 
 def fetch_html(url: str) -> str:
@@ -521,6 +526,170 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
         )
         logger.info("Collected %s jobs from Telegram channel %s.", len(channel_jobs), channel["company"])
         jobs.extend(channel_jobs)
+    return jobs
+
+
+def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
+    """Fetch browser pages in parallel batches. Returns list of page results."""
+    if not BROWSER_PROBE_PATH.exists():
+        logger.warning("Browser probe script not found at %s", BROWSER_PROBE_PATH)
+        return []
+
+    indexed_batches = [
+        (start, urls[start:start + batch_size])
+        for start in range(0, len(urls), batch_size)
+    ]
+    ordered_results: list[dict | None] = [None] * len(urls)
+
+    def run_batch(batch: List[str]) -> List[dict]:
+        command = ["node", str(BROWSER_PROBE_PATH)] + batch
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=600,
+            )
+            stdout = completed.stdout.strip()
+            if not stdout:
+                return [{"jobs": [], "error": "empty output"} for _ in batch]
+
+            pages = json.loads(stdout)
+            if not isinstance(pages, list):
+                pages = [pages]
+            return pages
+        except Exception as exc:
+            logger.warning("Batch processing failed: %s", exc)
+            return [{"jobs": [], "error": str(exc)} for _ in batch]
+
+    with ThreadPoolExecutor(max_workers=BROWSER_BATCH_WORKERS) as executor:
+        futures = {executor.submit(run_batch, batch): (start, len(batch)) for start, batch in indexed_batches}
+        for future in as_completed(futures):
+            try:
+                results = future.result()
+                start, batch_len = futures[future]
+                for offset, page in enumerate(results[:batch_len]):
+                    if start + offset < len(ordered_results):
+                        ordered_results[start + offset] = page
+            except Exception as exc:
+                logger.warning("Batch fetch failed: %s", exc)
+
+    return [page for page in ordered_results if page is not None]
+
+
+def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
+    if not INDEED_SEARCH_URLS:
+        return []
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+
+    pages = _batch_browser_fetch(INDEED_SEARCH_URLS, batch_size=BROWSER_INDEED_BATCH_SIZE)
+    if not pages:
+        logger.warning("Indeed: no results from browser fetch")
+        return []
+
+    for search_url, page in zip(INDEED_SEARCH_URLS, pages):
+        for item in page.get("jobs", []):
+            url = normalize_linkedin_url(item.get("url", "").strip())
+            title = clean_text(item.get("title", ""))
+            if not url or not title or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+
+            location_str = clean_text(item.get("location", "")).lower()
+            source_name = "indeed_uae"
+            country = "UAE"
+
+            if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
+                country = "Malta"
+                source_name = "indeed_malta"
+            elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str:
+                country = "Georgia"
+                source_name = "indeed_georgia"
+            elif "ge.indeed.com" in search_url:
+                country = "Georgia"
+                source_name = "indeed_georgia"
+
+            jobs.append(
+                JobPosting(
+                    source=source_name,
+                    source_job_id=source_job_id,
+                    title=title,
+                    company=clean_text(item.get("company", "")) or "Indeed",
+                    location=clean_text(item.get("location", "")),
+                    url=url,
+                    description=clean_text(item.get("description", "")),
+                    remote=bool(item.get("remote", False)),
+                    country=country,
+                    collected_at=collected_at,
+                )
+            )
+
+    return jobs
+
+
+def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
+    all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
+    if not all_urls:
+        return []
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+
+    pages = _batch_browser_fetch(all_urls, batch_size=BROWSER_LINKEDIN_BATCH_SIZE)
+    if not pages:
+        logger.warning("LinkedIn: no results from browser fetch")
+        return []
+
+    for search_url, page in zip(all_urls, pages):
+        for item in page.get("jobs", []):
+            url = item.get("url", "").strip()
+            title = clean_text(item.get("title", ""))
+            if not url or not title or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+
+            location_str = clean_text(item.get("location", "")).lower()
+            source_name = "linkedin_public"
+            country = "UAE"
+            search_lower = search_url.lower()
+
+            if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
+                country = "Malta"
+                source_name = "linkedin_malta"
+            elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str or "batumi" in location_str or "바투미" in location_str:
+                country = "Georgia"
+                source_name = "linkedin_georgia"
+            elif "malta" in search_lower or "valletta" in search_lower:
+                country = "Malta"
+                source_name = "linkedin_malta"
+            elif "georgia" in search_lower or "tbilisi" in search_lower:
+                country = "Georgia"
+                source_name = "linkedin_georgia"
+
+            jobs.append(
+                JobPosting(
+                    source=source_name,
+                    source_job_id=source_job_id,
+                    title=title,
+                    company=clean_text(item.get("company", "")) or "LinkedIn",
+                    location=clean_text(item.get("location", "")),
+                    url=url,
+                    description=clean_text(item.get("description", "")),
+                    remote=bool(item.get("remote", False)),
+                    country=country,
+                    collected_at=collected_at,
+                )
+            )
+
     return jobs
 
 

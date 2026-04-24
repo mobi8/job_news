@@ -93,6 +93,8 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_indeed_jobs_via_browser,
+    fetch_linkedin_jobs_via_browser,
     fetch_telegram_channel_jobs,
     parse_igaming_recruitment_jobs,
     parse_jobrapido_jobs,
@@ -528,6 +530,22 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
         return [], []
 
 
+def scrape_linkedin_indeed_via_browser() -> tuple[list, list]:
+    """Scrape LinkedIn and Indeed jobs using the browser probe."""
+    try:
+        linkedin_jobs = fetch_linkedin_jobs_via_browser()
+        indeed_jobs = fetch_indeed_jobs_via_browser()
+        logger.info(
+            "Collected %s LinkedIn browser jobs, %s Indeed browser jobs",
+            len(linkedin_jobs),
+            len(indeed_jobs),
+        )
+        return linkedin_jobs, indeed_jobs
+    except Exception as e:
+        logger.error(f"Error scraping via browser probe: {e}")
+        return [], []
+
+
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
@@ -592,8 +610,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         sources.append(("Telegram public channels", telegram_jobs))
 
 
-    # Scrape LinkedIn + Indeed via JobSpy (includes descriptions, with dedup filter)
-    linkedin_jobs, indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
+    # Scrape LinkedIn + Indeed via browser probe first so richer descriptions win on dedupe.
+    browser_linkedin_jobs, browser_indeed_jobs = scrape_linkedin_indeed_via_browser()
+
+    # Keep JobSpy as a second pass for coverage.
+    jobspy_linkedin_jobs, jobspy_indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
+
+    linkedin_jobs = [*browser_linkedin_jobs, *jobspy_linkedin_jobs]
+    indeed_jobs = [*browser_indeed_jobs, *jobspy_indeed_jobs]
 
     if allowed_sources is not None:
         linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
