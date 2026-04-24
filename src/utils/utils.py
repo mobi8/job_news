@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import (
+    WATCH_INTERVAL_MINUTES_DEFAULT,
     ALLOWED_LANGUAGE_TERMS,
     DEFAULT_RESUME_CANDIDATES,
     EXCLUDED_LANGUAGE_TERMS,
@@ -27,7 +28,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def load_watch_interval_minutes(default: int = 60) -> int:
+def load_watch_interval_minutes(default: int = WATCH_INTERVAL_MINUTES_DEFAULT) -> int:
     watch_settings_path = SCRAPE_STATE_PATH.parent / "watch_settings.json"
     if not watch_settings_path.exists():
         return default

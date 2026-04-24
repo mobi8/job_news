@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .models import JobPosting
+from .config import WATCH_INTERVAL_MINUTES_DEFAULT
 from .scoring import source_label
 from .utils import dedupe_records_for_display, format_seen_timestamp, utc_now
 
@@ -938,7 +939,7 @@ def save_dashboard(
             <div class="runtime-grid">
               <label class="runtime-stat">
                 <strong>자동 실행 주기(분)</strong>
-                <input id="watch-interval-minutes" class="runtime-input" type="number" min="1" step="1" value="1440">
+                <input id="watch-interval-minutes" class="runtime-input" type="number" min="1" step="1" value="{WATCH_INTERVAL_MINUTES_DEFAULT}">
               </label>
             </div>
             <div class="runtime-button-row">
@@ -1217,7 +1218,7 @@ def save_dashboard(
         ]);
         const settings = await settingsRes.json();
         const state = await stateRes.json();
-        document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || 1440;
+        document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || {WATCH_INTERVAL_MINUTES_DEFAULT};
         document.getElementById("scrape-last-at").textContent = state.last_scraped_at ? new Date(state.last_scraped_at).toLocaleString() : "아직 기록 없음";
         document.getElementById("scrape-last-ago").textContent = state.last_scraped_at ? `${{formatHoursAgo(state.last_scraped_at)}} · 마지막 모드 ${{state.mode || 'collect'}}` : "-";
         document.getElementById("runtime-status").textContent = "지금 실행은 수동 1회 스크랩이고, 완료되면 바로 텔레그램으로 발송합니다. 자동 실행은 저장한 분 간격마다 1번씩 돌아갑니다.";
@@ -1227,7 +1228,7 @@ def save_dashboard(
     }};
 
     const saveWatchSettings = async () => {{
-      const interval = Number(document.getElementById("watch-interval-minutes").value || 1440);
+      const interval = Number(document.getElementById("watch-interval-minutes").value || {WATCH_INTERVAL_MINUTES_DEFAULT});
       document.getElementById("runtime-status").textContent = "설정을 저장하는 중입니다...";
       try {{
         await fetch("/watch-settings", {{

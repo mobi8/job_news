@@ -54,6 +54,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.logger import scraper_logger
 from utils.config import (
     DB_PATH,
+    BROWSER_LOOKBACK_HOURS,
+    JOBSPY_HOURS_OLD,
+    JOBSPY_LOOKBACK_OVERLAP_HOURS,
+    JOBSPY_MAX_LOOKBACK_HOURS,
+    JOBSPY_MIN_LOOKBACK_HOURS,
     IGAMING_RECRUITMENT_URL,
     JOBRAPIDO_URL,
     JOBVITE_URL,
@@ -112,10 +117,6 @@ JOBSPY_LINKEDIN_SOURCE = "linkedin_public"
 JOBSPY_INDEED_SOURCE = "indeed_uae"
 JOBSPY_LOCATION = "Dubai"
 JOBSPY_RESULTS_WANTED = int(os.getenv("JOBSPY_RESULTS_WANTED", "20"))
-JOBSPY_HOURS_OLD = int(os.getenv("JOBSPY_HOURS_OLD", "24"))
-JOBSPY_LOOKBACK_OVERLAP_HOURS = int(os.getenv("JOBSPY_LOOKBACK_OVERLAP_HOURS", "12"))
-JOBSPY_MIN_LOOKBACK_HOURS = int(os.getenv("JOBSPY_MIN_LOOKBACK_HOURS", "12"))
-JOBSPY_MAX_LOOKBACK_HOURS = int(os.getenv("JOBSPY_MAX_LOOKBACK_HOURS", "48"))
 JOBSPY_TIMEOUT_SECONDS = int(os.getenv("JOBSPY_TIMEOUT_SECONDS", "90"))
 JOBSPY_MAX_RETRIES = int(os.getenv("JOBSPY_MAX_RETRIES", "3"))
 JOBSPY_RETRY_BASE_DELAY_SECONDS = int(os.getenv("JOBSPY_RETRY_BASE_DELAY_SECONDS", "20"))
@@ -337,12 +338,14 @@ def _append_jobspy_rows(
 
 
 def load_browser_lookback_hours() -> int:
-    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS", "6")
+    raw_value = os.getenv("BROWSER_LOOKBACK_HOURS")
+    if raw_value is None:
+        return BROWSER_LOOKBACK_HOURS
     try:
         return max(1, int(raw_value))
     except ValueError:
-        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to 6.", raw_value)
-        return 6
+        logger.warning("Invalid BROWSER_LOOKBACK_HOURS=%r; falling back to %s.", raw_value, BROWSER_LOOKBACK_HOURS)
+        return BROWSER_LOOKBACK_HOURS
 
 
 def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 OUTPUT_DIR = Path("/Users/lewis/Desktop/agent/outputs")
@@ -9,6 +10,31 @@ DB_PATH = OUTPUT_DIR / "jobs.sqlite3"
 REJECT_FEEDBACK_PATH = OUTPUT_DIR / "reject_feedback.json"
 TELEGRAM_SENT_HISTORY_PATH = OUTPUT_DIR / "telegram_sent_history.json"
 SCRAPE_STATE_PATH = OUTPUT_DIR / "scrape_state.json"
+
+
+def _env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name, str(default))
+    try:
+        return int(raw_value)
+    except ValueError:
+        return default
+
+
+# Watch / batch defaults
+WATCH_INTERVAL_MINUTES_DEFAULT = 120
+JOBSPY_HOURS_OLD_DEFAULT = 24
+JOBSPY_LOOKBACK_OVERLAP_HOURS_DEFAULT = 12
+JOBSPY_MIN_LOOKBACK_HOURS_DEFAULT = 12
+JOBSPY_MAX_LOOKBACK_HOURS_DEFAULT = 48
+BROWSER_LOOKBACK_HOURS_DEFAULT = 6
+
+# Runtime-tunable values with environment overrides
+JOBSPY_HOURS_OLD = _env_int("JOBSPY_HOURS_OLD", JOBSPY_HOURS_OLD_DEFAULT)
+JOBSPY_LOOKBACK_OVERLAP_HOURS = _env_int("JOBSPY_LOOKBACK_OVERLAP_HOURS", JOBSPY_LOOKBACK_OVERLAP_HOURS_DEFAULT)
+JOBSPY_MIN_LOOKBACK_HOURS = _env_int("JOBSPY_MIN_LOOKBACK_HOURS", JOBSPY_MIN_LOOKBACK_HOURS_DEFAULT)
+JOBSPY_MAX_LOOKBACK_HOURS = _env_int("JOBSPY_MAX_LOOKBACK_HOURS", JOBSPY_MAX_LOOKBACK_HOURS_DEFAULT)
+BROWSER_LOOKBACK_HOURS = _env_int("BROWSER_LOOKBACK_HOURS", BROWSER_LOOKBACK_HOURS_DEFAULT)
+
 JOBVITE_URL = "https://jobs.jobvite.com/pragmaticplay/jobs"
 SMARTRECRUITMENT_URL = "https://jobs.smartrecruitment.com/jobs?department_id=20888"
 IGAMING_RECRUITMENT_URL = "https://igamingrecruitment.io/jobs/"

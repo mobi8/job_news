@@ -716,7 +716,7 @@
             <div class="runtime-grid">
               <label class="runtime-stat">
                 <strong>자동 실행 주기(분)</strong>
-                <input id="watch-interval-minutes" class="runtime-input" type="number" min="1" step="1" value="1440">
+                <input id="watch-interval-minutes" class="runtime-input" type="number" min="1" step="1" value="120">
               </label>
             </div>
             <div class="runtime-button-row">
@@ -22192,7 +22192,7 @@
         const settings = await settingsRes.json();
         const state = await stateRes.json();
         const stats = await statsRes.json();
-        document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || 1440;
+        document.getElementById("watch-interval-minutes").value = settings.scrape_interval_minutes || 120;
         document.getElementById("scrape-last-at").textContent = state.last_scraped_at ? new Date(state.last_scraped_at).toLocaleString() : "아직 기록 없음";
         document.getElementById("scrape-last-ago").textContent = state.last_scraped_at ? `${formatHoursAgo(state.last_scraped_at)} · 마지막 모드 ${state.mode || 'collect'}` : "-";
         const newJobs = stats.collection_metadata?.new_jobs_this_run || 0;
@@ -22206,7 +22206,7 @@
     };
 
     const saveWatchSettings = async () => {
-      const interval = Number(document.getElementById("watch-interval-minutes").value || 1440);
+      const interval = Number(document.getElementById("watch-interval-minutes").value || 120);
       document.getElementById("runtime-status").textContent = "설정을 저장하는 중입니다...";
       try {
         await fetch("/watch-settings", {

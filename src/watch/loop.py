@@ -25,6 +25,7 @@ if env_path.exists():
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.db import Database
+from utils.config import WATCH_INTERVAL_MINUTES_DEFAULT
 from utils.logger import watch_logger
 
 # Updated path: scraper.py is in src/watch/
@@ -38,9 +39,9 @@ def load_watch_settings() -> dict:
         with open(WATCH_SETTINGS_PATH, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
     except Exception:
-        return {"scrape_interval_minutes": 1440}
+        return {"scrape_interval_minutes": WATCH_INTERVAL_MINUTES_DEFAULT}
     return {
-        "scrape_interval_minutes": max(1, int(payload.get("scrape_interval_minutes", 1440))),
+        "scrape_interval_minutes": max(1, int(payload.get("scrape_interval_minutes", WATCH_INTERVAL_MINUTES_DEFAULT))),
     }
 
 
