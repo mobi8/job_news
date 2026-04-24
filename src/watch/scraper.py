@@ -93,6 +93,7 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
     fetch_telegram_channel_jobs,
@@ -531,14 +532,25 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
 
 
 def scrape_linkedin_indeed_via_browser() -> tuple[list, list]:
-    """Scrape LinkedIn and Indeed jobs using the browser probe."""
+    """Scrape LinkedIn and Indeed jobs. LinkedIn via browser, Indeed via Playwright + JobSpy (parallel)."""
     try:
         linkedin_jobs = fetch_linkedin_jobs_via_browser()
-        indeed_jobs = fetch_indeed_jobs_via_browser()
+
+        # Scrape Indeed via both Playwright and JobSpy in parallel, then combine
+        with ProcessPoolExecutor(max_workers=2) as executor:
+            browser_future = executor.submit(fetch_indeed_jobs_via_browser)
+            jobspy_future = executor.submit(fetch_indeed_jobs_via_jobspy)
+            browser_indeed = browser_future.result()
+            jobspy_indeed = jobspy_future.result()
+
+        indeed_jobs = dedupe_job_postings(browser_indeed + jobspy_indeed)
+
         logger.info(
-            "Collected %s LinkedIn browser jobs, %s Indeed browser jobs",
+            "Collected %s LinkedIn browser jobs, %s Indeed jobs (browser: %s, jobspy: %s)",
             len(linkedin_jobs),
             len(indeed_jobs),
+            len(browser_indeed),
+            len(jobspy_indeed),
         )
         return linkedin_jobs, indeed_jobs
     except Exception as e:
