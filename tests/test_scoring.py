@@ -249,6 +249,8 @@ class TestIndeedKeywordCoverage:
         lowered = [keyword.lower() for keyword in INDEED_SEARCH_KEYWORDS]
         assert any("wallet" in keyword for keyword in lowered)
         assert any("crypto wallet" in keyword for keyword in lowered)
+        assert any("virtual assets" in keyword for keyword in lowered)
+        assert any("operations manager" in keyword for keyword in lowered)
 
 
 class TestUniquePreserveOrder:
