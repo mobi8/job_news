@@ -1,4 +1,4 @@
-const { chromium } = require('playwright-core');
+const { chromium } = require('camoufox');
 
 function textOrEmpty(node) {
   return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
@@ -27,6 +27,24 @@ async function expandLinkedInMoreButtons(page) {
 async function evaluateIndeedPage(page) {
   return page.evaluate(() => {
     const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
+
+    // Detect Cloudflare security block
+    const cloudflareBlock = document.body.textContent.includes('추가 확인이 필요합니다') ||
+                           document.body.textContent.includes('Security Check') ||
+                           document.body.textContent.includes('Cloudflare') ||
+                           document.querySelector('[class*="challenge"]') ||
+                           document.querySelector('iframe[src*="challenges"]');
+
+    if (cloudflareBlock) {
+      return {
+        pageTitle: document.title,
+        href: location.href,
+        jobs: [],
+        blocked: true,
+        reason: 'Cloudflare security check detected',
+      };
+    }
+
     const jobCards = Array.from(document.querySelectorAll('[data-testid="slider_container"]'));
     const jobs = [];
 
@@ -199,54 +217,86 @@ async function main() {
     throw new Error('Usage: node browser_probe.js <url> [<url> ...]');
   }
 
-  const browser = await chromium.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: process.env.BROWSER_HEADLESS !== 'false',
-  });
+  const context = await chromium.launchPersistentContext(
+    require('path').join(require('os').tmpdir(), 'chrome-profile-' + Date.now()),
+    {
+      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      headless: false,
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 720 },
+      javaScriptEnabled: true,
+      ignoreHTTPSErrors: true,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--no-default-browser-check',
+      ],
+    }
+  );
 
-  const context = await browser.newContext({
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 720 },
-  });
+  const browser = context.browser();
 
   const page = await context.newPage();
 
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [
+        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+      ],
+    });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    window.chrome = { runtime: {} };
+    Object.defineProperty(navigator, 'permissions', {
+      get: () => ({
+        query: () => Promise.resolve({ state: Notification.permission }),
+      }),
+    });
+  });
+
   const results = [];
 
-  for (const url of urls) {
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+      if (i > 0) {
+        await page.waitForTimeout(2000 + Math.random() * 2000);
+      }
+
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 });
 
       if (url.includes('indeed.com')) {
         await page.waitForLoadState('domcontentloaded').catch(() => {});
-        await page.waitForSelector('[data-testid="slider_container"]', { timeout: 20000 }).catch(() => {});
-        await page.waitForTimeout(2000);
+        await page.waitForSelector('[data-testid="slider_container"]', { timeout: 25000 }).catch(() => {});
+        await page.waitForTimeout(3000 + Math.random() * 1000);
         results.push(await evaluateIndeedPage(page));
         continue;
       }
 
       if (url.includes('linkedin.com/jobs/search')) {
         await page.waitForLoadState('domcontentloaded').catch(() => {});
-        await page.waitForSelector('a.base-card__full-link', { timeout: 25000 }).catch(() => {});
-        await page.waitForTimeout(2000);
-        await page.waitForTimeout(3000);
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
+        await page.waitForTimeout(3000 + Math.random() * 1000);
 
         let previousHeight = 0;
         let scrolls = 0;
-        const maxScrolls = 8;
+        const maxScrolls = 6;
         while (scrolls < maxScrolls) {
           const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
           if (newHeight === previousHeight) break;
 
           await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-          await page.waitForTimeout(1500);
+          await page.waitForTimeout(2000 + Math.random() * 1000);
           previousHeight = newHeight;
           scrolls++;
         }
 
         await expandLinkedInMoreButtons(page);
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(2000 + Math.random() * 1000);
 
         results.push(await evaluateLinkedInPage(page));
         continue;
@@ -289,6 +339,13 @@ async function main() {
   console.log(JSON.stringify(results.length === 1 ? results[0] : results, null, 2));
   await context.close();
   await browser.close();
+
+  try {
+    const { rmSync } = require('fs');
+    rmSync(profileDir, { recursive: true, force: true });
+  } catch {
+    // Ignore cleanup errors
+  }
 }
 
 main().catch((error) => {

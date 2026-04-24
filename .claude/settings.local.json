@@ -197,7 +197,19 @@
       "Bash(pkill -f \"python.*loop.py\")",
       "Bash(pkill -f \"python.*scraper.py\")",
       "Bash(pkill -f \"caffeinate\")",
-      "Bash(pkill -f \"telegram_poller\")"
+      "Bash(pkill -f \"telegram_poller\")",
+      "Bash(pkill -9 -f \"scraper.py\")",
+      "Bash(pkill -9 -f \"loop.py\")",
+      "Bash(caffeinate -s python3 src/watch/loop.py)",
+      "Bash(git restore *)",
+      "Bash(kill 10228)",
+      "Bash(timeout 300 tail -f /private/tmp/claude-501/-Users-lewis-Desktop-agent/53352a8d-3fe7-4ea3-b1ac-b1d3222bf2f4/tasks/bl06z199f.output)",
+      "Bash(awk '{print \"Scraper PID:\", $2, \"Runtime:\", int\\(\\(systime\\(\\)-strftime\\(\"%s\",\"%H:%M:%S\"\\)\\)/60\\), \"minutes\"}')",
+      "Bash(kill -TERM 76483)",
+      "Bash(pkill -f \"src/watch/scraper.py\")",
+      "Bash(npm uninstall *)",
+      "Bash(npm search *)",
+      "Bash(npm ls *)"
     ]
   }
 }
