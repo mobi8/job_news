@@ -140,7 +140,7 @@ WATCH_LOOP_MONITOR_PID=$!
 echo "  Watch loop monitor started (PID: $WATCH_LOOP_MONITOR_PID)"
 
 cd "${WORKDIR}"
-uvicorn src.api.app:app --reload --log-level info &
+uvicorn src.api.app:app --log-level info &
 UVICORN_PID=$!
 echo "  Backend started (PID: $UVICORN_PID)"
 
