@@ -136,6 +136,10 @@ JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS = float(
 )
 
 
+def _console_step(message: str) -> None:
+    print(f"\n>>> {datetime.now().isoformat(timespec='seconds')} {message}", flush=True)
+
+
 def _is_missing_value(value: Any) -> bool:
     if value is None:
         return True
@@ -493,6 +497,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
         last_completed_at = load_last_scrape_completed_at()
         jobspy_lookback_hours = _compute_jobspy_lookback_hours()
 
+        _console_step("JobSpy phase starting")
         logger.info(
             "JobSpy lookback window: %sh (overlap=%sh, last_batch_at=%s)",
             jobspy_lookback_hours,
@@ -519,6 +524,9 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
                 linkedin_jobs.extend(country_linkedin)
                 indeed_jobs.extend(country_indeed)
 
+        _console_step(
+            f"JobSpy phase finished: LinkedIn={len(linkedin_jobs)} Indeed={len(indeed_jobs)}"
+        )
         logger.info(
             "Collected %s LinkedIn jobs, %s Indeed jobs",
             len(linkedin_jobs),
@@ -534,6 +542,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
 def scrape_linkedin_indeed_via_browser() -> tuple[list, list]:
     """Scrape LinkedIn and Indeed jobs. LinkedIn via browser, Indeed via Playwright + JobSpy (parallel)."""
     try:
+        _console_step("Browser phase starting: LinkedIn + Indeed")
         linkedin_jobs = fetch_linkedin_jobs_via_browser()
 
         # Scrape Indeed via both Playwright and JobSpy in parallel, then combine
@@ -552,6 +561,9 @@ def scrape_linkedin_indeed_via_browser() -> tuple[list, list]:
             len(browser_indeed),
             len(jobspy_indeed),
         )
+        _console_step(
+            f"Browser phase finished: LinkedIn={len(linkedin_jobs)} Indeed={len(indeed_jobs)}"
+        )
         return linkedin_jobs, indeed_jobs
     except Exception as e:
         logger.error(f"Error scraping via browser probe: {e}")
@@ -561,6 +573,7 @@ def scrape_linkedin_indeed_via_browser() -> tuple[list, list]:
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
+    _console_step(f"Scrape run started (mode={mode})")
     db = Database(DB_PATH)
     db.purge_language_filtered_jobs()
     db.purge_hard_excluded_jobs()
@@ -579,30 +592,35 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     sources = []
 
     if allowed_sources is None or "jobvite_pragmaticplay" in allowed_sources:
+        _console_step("Fetching Jobvite board")
         logger.info("Fetching Jobvite board...")
         jobvite_jobs = parse_jobvite_jobs(fetch_html(JOBVITE_URL))
         logger.info("Collected %s jobs from Jobvite.", len(jobvite_jobs))
         sources.append((JOBVITE_URL, jobvite_jobs))
 
     if allowed_sources is None or "smartrecruitment" in allowed_sources:
+        _console_step("Fetching SmartRecruitment board")
         logger.info("Fetching SmartRecruitment board...")
         smartrecruitment_jobs = parse_smartrecruitment_jobs(fetch_html(SMARTRECRUITMENT_URL))
         logger.info("Collected %s jobs from SmartRecruitment.", len(smartrecruitment_jobs))
         sources.append((SMARTRECRUITMENT_URL, smartrecruitment_jobs))
 
     if allowed_sources is None or "igamingrecruitment" in allowed_sources:
+        _console_step("Fetching iGaming Recruitment board")
         logger.info("Fetching iGaming Recruitment board...")
         igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
         logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
         sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
 
     if allowed_sources is None or "jobrapido_uae" in allowed_sources:
+        _console_step("Fetching Jobrapido board")
         logger.info("Fetching Jobrapido board...")
         jobrapido_jobs = parse_jobrapido_jobs(fetch_html(JOBRAPIDO_URL))
         logger.info("Collected %s jobs from Jobrapido.", len(jobrapido_jobs))
         sources.append((JOBRAPIDO_URL, jobrapido_jobs))
 
     if allowed_sources is None or "jobleads" in allowed_sources:
+        _console_step("Fetching JobLeads board")
         logger.info("Fetching JobLeads board...")
         try:
             jobleads_jobs = parse_jobleads_jobs(fetch_html(JOBLEADS_URL))
@@ -614,6 +632,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     if allowed_sources is None or (
         "telegram_job_crypto_uae" in allowed_sources or "telegram_cryptojobslist" in allowed_sources
     ):
+        _console_step("Fetching Telegram public channels")
         logger.info("Fetching Telegram public job channels...")
         telegram_jobs = fetch_telegram_channel_jobs()
         if allowed_sources is not None:
@@ -623,9 +642,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
 
     # Scrape LinkedIn + Indeed via browser probe first so richer descriptions win on dedupe.
+    _console_step("Starting browser scrape pass")
     browser_linkedin_jobs, browser_indeed_jobs = scrape_linkedin_indeed_via_browser()
 
     # Keep JobSpy as a second pass for coverage.
+    _console_step("Starting JobSpy scrape pass")
     jobspy_linkedin_jobs, jobspy_indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
 
     linkedin_jobs = [*browser_linkedin_jobs, *jobspy_linkedin_jobs]
@@ -827,6 +848,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             encoding="utf-8"
         )
 
+    _console_step("Saving outputs")
     if mode == "collect":
         batch_jobs = [job.to_dict() for job in inserted_jobs]
         maybe_send_telegram(inserted, batch_jobs)
@@ -835,6 +857,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 
     logger.info("Saved outputs to %s", OUTPUT_DIR)
+    _console_step(f"Scrape run complete: {inserted} new jobs, {news_inserted} new news")
     return payload
 
 

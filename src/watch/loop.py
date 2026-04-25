@@ -34,6 +34,10 @@ WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
 
 
+def _console_step(message: str) -> None:
+    print(f"\n>>> {datetime.now().isoformat(timespec='seconds')} {message}", flush=True)
+
+
 def load_watch_settings() -> dict:
     try:
         with open(WATCH_SETTINGS_PATH, "r", encoding="utf-8") as handle:
@@ -51,6 +55,7 @@ def run_once() -> int:
     interval_seconds = int(settings["scrape_interval_minutes"] * 60)
     watch_mode = "collect"
 
+    _console_step(f"Watcher starting (mode={watch_mode}, interval={interval_seconds}s)")
     watch_logger.info(f"Running watcher (mode={watch_mode}, interval={interval_seconds}s)")
 
     result = subprocess.run(
@@ -61,6 +66,9 @@ def run_once() -> int:
 
     if result.returncode == 0:
         watch_logger.info("✓ Scraper completed with detailed descriptions")
+        _console_step("Watcher finished successfully")
+    else:
+        _console_step(f"Watcher finished with exit code {result.returncode}")
 
     return result.returncode
 
