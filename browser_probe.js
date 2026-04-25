@@ -4,6 +4,10 @@ function textOrEmpty(node) {
   return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
+function progress(message) {
+  console.error(`[browser_probe] ${new Date().toISOString()} ${message}`);
+}
+
 async function expandLinkedInMoreButtons(page) {
   try {
     await page.evaluate(() => {
@@ -226,6 +230,7 @@ async function evaluateTelegramPage(page) {
 
 async function handleIndeedWithPlaywright(page, url) {
   try {
+    progress(`Indeed start ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Wait for Cloudflare challenge to complete
@@ -233,6 +238,7 @@ async function handleIndeedWithPlaywright(page, url) {
     while (attempts < 15) {
       const title = await page.title();
       if (title === 'Just a moment...') {
+        progress(`Indeed waiting on challenge ${attempts + 1}/15 ${url}`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         attempts++;
       } else {
@@ -242,8 +248,11 @@ async function handleIndeedWithPlaywright(page, url) {
 
     await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 1000));
 
-    return await evaluateIndeedPage(page);
+    const result = await evaluateIndeedPage(page);
+    progress(`Indeed done ${url} jobs=${result.jobs?.length || 0}`);
+    return result;
   } catch (error) {
+    progress(`Indeed error ${url}: ${error.message}`);
     console.error(`Playwright error for Indeed: ${error.message}`);
     return {
       pageTitle: 'Error',
@@ -262,6 +271,7 @@ async function main() {
 
   const headlessEnv = String(process.env.BROWSER_HEADLESS || '').toLowerCase();
   const headless = headlessEnv !== '0' && headlessEnv !== 'false';
+  progress(`probe start urls=${urls.length} headless=${headless}`);
 
   const context = await chromium.launchPersistentContext(
     require('path').join(require('os').tmpdir(), 'chrome-profile-' + Date.now()),
@@ -309,6 +319,7 @@ async function main() {
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
     try {
+      progress(`url ${i + 1}/${urls.length} start ${url}`);
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
       }
@@ -321,6 +332,7 @@ async function main() {
       await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 });
 
       if (url.includes('linkedin.com/jobs/search')) {
+        progress(`LinkedIn load ${url}`);
         await page.waitForLoadState('domcontentloaded').catch(() => {});
         await page.waitForLoadState('networkidle').catch(() => {});
         await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
@@ -334,6 +346,7 @@ async function main() {
           const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
           if (newHeight === previousHeight) break;
 
+          progress(`LinkedIn scroll ${scrolls + 1}/${maxScrolls} ${url}`);
           await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
           await page.waitForTimeout(2000 + Math.random() * 1000);
           previousHeight = newHeight;
@@ -343,10 +356,13 @@ async function main() {
         await expandLinkedInMoreButtons(page);
         await page.waitForTimeout(3000 + Math.random() * 2000);
 
-        results.push(await evaluateLinkedInPage(page));
+        const result = await evaluateLinkedInPage(page);
+        progress(`LinkedIn done ${url} jobs=${result.jobs?.length || 0}`);
+        results.push(result);
         continue;
       }
     } catch (error) {
+      progress(`url error ${url}: ${error.message}`);
       console.error(`Error processing ${url}: ${error.message}`);
       results.push({
         pageTitle: 'Error',
@@ -358,6 +374,7 @@ async function main() {
     }
 
     if (url.includes('t.me/s/')) {
+      progress(`Telegram page ${url}`);
       results.push(await evaluateTelegramPage(page));
       continue;
     }
@@ -378,6 +395,7 @@ async function main() {
         links,
       };
     });
+    progress(`generic done ${url}`);
     results.push(result);
   }
 

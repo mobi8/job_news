@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -42,6 +43,52 @@ logger = logging.getLogger(__name__)
 BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "6")))
 BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "6")))
 BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "6")))
+
+
+def _emit_captured_stderr(prefix: str, stderr: str) -> None:
+    text = (stderr or "").strip()
+    if not text:
+        return
+    for line in text.splitlines():
+        logger.info("%s%s", prefix, line)
+
+
+def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[int, str]:
+    proc = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+
+    stderr_lines: list[str] = []
+
+    def _pump_stderr() -> None:
+        assert proc.stderr is not None
+        for raw_line in iter(proc.stderr.readline, ""):
+            line = raw_line.rstrip()
+            if line:
+                stderr_lines.append(line)
+                logger.info("browser_probe: %s", line)
+
+    stderr_thread = threading.Thread(target=_pump_stderr, daemon=True)
+    stderr_thread.start()
+
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
+        stderr_thread.join(timeout=1)
+        raise
+
+    stdout = ""
+    if proc.stdout is not None:
+        stdout = proc.stdout.read() or ""
+
+    stderr_thread.join(timeout=1)
+    return proc.returncode, stdout, "\n".join(stderr_lines)
 
 
 def fetch_html(url: str) -> str:
@@ -499,17 +546,17 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
     jobs: List[JobPosting] = []
     for channel in TELEGRAM_CHANNELS:
         try:
-            completed = subprocess.run(
+            logger.info("Telegram browser probe start: %s", channel["url"])
+            returncode, stdout, _stderr = _run_browser_probe_with_progress(
                 ["node", str(BROWSER_PROBE_PATH), channel["url"]],
-                capture_output=True,
-                text=True,
-                check=True,
                 timeout=240,
             )
+            if returncode != 0:
+                raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
         except (subprocess.SubprocessError, FileNotFoundError) as exc:
             logger.warning("Skipping Telegram channel %s: %s", channel["url"], exc)
             continue
-        stdout = completed.stdout.strip()
+        stdout = stdout.strip()
         if not stdout:
             logger.warning("Skipping Telegram channel %s: empty browser output.", channel["url"])
             continue
@@ -547,14 +594,11 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
     def run_batch(batch: List[str]) -> List[dict]:
         command = ["node", str(BROWSER_PROBE_PATH)] + batch
         try:
-            completed = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=600,
-            )
-            stdout = completed.stdout.strip()
+            logger.info("Browser probe batch start: %d urls", len(batch))
+            returncode, stdout, _stderr = _run_browser_probe_with_progress(command, timeout=600)
+            if returncode != 0:
+                raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
+            stdout = stdout.strip()
             if not stdout:
                 return [{"jobs": [], "error": "empty output"} for _ in batch]
 
