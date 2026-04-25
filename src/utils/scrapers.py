@@ -16,10 +16,13 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import List
 
+from jobspy import scrape_jobs
+
 from .config import (
     BROWSER_PROBE_PATH,
     COMMERCIAL_ROLE_TERMS,
     IGAMING_RECRUITMENT_URL,
+    INDEED_SEARCH_KEYWORDS,
     INDEED_SEARCH_URLS,
     JOBVITE_URL,
     LINKEDIN_SEARCH_URLS,
@@ -602,18 +605,44 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
 
             location_str = clean_text(item.get("location", "")).lower()
-            source_name = "indeed_uae"
-            country = "UAE"
+            search_lower = search_url.lower()
 
+            # Determine country from job location or search URL
+            country = None
+            source_name = None
+
+            # Check location_str first for explicit keywords
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
                 source_name = "indeed_malta"
             elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str:
                 country = "Georgia"
                 source_name = "indeed_georgia"
-            elif "ge.indeed.com" in search_url:
-                country = "Georgia"
-                source_name = "indeed_georgia"
+            elif "dubai" in location_str or "emirates" in location_str or "uae" in location_str or "abu dhabi" in location_str:
+                country = "UAE"
+                source_name = "indeed_uae"
+
+            # Fallback to search URL if location is ambiguous or empty
+            if not country:
+                if "malta" in search_lower or "valletta" in search_lower:
+                    country = "Malta"
+                    source_name = "indeed_malta"
+                elif "georgia" in search_lower or "tbilisi" in search_lower or "ge.indeed.com" in search_lower:
+                    country = "Georgia"
+                    source_name = "indeed_georgia"
+                elif "dubai" in search_lower or "emirates" in search_lower or "uae" in search_lower:
+                    country = "UAE"
+                    source_name = "indeed_uae"
+
+            # Skip jobs from wrong regions (e.g., USA jobs when searching UAE)
+            if not country:
+                logger.debug("Skipping Indeed job with unclear location: %s from URL %s", location_str, search_url)
+                continue
+
+            # Validate location doesn't contain excluded countries (USA, UK, etc.)
+            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl", "remote - usa"]):
+                logger.debug("Skipping Indeed job from excluded region: %s", location_str)
+                continue
 
             jobs.append(
                 JobPosting(
@@ -630,6 +659,70 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
                 )
             )
 
+    return jobs
+
+
+def fetch_indeed_jobs_via_jobspy() -> List[JobPosting]:
+    """Fetch Indeed jobs using JobSpy library across UAE, Malta, Georgia."""
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+
+    # Search locations
+    locations = [
+        {"name": "UAE", "country": "UAE", "query_location": "Dubai, United Arab Emirates"},
+        {"name": "Malta", "country": "Malta", "query_location": "Malta"},
+        {"name": "Georgia", "country": "Georgia", "query_location": "Tbilisi, Georgia"},
+    ]
+
+    for location in locations:
+        for keyword in INDEED_SEARCH_KEYWORDS:
+            try:
+                # Clean up keyword: remove quotes if present
+                clean_keyword = keyword.strip('"').strip()
+                logger.debug(f"JobSpy search: {clean_keyword} in {location['name']}")
+
+                jobs_df = scrape_jobs(
+                    site_name=["indeed"],
+                    search_term=clean_keyword,
+                    location=location["query_location"],
+                    results_wanted=50,
+                    hours_old=24,
+                    country_indeed=location["country"].lower(),
+                )
+
+                if jobs_df is None or jobs_df.empty:
+                    continue
+
+                for _, row in jobs_df.iterrows():
+                    url = row.get("job_url", "").strip()
+                    title = clean_text(row.get("job_title", ""))
+
+                    if not url or not title or url in seen_urls:
+                        continue
+
+                    seen_urls.add(url)
+
+                    jobs.append(
+                        JobPosting(
+                            source="indeed_jobspy" if location["country"] == "UAE" else f"indeed_{location['country'].lower()}",
+                            source_job_id=urllib.parse.urlparse(url).query.split("&")[0] if url else "",
+                            title=title,
+                            company=clean_text(row.get("company", "")) or "Indeed",
+                            location=clean_text(row.get("location", "")),
+                            url=url,
+                            description=clean_text(row.get("description", "")),
+                            remote=bool(row.get("remote", False)),
+                            country=location["country"],
+                            collected_at=collected_at,
+                        )
+                    )
+
+            except Exception as e:
+                logger.warning(f"JobSpy error for '{keyword}' in {location['name']}: {e}")
+                continue
+
+    logger.info(f"JobSpy Indeed: collected {len(jobs)} jobs from {len(seen_urls)} unique URLs")
     return jobs
 
 
@@ -658,22 +751,44 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
 
             location_str = clean_text(item.get("location", "")).lower()
-            source_name = "linkedin_public"
-            country = "UAE"
             search_lower = search_url.lower()
 
+            # Determine country from job location or search URL
+            country = None
+            source_name = None
+
+            # Check location_str first for explicit keywords
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
                 source_name = "linkedin_malta"
             elif "georgia" in location_str or "조지아" in location_str or "tbilisi" in location_str or "트빌리시" in location_str or "batumi" in location_str or "바투미" in location_str:
                 country = "Georgia"
                 source_name = "linkedin_georgia"
-            elif "malta" in search_lower or "valletta" in search_lower:
-                country = "Malta"
-                source_name = "linkedin_malta"
-            elif "georgia" in search_lower or "tbilisi" in search_lower:
-                country = "Georgia"
-                source_name = "linkedin_georgia"
+            elif "dubai" in location_str or "emirates" in location_str or "uae" in location_str or "abu dhabi" in location_str or "sharjah" in location_str:
+                country = "UAE"
+                source_name = "linkedin_public"
+
+            # Fallback to search URL if location is ambiguous or empty
+            if not country:
+                if "malta" in search_lower or "valletta" in search_lower:
+                    country = "Malta"
+                    source_name = "linkedin_malta"
+                elif "georgia" in search_lower or "tbilisi" in search_lower:
+                    country = "Georgia"
+                    source_name = "linkedin_georgia"
+                elif "dubai" in search_lower or "emirates" in search_lower or "uae" in search_lower:
+                    country = "UAE"
+                    source_name = "linkedin_public"
+
+            # Skip jobs from wrong regions (e.g., USA jobs when searching UAE)
+            if not country:
+                logger.debug("Skipping LinkedIn job with unclear location: %s from URL %s", location_str, search_url)
+                continue
+
+            # Validate location doesn't contain excluded countries (USA, UK, etc.)
+            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl"]):
+                logger.debug("Skipping LinkedIn job from excluded region: %s", location_str)
+                continue
 
             jobs.append(
                 JobPosting(
