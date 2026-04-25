@@ -479,6 +479,24 @@ def telegram_job_relevant(job: JobPosting, resume_text: str) -> bool:
 
     if fit["qualifies"]:
         return True
+    if job.source == "telegram_hr1win":
+        has_1win_brand = "1win" in text_blob or "1 win" in text_blob
+        has_hiring_cue = any(
+            term in text_blob
+            for term in [
+                "hiring",
+                "vacancy",
+                "vacancies",
+                "career",
+                "apply",
+                "вакан",
+                "ищем",
+                "карьер",
+                "отклик",
+            ]
+        )
+        if has_1win_brand and (has_target_role or has_strong_domain or has_target_region or has_remote or has_hiring_cue):
+            return True
     if has_target_region and has_strong_domain and has_target_role:
         return True
     if has_remote and has_strong_domain and has_target_role and any(term in text_blob for term in ["crypto", "web3", "igaming", "casino", "digital asset", "stablecoin", "custody", "cex"]):

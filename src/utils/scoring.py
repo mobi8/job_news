@@ -372,5 +372,6 @@ def source_label(source: str) -> str:
         "jobleads": "JobLeads",
         "telegram_job_crypto_uae": "TG Jobs UAE",
         "telegram_cryptojobslist": "TG Crypto",
+        "telegram_hr1win": "TG 1Win",
     }
     return mapping.get(source, source)

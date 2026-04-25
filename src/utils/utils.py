@@ -265,7 +265,7 @@ def save_scrape_state(
     # 모든 채용 소스 (기본값: 0)
     all_job_sources = [
         "jobvite_pragmaticplay", "smartrecruitment", "igamingrecruitment",
-        "jobrapido_uae", "jobleads", "telegram_job_crypto_uae", "telegram_cryptojobslist",
+        "jobrapido_uae", "jobleads", "telegram_job_crypto_uae", "telegram_cryptojobslist", "telegram_hr1win",
         "indeed_uae", "indeed_georgia", "indeed_malta",
         "linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy",
         "google_uae", "google_georgia", "google_malta",
@@ -512,6 +512,7 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "jobleads": "jobleads",
         "telegram_job_crypto_uae": "telegram_job_crypto_uae",
         "telegram_cryptojobslist": "telegram_cryptojobslist",
+        "telegram_hr1win": "telegram_hr1win",
     }
 
     import logging as _logging
