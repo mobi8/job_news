@@ -1,4 +1,4 @@
-const { chromium } = require('camoufox');
+const { chromium } = require('playwright');
 
 function textOrEmpty(node) {
   return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
@@ -150,15 +150,28 @@ async function evaluateLinkedInPage(page) {
         card?.querySelector('.job-search-card__location') ||
         card?.querySelector('.base-search-card__metadata') ||
         card?.querySelector('span[class*="location"]');
+
+      let snippetText = '';
       const snippetNode =
         card?.querySelector('.job-search-card__snippet') ||
         card?.querySelector('.base-search-card__snippet') ||
         card?.querySelector('[class*="snippet"]') ||
         card?.querySelector('[class*="description"]') ||
         card?.querySelector('p');
+
+      if (snippetNode) {
+        snippetText = clean(snippetNode.innerText);
+      } else if (card) {
+        const allText = Array.from(card.querySelectorAll('*'))
+          .map((el) => clean(el.innerText || ''))
+          .filter((t) => t.length > 30 && t !== title && t !== clean(companyNode ? companyNode.innerText : '') && t !== clean(locationNode ? locationNode.innerText : ''))
+          .slice(0, 1)
+          .join(' ');
+        snippetText = allText;
+      }
+
       const company = clean(companyNode ? companyNode.innerText : '');
       const location = clean(locationNode ? locationNode.innerText : '');
-      const snippetText = clean(snippetNode ? snippetNode.innerText : '');
       const description = snippetText || clean(
         Array.from(card?.querySelectorAll('span, div, p') || [])
           .map((el) => el.innerText || '')
@@ -211,17 +224,51 @@ async function evaluateTelegramPage(page) {
   }));
 }
 
+async function handleIndeedWithPlaywright(page, url) {
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // Wait for Cloudflare challenge to complete
+    let attempts = 0;
+    while (attempts < 15) {
+      const title = await page.title();
+      if (title === 'Just a moment...') {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempts++;
+      } else {
+        break;
+      }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 1000));
+
+    return await evaluateIndeedPage(page);
+  } catch (error) {
+    console.error(`Playwright error for Indeed: ${error.message}`);
+    return {
+      pageTitle: 'Error',
+      href: url,
+      jobs: [],
+      error: error.message,
+    };
+  }
+}
+
 async function main() {
   const urls = process.argv.slice(2).filter(Boolean);
   if (!urls.length) {
     throw new Error('Usage: node browser_probe.js <url> [<url> ...]');
   }
 
+  const headlessEnv = String(process.env.BROWSER_HEADLESS || '').toLowerCase();
+  const headless = headlessEnv !== '0' && headlessEnv !== 'false';
+
   const context = await chromium.launchPersistentContext(
     require('path').join(require('os').tmpdir(), 'chrome-profile-' + Date.now()),
     {
       executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      headless: false,
+      // Default to background mode so the browser does not steal focus during batch runs.
+      headless,
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 720 },
@@ -263,18 +310,15 @@ async function main() {
     const url = urls[i];
     try {
       if (i > 0) {
-        await page.waitForTimeout(2000 + Math.random() * 2000);
+        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+      }
+
+      if (url.includes('indeed.com')) {
+        results.push(await handleIndeedWithPlaywright(page, url));
+        continue;
       }
 
       await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 });
-
-      if (url.includes('indeed.com')) {
-        await page.waitForLoadState('domcontentloaded').catch(() => {});
-        await page.waitForSelector('[data-testid="slider_container"]', { timeout: 25000 }).catch(() => {});
-        await page.waitForTimeout(3000 + Math.random() * 1000);
-        results.push(await evaluateIndeedPage(page));
-        continue;
-      }
 
       if (url.includes('linkedin.com/jobs/search')) {
         await page.waitForLoadState('domcontentloaded').catch(() => {});
@@ -284,7 +328,8 @@ async function main() {
 
         let previousHeight = 0;
         let scrolls = 0;
-        const maxScrolls = 6;
+        // Keep LinkedIn pagination lighter; most runs do not need a deep scroll sweep.
+        const maxScrolls = 2;
         while (scrolls < maxScrolls) {
           const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
           if (newHeight === previousHeight) break;
@@ -296,7 +341,7 @@ async function main() {
         }
 
         await expandLinkedInMoreButtons(page);
-        await page.waitForTimeout(2000 + Math.random() * 1000);
+        await page.waitForTimeout(3000 + Math.random() * 2000);
 
         results.push(await evaluateLinkedInPage(page));
         continue;
