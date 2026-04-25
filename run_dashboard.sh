@@ -71,6 +71,8 @@ kill_matching_processes() {
 kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
 kill_matching_processes "watch loop" "src/watch/loop.py"
 kill_matching_processes "scraper" "src/watch/scraper.py"
+kill_matching_processes "browser probe" "browser_probe.js"
+kill_matching_processes "playwright chrome profile" "chrome-profile-"
 kill_matching_processes "backend" "uvicorn src.api.app:app"
 
 if lsof -ti:8000 >/dev/null 2>&1; then
