@@ -3,7 +3,7 @@ set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
-SKIP_SCRAPE="${NO_SCRAPE:-1}"
+SKIP_SCRAPE="${NO_SCRAPE:-0}"
 JOBS_DIR="${WORKDIR}/outputs"
 
 UVICORN_PID=""
