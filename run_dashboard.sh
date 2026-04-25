@@ -69,11 +69,16 @@ kill_matching_processes() {
 
 # Clean up any older dashboard/watch processes before starting fresh.
 kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
+kill_matching_processes "telegram poller wrapper" "python3 src/api/telegram_poller.py"
 kill_matching_processes "watch loop" "src/watch/loop.py"
+kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
 kill_matching_processes "scraper" "src/watch/scraper.py"
+kill_matching_processes "scraper collect wrapper" "python3 src/watch/scraper.py collect"
 kill_matching_processes "browser probe" "browser_probe.js"
 kill_matching_processes "playwright chrome profile" "chrome-profile-"
 kill_matching_processes "backend" "uvicorn src.api.app:app"
+kill_matching_processes "frontend" "frontend/.bin/vite"
+kill_matching_processes "frontend wrapper" "node_modules/.bin/vite"
 
 if lsof -ti:8000 >/dev/null 2>&1; then
   terminate_pids "port 8000 listener" $(lsof -ti:8000)
