@@ -37,9 +37,10 @@ from .config import (
 )
 from .models import JobPosting, NewsItem
 from .scoring import evaluate_fit
+from .logger import scraper_logger
 from .utils import clean_text, normalize_linkedin_identifier, normalize_linkedin_url, utc_now
 
-logger = logging.getLogger(__name__)
+logger = scraper_logger
 
 BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "3")))
 BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "2")))
