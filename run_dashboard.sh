@@ -9,6 +9,7 @@ JOBS_DIR="${WORKDIR}/outputs"
 UVICORN_PID=""
 VITE_PID=""
 SCRAPER_PID=""
+SCRAPER_TAIL_PID=""
 WATCH_LOOP_PID=""
 WATCH_LOOP_MONITOR_PID=""
 TELEGRAM_POLLER_PID=""
@@ -136,9 +137,13 @@ echo "  Frontend started (PID: $VITE_PID)"
 if [[ "${SKIP_SCRAPE}" != "1" ]]; then
   echo "Running scraper (with detailed descriptions) in background..."
   cd "${WORKDIR}"
+  touch /tmp/job_watch_scraper.log
   python3 src/watch/scraper.py collect > /tmp/job_watch_scraper.log 2>&1 &
   SCRAPER_PID=$!
   echo "  Scraper started (PID: $SCRAPER_PID)"
+  tail -n +1 -f /tmp/job_watch_scraper.log &
+  SCRAPER_TAIL_PID=$!
+  echo "  Scraper log tail started (PID: $SCRAPER_TAIL_PID)"
 fi
 
 # Wait for servers to be ready and find actual Vite port
@@ -198,6 +203,11 @@ cleanup() {
     kill -TERM "$SCRAPER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$SCRAPER_TAIL_PID" ]] && kill -0 "$SCRAPER_TAIL_PID" 2>/dev/null; then
+    echo "  → Stopping scraper log tail (PID: $SCRAPER_TAIL_PID)..."
+    kill -TERM "$SCRAPER_TAIL_PID" 2>/dev/null || true
+  fi
+
   # Step 2: Wait up to 3 seconds for graceful shutdown
   local wait_count=0
   while [[ $wait_count -lt 30 ]]; do
@@ -207,7 +217,9 @@ cleanup() {
         if [[ -z "$VITE_PID" ]] || ! kill -0 "$VITE_PID" 2>/dev/null; then
           if [[ -z "$UVICORN_PID" ]] || ! kill -0 "$UVICORN_PID" 2>/dev/null; then
             if [[ -z "$SCRAPER_PID" ]] || ! kill -0 "$SCRAPER_PID" 2>/dev/null; then
-              all_stopped=1
+              if [[ -z "$SCRAPER_TAIL_PID" ]] || ! kill -0 "$SCRAPER_TAIL_PID" 2>/dev/null; then
+                all_stopped=1
+              fi
             fi
           fi
         fi
@@ -254,6 +266,11 @@ cleanup() {
     kill -KILL "$SCRAPER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$SCRAPER_TAIL_PID" ]] && kill -0 "$SCRAPER_TAIL_PID" 2>/dev/null; then
+    echo "  ⚠ Force killing scraper log tail (PID: $SCRAPER_TAIL_PID)"
+    kill -KILL "$SCRAPER_TAIL_PID" 2>/dev/null || true
+  fi
+
   # Step 4: Clean up any orphaned node processes on port 5173
   if lsof -ti:5173 >/dev/null 2>&1; then
     echo "  ⚠ Cleaning up orphaned port 5173 process..."
@@ -267,4 +284,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
-wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID $SCRAPER_PID 2>/dev/null || true
+wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID $SCRAPER_PID $SCRAPER_TAIL_PID 2>/dev/null || true
