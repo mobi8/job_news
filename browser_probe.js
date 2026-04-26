@@ -8,6 +8,15 @@ function progress(message) {
   console.error(`[browser_probe] ${new Date().toISOString()} ${message}`);
 }
 
+function errorResult(url, message) {
+  return {
+    pageTitle: 'Error',
+    href: url,
+    jobs: [],
+    error: message,
+  };
+}
+
 async function expandLinkedInMoreButtons(page) {
   try {
     await page.evaluate(() => {
@@ -276,176 +285,190 @@ async function main() {
   progress(`probe start urls=${urls.length} headless=${headless} telegram=${hasTelegramUrl}`);
 
   const profileDir = require('path').join(require('os').tmpdir(), 'chrome-profile-' + Date.now());
-  const context = await chromium.launchPersistentContext(
-    profileDir,
-    {
-      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      // Default to background mode so the browser does not steal focus during batch runs.
-      headless,
-      userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 720 },
-      javaScriptEnabled: true,
-      ignoreHTTPSErrors: true,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--no-first-run',
-        '--no-default-browser-check',
-      ],
-    }
-  );
-
-  const browser = context.browser();
-
+  let context;
+  let browser;
   const results = [];
+  const bundledExecutablePath = chromium.executablePath();
+  const systemChromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const executablePath = bundledExecutablePath || systemChromePath;
 
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
-    let page;
-    try {
-      progress(`url ${i + 1}/${urls.length} start ${url}`);
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+  try {
+    context = await chromium.launchPersistentContext(
+      profileDir,
+      {
+        executablePath,
+        // Default to background mode so the browser does not steal focus during batch runs.
+        headless,
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 720 },
+        javaScriptEnabled: true,
+        ignoreHTTPSErrors: true,
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--disable-dev-shm-usage',
+          '--no-first-run',
+          '--no-default-browser-check',
+        ],
       }
+    );
 
+    browser = context.browser();
+
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      let page;
       try {
-        page = await context.newPage();
-      } catch (err) {
-        progress(`Failed to create page (context closed?): ${err.message}`);
-        results.push({
-          pageTitle: 'Error',
-          href: url,
-          jobs: [],
-          error: 'Browser context unavailable',
-        });
-        continue;
-      }
-      await page.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false });
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [
-            { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
-            { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
-          ],
-        });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        window.chrome = { runtime: {} };
-        Object.defineProperty(navigator, 'permissions', {
-          get: () => ({
-            query: () => Promise.resolve({ state: Notification.permission }),
-          }),
-        });
-      });
+        progress(`url ${i + 1}/${urls.length} start ${url}`);
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+        }
 
-      if (url.includes('indeed.com')) {
-        results.push(await handleIndeedWithPlaywright(page, url));
         try {
-          await page.close();
-        } catch {
-          // Page already closed, create a new one for next iteration
+          page = await context.newPage();
+        } catch (err) {
+          progress(`Failed to create page (context closed?): ${err.message}`);
+          results.push(errorResult(url, 'Browser context unavailable'));
+          continue;
         }
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, 'webdriver', { get: () => false });
+          Object.defineProperty(navigator, 'plugins', {
+            get: () => [
+              { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+              { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+            ],
+          });
+          Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+          window.chrome = { runtime: {} };
+          Object.defineProperty(navigator, 'permissions', {
+            get: () => ({
+              query: () => Promise.resolve({ state: Notification.permission }),
+            }),
+          });
+        });
+
+        if (url.includes('indeed.com')) {
+          results.push(await handleIndeedWithPlaywright(page, url));
+          try {
+            await page.close();
+          } catch {
+            // Page already closed, create a new one for next iteration
+          }
+          continue;
+        }
+
+        const isTelegram = url.includes('t.me/s/');
+        const waitUntilOption = isTelegram ? 'networkidle' : 'domcontentloaded';
+        await page.goto(url, { waitUntil: waitUntilOption, timeout: isTelegram ? 180000 : 120000 });
+
+        if (url.includes('linkedin.com/jobs/search')) {
+          progress(`LinkedIn load ${url}`);
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
+          await page.waitForLoadState('networkidle').catch(() => {});
+          await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
+          await page.waitForTimeout(3000 + Math.random() * 1000);
+
+          let previousHeight = 0;
+          let scrolls = 0;
+          // Keep LinkedIn pagination lighter; most runs do not need a deep scroll sweep.
+          const maxScrolls = 2;
+          while (scrolls < maxScrolls) {
+            const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+            if (newHeight === previousHeight) break;
+
+            progress(`LinkedIn scroll ${scrolls + 1}/${maxScrolls} ${url}`);
+            await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+            await page.waitForTimeout(2000 + Math.random() * 1000);
+            previousHeight = newHeight;
+            scrolls++;
+          }
+
+          await expandLinkedInMoreButtons(page);
+          await page.waitForTimeout(3000 + Math.random() * 2000);
+
+          const result = await evaluateLinkedInPage(page);
+          progress(`LinkedIn done ${url} jobs=${result.jobs?.length || 0}`);
+          results.push(result);
+          await page.close().catch(() => {});
+          continue;
+        }
+      } catch (error) {
+        progress(`url error ${url}: ${error.message}`);
+        console.error(`Error processing ${url}: ${error.message}`);
+        results.push(errorResult(url, error.message));
         continue;
       }
 
-      const isTelegram = url.includes('t.me/s/');
-      const waitUntilOption = isTelegram ? 'networkidle' : 'domcontentloaded';
-      await page.goto(url, { waitUntil: waitUntilOption, timeout: isTelegram ? 180000 : 120000 });
-
-      if (url.includes('linkedin.com/jobs/search')) {
-        progress(`LinkedIn load ${url}`);
-        await page.waitForLoadState('domcontentloaded').catch(() => {});
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
-        await page.waitForTimeout(3000 + Math.random() * 1000);
-
-        let previousHeight = 0;
-        let scrolls = 0;
-        // Keep LinkedIn pagination lighter; most runs do not need a deep scroll sweep.
-        const maxScrolls = 2;
-        while (scrolls < maxScrolls) {
-          const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-          if (newHeight === previousHeight) break;
-
-          progress(`LinkedIn scroll ${scrolls + 1}/${maxScrolls} ${url}`);
-          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-          await page.waitForTimeout(2000 + Math.random() * 1000);
-          previousHeight = newHeight;
-          scrolls++;
+      if (url.includes('t.me/s/')) {
+        progress(`Telegram page load complete ${url}`);
+        // Wait for Telegram JavaScript rendering
+        try {
+          await page.waitForFunction(() => {
+            const messages = document.querySelectorAll('.tgme_widget_message');
+            return messages.length > 0;
+          }, { timeout: 15000 }).catch(() => {});
+        } catch {
+          // Best effort
         }
-
-        await expandLinkedInMoreButtons(page);
-        await page.waitForTimeout(3000 + Math.random() * 2000);
-
-        const result = await evaluateLinkedInPage(page);
-        progress(`LinkedIn done ${url} jobs=${result.jobs?.length || 0}`);
-        results.push(result);
+        await page.waitForTimeout(2000);
+        results.push(await evaluateTelegramPage(page));
         await page.close().catch(() => {});
         continue;
       }
-    } catch (error) {
-      progress(`url error ${url}: ${error.message}`);
-      console.error(`Error processing ${url}: ${error.message}`);
-      results.push({
-        pageTitle: 'Error',
-        href: url,
-        jobs: [],
-        error: error.message,
+
+      const result = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a'))
+          .map((a) => ({
+            text: (a.innerText || '').trim(),
+            href: a.href || '',
+            testid: a.getAttribute('data-testid') || '',
+            cls: a.className || '',
+          }))
+          .filter((item) => item.text && item.href)
+          .slice(0, 120);
+        return {
+          pageTitle: document.title,
+          href: location.href,
+          links,
+        };
       });
-      continue;
-    }
-
-    if (url.includes('t.me/s/')) {
-      progress(`Telegram page load complete ${url}`);
-      // Wait for Telegram JavaScript rendering
-      try {
-        await page.waitForFunction(() => {
-          const messages = document.querySelectorAll('.tgme_widget_message');
-          return messages.length > 0;
-        }, { timeout: 15000 }).catch(() => {});
-      } catch {
-        // Best effort
-      }
-      await page.waitForTimeout(2000);
-      results.push(await evaluateTelegramPage(page));
+      progress(`generic done ${url}`);
+      results.push(result);
       await page.close().catch(() => {});
-      continue;
+    }
+  } catch (error) {
+    progress(`browser launch failed: ${error.message}`);
+    console.error(`Browser launch failed: ${error.message}`);
+    urls.forEach((url) => results.push(errorResult(url, error.message)));
+  } finally {
+    if (context) {
+      try {
+        await context.close();
+      } catch {
+        // Ignore cleanup errors.
+      }
+    }
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        // Ignore cleanup errors.
+      }
     }
 
-    const result = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a'))
-        .map((a) => ({
-          text: (a.innerText || '').trim(),
-          href: a.href || '',
-          testid: a.getAttribute('data-testid') || '',
-          cls: a.className || '',
-        }))
-        .filter((item) => item.text && item.href)
-        .slice(0, 120);
-      return {
-        pageTitle: document.title,
-        href: location.href,
-        links,
-      };
-    });
-    progress(`generic done ${url}`);
-    results.push(result);
-    await page.close().catch(() => {});
+    try {
+      const { rmSync } = require('fs');
+      rmSync(profileDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 
   console.log(JSON.stringify(results.length === 1 ? results[0] : results, null, 2));
-  await context.close();
-  await browser.close();
-
-  try {
-    const { rmSync } = require('fs');
-    rmSync(profileDir, { recursive: true, force: true });
-  } catch {
-    // Ignore cleanup errors
-  }
 }
 
 main().catch((error) => {
   console.error(error);
-  process.exit(1);
+  process.exit(0);
 });
