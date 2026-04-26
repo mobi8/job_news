@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import threading
+import tempfile
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -53,10 +54,12 @@ def _emit_captured_stderr(prefix: str, stderr: str) -> None:
         logger.info("%s%s", prefix, line)
 
 
-def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[int, str]:
+def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[int, str, str]:
+    # Capture stdout to a temp file so large browser JSON output cannot block the child process.
+    stdout_file = tempfile.TemporaryFile(mode="w+")
     proc = subprocess.Popen(
         command,
-        stdout=subprocess.PIPE,
+        stdout=stdout_file,
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
@@ -81,11 +84,12 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
         proc.kill()
         proc.wait(timeout=10)
         stderr_thread.join(timeout=1)
+        stdout_file.close()
         raise
 
-    stdout = ""
-    if proc.stdout is not None:
-        stdout = proc.stdout.read() or ""
+    stdout_file.seek(0)
+    stdout = stdout_file.read() or ""
+    stdout_file.close()
 
     stderr_thread.join(timeout=1)
     return proc.returncode, stdout, "\n".join(stderr_lines)
