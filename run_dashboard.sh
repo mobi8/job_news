@@ -135,6 +135,7 @@ echo "  Frontend started (PID: $VITE_PID)"
 
 if [[ "${SKIP_SCRAPE}" != "1" ]]; then
   echo "Running scraper (with detailed descriptions) in background..."
+  cd "${WORKDIR}"
   python3 src/watch/scraper.py collect > /tmp/job_watch_scraper.log 2>&1 &
   SCRAPER_PID=$!
   echo "  Scraper started (PID: $SCRAPER_PID)"
