@@ -52,7 +52,7 @@ if env_path.exists():
 # Add src/ to path so utils, config, etc. can be imported directly
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.logger import scraper_logger
+from utils.logger import scraper_logger, setup_logger
 from utils.config import (
     DB_PATH,
     BROWSER_LOOKBACK_HOURS,
@@ -120,6 +120,7 @@ from utils.utils import (
 
 # Use centralized logger from utils.logger
 logger = scraper_logger
+jobspy_logger = setup_logger("jobspy_progress", json_format=False)
 
 JOBSPY_RESULTS_WANTED = int(os.getenv("JOBSPY_RESULTS_WANTED", "20"))
 JOBSPY_INDEED_RESULTS_WANTED = int(os.getenv("JOBSPY_INDEED_RESULTS_WANTED", "30"))
@@ -239,7 +240,7 @@ def _run_jobspy_keyword_bucket(
 ) -> None:
     for keyword in keywords:
         google_search_term = _build_google_search_term(keyword, location) if use_google_search_term else None
-        logger.info(
+        jobspy_logger.info(
             "JobSpy %s %s keyword=%r location=%r%s",
             site_name,
             country,
@@ -448,7 +449,7 @@ def _process_jobspy_country(
     indeed_jobs: list = []
     country = plan["country"]
 
-    logger.info("Scraping JobSpy country bucket: %s", country)
+    jobspy_logger.info("Scraping JobSpy country bucket: %s", country)
 
     _run_jobspy_keyword_bucket(
         jobs=linkedin_jobs,
@@ -498,7 +499,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
         jobspy_lookback_hours = _compute_jobspy_lookback_hours()
 
         _console_step("JobSpy phase starting")
-        logger.info(
+        jobspy_logger.info(
             "JobSpy lookback window: %sh (overlap=%sh, last_batch_at=%s)",
             jobspy_lookback_hours,
             JOBSPY_LOOKBACK_OVERLAP_HOURS,
@@ -527,7 +528,7 @@ def scrape_linkedin_indeed_via_jobspy(db: Database) -> tuple[list, list]:
         _console_step(
             f"JobSpy phase finished: LinkedIn={len(linkedin_jobs)} Indeed={len(indeed_jobs)}"
         )
-        logger.info(
+        jobspy_logger.info(
             "Collected %s LinkedIn jobs, %s Indeed jobs",
             len(linkedin_jobs),
             len(indeed_jobs),
