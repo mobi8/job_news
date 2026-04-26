@@ -34,6 +34,7 @@ app.add_middleware(
 
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 STATS_DATA_PATH = OUTPUT_DIR / "job_stats_data.json"
+SCRAPE_STATE_PATH = OUTPUT_DIR / "scrape_state.json"
 REJECT_FEEDBACK_PATH = OUTPUT_DIR / "reject_feedback.json"
 JOB_STATUSES_PATH = OUTPUT_DIR / "job_statuses.json"
 
@@ -53,6 +54,35 @@ def load_jobs_data() -> Dict[str, Any]:
 
 def load_stats_data() -> Dict[str, Any]:
     return read_json(STATS_DATA_PATH)
+
+
+def load_scrape_state() -> Dict[str, Any]:
+    if not SCRAPE_STATE_PATH.exists():
+        return {}
+    try:
+        return json.loads(SCRAPE_STATE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def merge_running_collection_metadata(collection_metadata: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    scrape_state = load_scrape_state()
+    if scrape_state.get("run_status") != "running":
+        return collection_metadata
+
+    running_metadata = {
+        "collected_at": scrape_state.get("last_started_at") or scrape_state.get("last_scraped_at"),
+        "batch_started_at": scrape_state.get("last_started_at"),
+        "next_batch_at": scrape_state.get("next_scrape_at"),
+        "run_status": "running",
+        "new_jobs_this_run": scrape_state.get("new_jobs_this_run", 0),
+        "new_news_this_run": scrape_state.get("new_news_this_run", 0),
+    }
+    if collection_metadata:
+        merged = dict(collection_metadata)
+        merged.update({k: v for k, v in running_metadata.items() if v is not None})
+        return merged
+    return running_metadata
 
 
 def load_rejected_jobs_keys() -> set[str]:
@@ -214,7 +244,7 @@ def get_jobs(
             "recommended": recommended_count,
             "non_recommended": non_recommended_count,
         },
-        "collection_metadata": jobs_data.get("collection_metadata"),
+        "collection_metadata": merge_running_collection_metadata(jobs_data.get("collection_metadata")),
     }
 
 
@@ -227,7 +257,7 @@ def get_stats() -> Dict[str, Any]:
         "source_total": data.get("source_total", []),
         "source_daily": data.get("source_daily", []),
         "updated_at": data.get("updated_at") or stats.get("updated_at"),
-        "collection_metadata": data.get("collection_metadata"),
+        "collection_metadata": merge_running_collection_metadata(data.get("collection_metadata")),
     }
 
 
@@ -247,7 +277,7 @@ def get_news() -> Dict[str, Any]:
     return {
         "news": stats.get("news_items", []),
         "updated_at": stats.get("updated_at"),
-        "collection_metadata": stats.get("collection_metadata"),
+        "collection_metadata": merge_running_collection_metadata(stats.get("collection_metadata")),
     }
 
 

@@ -239,6 +239,7 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
   // Always use jobsQuery as the source of truth for collection_metadata
   const collectedAt = jobsQuery?.data?.collection_metadata?.collected_at || jobsQuery?.data?.updated_at;
   const nextBatchAt = jobsQuery?.data?.collection_metadata?.next_batch_at;
+  const runStatus = jobsQuery?.data?.collection_metadata?.run_status;
   const batchNewCount = jobsQuery?.data?.collection_metadata?.new_jobs_this_run;
   const batchNewNews = jobsQuery?.data?.collection_metadata?.new_news_this_run;
   const formattedScrapTime = collectedAt
@@ -251,7 +252,9 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
       })
     : "—";
 
-  const nextBatchTime = nextBatchAt
+  const nextBatchTime = runStatus === "running"
+    ? "진행 중"
+    : nextBatchAt
     ? new Date(nextBatchAt).toLocaleString("ko-KR", {
         month: "2-digit",
         day: "2-digit",

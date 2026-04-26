@@ -223,6 +223,8 @@ def save_scrape_state(
     started_at: str | None = None,
     completed_at: str | None = None,
     next_scrape_at: str | None = None,
+    new_news_this_run: int = 0,
+    run_status: str = "completed",
 ) -> None:
     from pathlib import Path
     import sqlite3
@@ -232,9 +234,11 @@ def save_scrape_state(
 
     # 이전 상태 로드 (이전 DB 카운트 알기 위함)
     previous_counts = {}
+    previous_completed_at = None
     if SCRAPE_STATE_PATH.exists():
         try:
             prev_data = json.loads(SCRAPE_STATE_PATH.read_text(encoding="utf-8"))
+            previous_completed_at = prev_data.get("last_completed_at") or prev_data.get("last_scraped_at")
             if "sources" in prev_data:
                 for src_key, src_info in prev_data["sources"].items():
                     previous_counts[src_key] = src_info.get("count", 0)
@@ -337,11 +341,13 @@ def save_scrape_state(
 
     payload = {
         "last_started_at": started_at or scraped_at,
-        "last_completed_at": scraped_at,
+        "last_completed_at": previous_completed_at if run_status in {"running", "failed"} and previous_completed_at else scraped_at,
         "last_scraped_at": scraped_at,
         "next_scrape_at": next_scrape_at,
         "mode": mode,
+        "run_status": run_status,
         "new_jobs_this_run": inserted,
+        "new_news_this_run": new_news_this_run,
         "sources": source_state,
         "news_sources": news_state,
     }

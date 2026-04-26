@@ -579,286 +579,317 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     db.purge_hard_excluded_jobs()
     resume_text = load_resume_text()
     reject_feedback = load_reject_feedback()
-
-
-    # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
-    if reject_feedback:
-        purged = db.purge_reject_feedback_jobs(reject_feedback)
-        if purged:
-            logger.info("Purged %d jobs based on reject feedback patterns.", purged)
     watch_hours = float(os.getenv("WATCH_WINDOW_HOURS", "3"))
-    allowed_sources = parse_requested_sources(os.getenv("JOB_WATCH_SOURCES"))
-
-    sources = []
-
-    if allowed_sources is None or "jobvite_pragmaticplay" in allowed_sources:
-        _console_step("Fetching Jobvite board")
-        logger.info("Fetching Jobvite board...")
-        jobvite_jobs = parse_jobvite_jobs(fetch_html(JOBVITE_URL))
-        logger.info("Collected %s jobs from Jobvite.", len(jobvite_jobs))
-        sources.append((JOBVITE_URL, jobvite_jobs))
-
-    if allowed_sources is None or "smartrecruitment" in allowed_sources:
-        _console_step("Fetching SmartRecruitment board")
-        logger.info("Fetching SmartRecruitment board...")
-        smartrecruitment_jobs = parse_smartrecruitment_jobs(fetch_html(SMARTRECRUITMENT_URL))
-        logger.info("Collected %s jobs from SmartRecruitment.", len(smartrecruitment_jobs))
-        sources.append((SMARTRECRUITMENT_URL, smartrecruitment_jobs))
-
-    if allowed_sources is None or "igamingrecruitment" in allowed_sources:
-        _console_step("Fetching iGaming Recruitment board")
-        logger.info("Fetching iGaming Recruitment board...")
-        igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
-        logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
-        sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
-
-    if allowed_sources is None or "jobrapido_uae" in allowed_sources:
-        _console_step("Fetching Jobrapido board")
-        logger.info("Fetching Jobrapido board...")
-        jobrapido_jobs = parse_jobrapido_jobs(fetch_html(JOBRAPIDO_URL))
-        logger.info("Collected %s jobs from Jobrapido.", len(jobrapido_jobs))
-        sources.append((JOBRAPIDO_URL, jobrapido_jobs))
-
-    if allowed_sources is None or "jobleads" in allowed_sources:
-        _console_step("Fetching JobLeads board")
-        logger.info("Fetching JobLeads board...")
-        try:
-            jobleads_jobs = parse_jobleads_jobs(fetch_html(JOBLEADS_URL))
-            logger.info("Collected %s jobs from JobLeads.", len(jobleads_jobs))
-            sources.append((JOBLEADS_URL, jobleads_jobs))
-        except Exception as exc:
-            logger.warning("Skipping JobLeads for this run: %s", exc)
-
-    if allowed_sources is None or (
-        "telegram_job_crypto_uae" in allowed_sources or "telegram_cryptojobslist" in allowed_sources
-    ):
-        _console_step("Fetching Telegram public channels")
-        logger.info("Fetching Telegram public job channels...")
-        telegram_jobs = fetch_telegram_channel_jobs()
-        if allowed_sources is not None:
-            telegram_jobs = [job for job in telegram_jobs if job.source in allowed_sources]
-        logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
-        sources.append(("Telegram public channels", telegram_jobs))
-
-
-    # Scrape LinkedIn + Indeed via browser probe first so richer descriptions win on dedupe.
-    _console_step("Starting browser scrape pass")
-    browser_linkedin_jobs, browser_indeed_jobs = scrape_linkedin_indeed_via_browser()
-
-    # Keep JobSpy as a second pass for coverage.
-    _console_step("Starting JobSpy scrape pass")
-    jobspy_linkedin_jobs, jobspy_indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
-
-    linkedin_jobs = [*browser_linkedin_jobs, *jobspy_linkedin_jobs]
-    indeed_jobs = [*browser_indeed_jobs, *jobspy_indeed_jobs]
-
-    if allowed_sources is not None:
-        linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
-        indeed_jobs = [job for job in indeed_jobs if job.source in allowed_sources]
-
-    if linkedin_jobs:
-        sources.append(("LinkedIn jobspy", linkedin_jobs))
-
-    if indeed_jobs:
-        sources.append(("Indeed jobspy", indeed_jobs))
-
-    jobs = [
-        job
-        for _, source_jobs in sources
-        for job in source_jobs
-        if not is_language_filtered_out(f"{job.title} {job.description}")
-        and not is_hard_excluded_job(job.title, job.company, job.location, job.description)
-        and not matches_reject_feedback(job, reject_feedback)
-        and (
-            not job.source.startswith("telegram_")
-            or telegram_job_relevant(job, resume_text)
-        )
-    ]
-    jobs = dedupe_job_postings(jobs)
-
-    for job in jobs:
-        job.match_score = calculate_match_score(job, resume_text)
-
-    inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
-
-    # Collect and store news from RSS feeds
-    news_items = fetch_all_rss_news()
-    player_news_items = fetch_all_player_rss_news()
-    all_news_items = news_items + player_news_items
-    news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
-    logger.info("Collected %d news items (%d industry + %d player), %d new.",
-                len(all_news_items), len(news_items), len(player_news_items), news_inserted)
-
-    all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
-
-    # Re-detect country based on location for all jobs
-    # This ensures old jobs are properly classified even if they were stored with wrong country
-    for job in all_jobs_annotated:
-        location = (job.get("location") or "").lower()
-
-        # Malta (high priority)
-        if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:
-            job["country"] = "Malta"
-        # Georgia (check before USA to handle Georgia properly)
-        elif "미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location:
-            job["country"] = ""
-        # Georgia
-        elif "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
-            job["country"] = "Georgia"
-        # Exclude USA/Hong Kong
-        elif any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
-            job["country"] = ""
-        # UAE
-        elif "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
-            job["country"] = "UAE"
-        # Default: if location doesn't match any specific country, clear country field
-        # This prevents old UAE jobs from being incorrectly classified when location doesn't clearly indicate UAE
-        else:
-            # Only set to empty if location exists but doesn't match any country
-            # Preserve country only if location is completely empty
-            if location and location.strip():  # Non-empty location that didn't match any condition
-                job["country"] = ""
-
-    tracked_jobs = [job for job in all_jobs_annotated if job["qualifies"]]
-    new_last_1_day = focus_records(db.jobs_first_seen_since(24), resume_text)
-    stats = {
-        "total_jobs": len(tracked_jobs),
-        "new_last_1_day": len(new_last_1_day),
-        "new_last_7_days": len([
-            job for job in tracked_jobs
-            if job.get("first_seen_at")
-            and datetime.fromisoformat(job["first_seen_at"]) >= utc_now() - timedelta(days=7)
-        ]),
-        "new_last_30_days": len([
-            job for job in tracked_jobs
-            if job.get("first_seen_at")
-            and datetime.fromisoformat(job["first_seen_at"]) >= utc_now() - timedelta(days=30)
-        ]),
-        "new_jobs_this_batch": inserted,
-        "new_news_this_batch": news_inserted,
-        "top_locations": [],
-    }
-    by_location: Dict[str, int] = {}
-    for job in tracked_jobs:
-        by_location[job["location"]] = by_location.get(job["location"], 0) + 1
-    stats["top_locations"] = sorted(by_location.items(), key=lambda item: item[1], reverse=True)[:10]
-    source_total = source_total_counts(tracked_jobs)
-    source_daily = source_daily_counts(tracked_jobs)
-    recommendations = top_recommendations(jobs, resume_text)
-
-    run_completed_at = utc_now()
     watch_interval_minutes = load_watch_interval_minutes()
     next_batch_at = (run_started_at + timedelta(minutes=watch_interval_minutes)).isoformat()
+    # Record the new run immediately so the dashboard does not keep showing a stale next-batch time.
     save_scrape_state(
         mode,
-        sources,
-        inserted,
+        [],
+        0,
         started_at=run_started_at.isoformat(),
-        completed_at=run_completed_at.isoformat(),
+        completed_at=None,
         next_scrape_at=next_batch_at,
-    )
-    payload = {
-        "collection_metadata": {
-            "collected_at": run_completed_at.isoformat(),
-            "batch_started_at": run_started_at.isoformat(),
-            "next_batch_at": next_batch_at,
-            "sources": [source for source, _ in sources],
-            "jobs_collected_this_run": len(jobs),
-            "new_jobs_this_run": inserted,
-            "new_jobs_this_run_details": [job.to_dict() for job in inserted_jobs],
-            "news_collected_this_run": len(all_news_items),
-            "new_news_this_run": news_inserted,
-            "resume_loaded": bool(resume_text),
-        },
-        "statistics": stats,
-        "top_recommendations": [job.to_dict() for job in recommendations],
-        "filtered_jobs": tracked_jobs,
-        "all_tracked_jobs": all_jobs_annotated,
-    }
-
-    save_json(OUTPUT_DIR / "jobs_analysis.json", payload)
-    save_csv(OUTPUT_DIR / "jobs_recommendations.csv", recommendations)
-    save_markdown(
-        OUTPUT_DIR / "jobs_analysis.md",
-        stats,
-        recommendations,
-        inserted,
-        [source for source, _ in sources],
-    )
-    # Generate news dashboard HTML only if it doesn't exist
-    news_dashboard_path = OUTPUT_DIR / "all_news.html"
-    if not news_dashboard_path.exists():
-        logger.info("Generating news dashboard HTML template...")
-        save_news_dashboard(news_dashboard_path)
-
-    # Update dashboard data (JSON) on every run
-    save_dashboard_data(
-        OUTPUT_DIR / "job_stats_data.json",
-        stats,
-        source_total,
-        source_daily,
-        tracked_jobs,
-        all_jobs_annotated,
-        collection_metadata=payload["collection_metadata"],
+        new_news_this_run=0,
+        run_status="running",
     )
 
-    # Add recent news data to dashboard JSON with source labels
-    import json
-    dashboard_data_path = OUTPUT_DIR / "job_stats_data.json"
-    if dashboard_data_path.exists():
-        dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
-        recent_news = db.fetch_recent_news(336)  # 2 weeks of news
+    allowed_sources = parse_requested_sources(os.getenv("JOB_WATCH_SOURCES"))
+    sources = []
+    jobs = []
+    inserted_jobs = []
+    inserted = 0
+    news_items = []
+    player_news_items = []
+    all_news_items = []
+    inserted_news_items = []
+    news_inserted = 0
+    try:
+        # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
+        if reject_feedback:
+            purged = db.purge_reject_feedback_jobs(reject_feedback)
+            if purged:
+                logger.info("Purged %d jobs based on reject feedback patterns.", purged)
 
-        # Add source labels and descriptions
-        source_info = {
-            "rss_igaming_business": {
-                "label": "iGaming Business",
-                "emoji": "🎮",
-                "description": "글로벌 iGaming 업계 뉴스, 규제, 채용 동향",
-                "color": "#FF6B6B"
+        if allowed_sources is None or "jobvite_pragmaticplay" in allowed_sources:
+            _console_step("Fetching Jobvite board")
+            logger.info("Fetching Jobvite board...")
+            jobvite_jobs = parse_jobvite_jobs(fetch_html(JOBVITE_URL))
+            logger.info("Collected %s jobs from Jobvite.", len(jobvite_jobs))
+            sources.append((JOBVITE_URL, jobvite_jobs))
+
+        if allowed_sources is None or "smartrecruitment" in allowed_sources:
+            _console_step("Fetching SmartRecruitment board")
+            logger.info("Fetching SmartRecruitment board...")
+            smartrecruitment_jobs = parse_smartrecruitment_jobs(fetch_html(SMARTRECRUITMENT_URL))
+            logger.info("Collected %s jobs from SmartRecruitment.", len(smartrecruitment_jobs))
+            sources.append((SMARTRECRUITMENT_URL, smartrecruitment_jobs))
+
+        if allowed_sources is None or "igamingrecruitment" in allowed_sources:
+            _console_step("Fetching iGaming Recruitment board")
+            logger.info("Fetching iGaming Recruitment board...")
+            igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
+            logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
+            sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
+
+        if allowed_sources is None or "jobrapido_uae" in allowed_sources:
+            _console_step("Fetching Jobrapido board")
+            logger.info("Fetching Jobrapido board...")
+            jobrapido_jobs = parse_jobrapido_jobs(fetch_html(JOBRAPIDO_URL))
+            logger.info("Collected %s jobs from Jobrapido.", len(jobrapido_jobs))
+            sources.append((JOBRAPIDO_URL, jobrapido_jobs))
+
+        if allowed_sources is None or "jobleads" in allowed_sources:
+            _console_step("Fetching JobLeads board")
+            logger.info("Fetching JobLeads board...")
+            try:
+                jobleads_jobs = parse_jobleads_jobs(fetch_html(JOBLEADS_URL))
+                logger.info("Collected %s jobs from JobLeads.", len(jobleads_jobs))
+                sources.append((JOBLEADS_URL, jobleads_jobs))
+            except Exception as exc:
+                logger.warning("Skipping JobLeads for this run: %s", exc)
+
+        if False and (allowed_sources is None or (
+            "telegram_job_crypto_uae" in allowed_sources or "telegram_cryptojobslist" in allowed_sources
+        )):
+            _console_step("Fetching Telegram public channels")
+            logger.info("Fetching Telegram public job channels...")
+            telegram_jobs = fetch_telegram_channel_jobs()
+            if allowed_sources is not None:
+                telegram_jobs = [job for job in telegram_jobs if job.source in allowed_sources]
+            logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
+            sources.append(("Telegram public channels", telegram_jobs))
+
+        # Scrape LinkedIn + Indeed via browser probe first so richer descriptions win on dedupe.
+        _console_step("Starting browser scrape pass")
+        browser_linkedin_jobs, browser_indeed_jobs = scrape_linkedin_indeed_via_browser()
+
+        # Keep JobSpy as a second pass for coverage.
+        _console_step("Starting JobSpy scrape pass")
+        jobspy_linkedin_jobs, jobspy_indeed_jobs = scrape_linkedin_indeed_via_jobspy(db)
+
+        linkedin_jobs = [*browser_linkedin_jobs, *jobspy_linkedin_jobs]
+        indeed_jobs = [*browser_indeed_jobs, *jobspy_indeed_jobs]
+
+        if allowed_sources is not None:
+            linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
+            indeed_jobs = [job for job in indeed_jobs if job.source in allowed_sources]
+
+        if linkedin_jobs:
+            sources.append(("LinkedIn jobspy", linkedin_jobs))
+
+        if indeed_jobs:
+            sources.append(("Indeed jobspy", indeed_jobs))
+
+        jobs = [
+            job
+            for _, source_jobs in sources
+            for job in source_jobs
+            if not is_language_filtered_out(f"{job.title} {job.description}")
+            and not is_hard_excluded_job(job.title, job.company, job.location, job.description)
+            and not matches_reject_feedback(job, reject_feedback)
+            and (
+                not job.source.startswith("telegram_")
+                or telegram_job_relevant(job, resume_text)
+            )
+        ]
+        jobs = dedupe_job_postings(jobs)
+
+        for job in jobs:
+            job.match_score = calculate_match_score(job, resume_text)
+
+        inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
+
+        # Collect and store news from RSS feeds
+        news_items = fetch_all_rss_news()
+        player_news_items = fetch_all_player_rss_news()
+        all_news_items = news_items + player_news_items
+        news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
+        logger.info("Collected %d news items (%d industry + %d player), %d new.",
+                    len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+
+        all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
+
+        # Re-detect country based on location for all jobs
+        # This ensures old jobs are properly classified even if they were stored with wrong country
+        for job in all_jobs_annotated:
+            location = (job.get("location") or "").lower()
+            # Malta (high priority)
+            if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:
+                job["country"] = "Malta"
+            # Georgia (check before USA to handle Georgia properly)
+            elif "미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location:
+                job["country"] = ""
+            # Georgia
+            elif "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
+                job["country"] = "Georgia"
+            # Exclude USA/Hong Kong
+            elif any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
+                job["country"] = ""
+            # UAE
+            elif "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
+                job["country"] = "UAE"
+            # Default: if location doesn't match any specific country, clear country field
+            # This prevents old UAE jobs from being incorrectly classified when location doesn't clearly indicate UAE
+            else:
+                # Only set to empty if location exists but doesn't match any country
+                # Preserve country only if location is completely empty
+                if location and location.strip():  # Non-empty location that didn't match any condition
+                    job["country"] = ""
+
+        tracked_jobs = [job for job in all_jobs_annotated if job["qualifies"]]
+        new_last_1_day = focus_records(db.jobs_first_seen_since(24), resume_text)
+        stats = {
+            "total_jobs": len(tracked_jobs),
+            "new_last_1_day": len(new_last_1_day),
+            "new_last_7_days": len([
+                job for job in tracked_jobs
+                if job.get("first_seen_at")
+                and datetime.fromisoformat(job["first_seen_at"]) >= utc_now() - timedelta(days=7)
+            ]),
+            "new_last_30_days": len([
+                job for job in tracked_jobs
+                if job.get("first_seen_at")
+                and datetime.fromisoformat(job["first_seen_at"]) >= utc_now() - timedelta(days=30)
+            ]),
+            "new_jobs_this_batch": inserted,
+            "new_news_this_batch": news_inserted,
+            "top_locations": [],
+        }
+        by_location: Dict[str, int] = {}
+        for job in tracked_jobs:
+            by_location[job["location"]] = by_location.get(job["location"], 0) + 1
+        stats["top_locations"] = sorted(by_location.items(), key=lambda item: item[1], reverse=True)[:10]
+        source_total = source_total_counts(tracked_jobs)
+        source_daily = source_daily_counts(tracked_jobs)
+        recommendations = top_recommendations(jobs, resume_text)
+
+        run_completed_at = utc_now()
+        save_scrape_state(
+            mode,
+            sources,
+            inserted,
+            started_at=run_started_at.isoformat(),
+            completed_at=run_completed_at.isoformat(),
+            next_scrape_at=next_batch_at,
+            new_news_this_run=news_inserted,
+            run_status="completed",
+        )
+        payload = {
+            "collection_metadata": {
+                "collected_at": run_completed_at.isoformat(),
+                "batch_started_at": run_started_at.isoformat(),
+                "next_batch_at": next_batch_at,
+                "sources": [source for source, _ in sources],
+                "jobs_collected_this_run": len(jobs),
+                "new_jobs_this_run": inserted,
+                "new_jobs_this_run_details": [job.to_dict() for job in inserted_jobs],
+                "news_collected_this_run": len(all_news_items),
+                "new_news_this_run": news_inserted,
+                "resume_loaded": bool(resume_text),
             },
-            "rss_fintech_uae": {
-                "label": "Fintech News UAE",
-                "emoji": "💰",
-                "description": "UAE/GCC 핀테크 시장, 규제, 라이선스, 채용 정보",
-                "color": "#4ECDC4"
-            }
+            "statistics": stats,
+            "top_recommendations": [job.to_dict() for job in recommendations],
+            "filtered_jobs": tracked_jobs,
+            "all_tracked_jobs": all_jobs_annotated,
         }
 
-        for item in recent_news:
-            source = item.get("source", "")
-            if source in source_info:
-                item["source_label"] = source_info[source]["label"]
-                item["source_emoji"] = source_info[source]["emoji"]
-                item["source_description"] = source_info[source]["description"]
-                item["source_color"] = source_info[source]["color"]
+        save_json(OUTPUT_DIR / "jobs_analysis.json", payload)
+        save_csv(OUTPUT_DIR / "jobs_recommendations.csv", recommendations)
+        save_markdown(
+            OUTPUT_DIR / "jobs_analysis.md",
+            stats,
+            recommendations,
+            inserted,
+            [source for source, _ in sources],
+        )
+        # Generate news dashboard HTML only if it doesn't exist
+        news_dashboard_path = OUTPUT_DIR / "all_news.html"
+        if not news_dashboard_path.exists():
+            logger.info("Generating news dashboard HTML template...")
+            save_news_dashboard(news_dashboard_path)
 
-        dashboard_data["news_items"] = recent_news
-
-        # Add topics to dashboard data
-        topics = db.compute_news_topics(168)
-        dashboard_data["topics"] = topics
-
-        # Add player mentions to dashboard data
-        player_mentions = db.track_player_mentions(168)
-        dashboard_data["player_mentions"] = player_mentions
-
-        dashboard_data_path.write_text(
-            json.dumps(dashboard_data, ensure_ascii=False, indent=2),
-            encoding="utf-8"
+        # Update dashboard data (JSON) on every run
+        save_dashboard_data(
+            OUTPUT_DIR / "job_stats_data.json",
+            stats,
+            source_total,
+            source_daily,
+            tracked_jobs,
+            all_jobs_annotated,
+            collection_metadata=payload["collection_metadata"],
         )
 
-    _console_step("Saving outputs")
-    if mode == "collect":
-        batch_jobs = [job.to_dict() for job in inserted_jobs]
-        maybe_send_telegram(inserted, batch_jobs)
-        send_news_summary(inserted_news_items, db=db)
-    elif mode == "incremental":
-        send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
+        # Add recent news data to dashboard JSON with source labels
+        import json
+        dashboard_data_path = OUTPUT_DIR / "job_stats_data.json"
+        if dashboard_data_path.exists():
+            dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
+            recent_news = db.fetch_recent_news(336)  # 2 weeks of news
 
-    logger.info("Saved outputs to %s", OUTPUT_DIR)
-    _console_step(f"Scrape run complete: {inserted} new jobs, {news_inserted} new news")
-    return payload
+            # Add source labels and descriptions
+            source_info = {
+                "rss_igaming_business": {
+                    "label": "iGaming Business",
+                    "emoji": "🎮",
+                    "description": "글로벌 iGaming 업계 뉴스, 규제, 채용 동향",
+                    "color": "#FF6B6B"
+                },
+                "rss_fintech_uae": {
+                    "label": "Fintech News UAE",
+                    "emoji": "💰",
+                    "description": "UAE/GCC 핀테크 시장, 규제, 라이선스, 채용 정보",
+                    "color": "#4ECDC4"
+                }
+            }
+
+            for item in recent_news:
+                source = item.get("source", "")
+                if source in source_info:
+                    item["source_label"] = source_info[source]["label"]
+                    item["source_emoji"] = source_info[source]["emoji"]
+                    item["source_description"] = source_info[source]["description"]
+                    item["source_color"] = source_info[source]["color"]
+
+            dashboard_data["news_items"] = recent_news
+
+            # Add topics to dashboard data
+            topics = db.compute_news_topics(168)
+            dashboard_data["topics"] = topics
+
+            # Add player mentions to dashboard data
+            player_mentions = db.track_player_mentions(168)
+            dashboard_data["player_mentions"] = player_mentions
+
+            dashboard_data_path.write_text(
+                json.dumps(dashboard_data, ensure_ascii=False, indent=2),
+                encoding="utf-8"
+            )
+
+        _console_step("Saving outputs")
+        if mode == "collect":
+            batch_jobs = [job.to_dict() for job in inserted_jobs]
+            maybe_send_telegram(inserted, batch_jobs)
+            send_news_summary(inserted_news_items, db=db)
+        elif mode == "incremental":
+            send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
+
+        logger.info("Saved outputs to %s", OUTPUT_DIR)
+        _console_step(f"Scrape run complete: {inserted} new jobs, {news_inserted} new news")
+        return payload
+    except Exception:
+        logger.exception("Scrape run failed")
+        save_scrape_state(
+            mode,
+            sources,
+            inserted,
+            started_at=run_started_at.isoformat(),
+            completed_at=None,
+            next_scrape_at=next_batch_at,
+            new_news_this_run=news_inserted,
+            run_status="failed",
+        )
+        raise
 
 
 def main() -> int:
