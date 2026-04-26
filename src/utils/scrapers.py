@@ -41,9 +41,9 @@ from .utils import clean_text, normalize_linkedin_identifier, normalize_linkedin
 
 logger = logging.getLogger(__name__)
 
-BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "6")))
-BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "5")))
-BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "4")))
+BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "3")))
+BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "2")))
+BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "2")))
 
 
 def _emit_captured_stderr(prefix: str, stderr: str) -> None:
