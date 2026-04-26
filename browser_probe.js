@@ -284,7 +284,10 @@ async function main() {
   const headless = (headlessEnv !== '0' && headlessEnv !== 'false');
   progress(`probe start urls=${urls.length} headless=${headless} telegram=${hasTelegramUrl}`);
 
-  const profileDir = require('path').join(require('os').tmpdir(), 'chrome-profile-' + Date.now());
+  const profileDir = require('path').join(
+    require('os').tmpdir(),
+    `chrome-profile-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`
+  );
   let context;
   let browser;
   const results = [];

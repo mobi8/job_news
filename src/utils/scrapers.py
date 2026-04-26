@@ -74,7 +74,13 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
             line = raw_line.rstrip()
             if line:
                 stderr_lines.append(line)
-                logger.info("browser_probe: %s", line)
+                if (
+                    "[browser_probe]" in line
+                    or line.startswith("Browser launch failed:")
+                    or line.startswith("Playwright error for Indeed:")
+                    or line.startswith("Error processing ")
+                ):
+                    logger.info("browser_probe: %s", line)
 
     stderr_thread = threading.Thread(target=_pump_stderr, daemon=True)
     stderr_thread.start()
