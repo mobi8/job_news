@@ -8,6 +8,7 @@ JOBS_DIR="${WORKDIR}/outputs"
 
 UVICORN_PID=""
 VITE_PID=""
+SCRAPER_PID=""
 WATCH_LOOP_PID=""
 WATCH_LOOP_MONITOR_PID=""
 TELEGRAM_POLLER_PID=""
@@ -102,23 +103,6 @@ if [[ ! -f "${JOBS_DIR}/job_statuses.json" ]]; then
 fi
 
 cd "${WORKDIR}"
-if [[ "${SKIP_SCRAPE}" != "1" ]]; then
-  echo "Running scraper (with detailed descriptions)..."
-  if python3 src/watch/scraper.py collect; then
-    echo "✓ Scraper completed with detailed descriptions"
-  else
-    echo "Scraper error (continuing)"
-  fi
-fi
-
-# Check required files after an optional scrape run
-if [[ ! -f "${JOBS_DIR}/jobs_analysis.json" ]] || [[ ! -f "${JOBS_DIR}/job_stats_data.json" ]]; then
-  echo "⚠️  Data files missing. Run scraper first or use: NO_SCRAPE=1 bash run_dashboard.sh"
-  exit 1
-fi
-
-# Start Telegram poller (for on-demand Reddit scraping, etc.)
-cd "${WORKDIR}"
 python3 src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
 TELEGRAM_POLLER_PID=$!
 echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
@@ -148,6 +132,13 @@ cd "${FRONTEND_DIR}"
 ./node_modules/.bin/vite &
 VITE_PID=$!
 echo "  Frontend started (PID: $VITE_PID)"
+
+if [[ "${SKIP_SCRAPE}" != "1" ]]; then
+  echo "Running scraper (with detailed descriptions) in background..."
+  python3 src/watch/scraper.py collect > /tmp/job_watch_scraper.log 2>&1 &
+  SCRAPER_PID=$!
+  echo "  Scraper started (PID: $SCRAPER_PID)"
+fi
 
 # Wait for servers to be ready and find actual Vite port
 sleep 2
@@ -201,18 +192,30 @@ cleanup() {
     kill -TERM "$UVICORN_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$SCRAPER_PID" ]] && kill -0 "$SCRAPER_PID" 2>/dev/null; then
+    echo "  → Stopping scraper (PID: $SCRAPER_PID)..."
+    kill -TERM "$SCRAPER_PID" 2>/dev/null || true
+  fi
+
   # Step 2: Wait up to 3 seconds for graceful shutdown
   local wait_count=0
   while [[ $wait_count -lt 30 ]]; do
+    local all_stopped=0
     if [[ -z "$TELEGRAM_POLLER_PID" ]] || ! kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
       if [[ -z "$WATCH_LOOP_PID" ]] || ! kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
         if [[ -z "$VITE_PID" ]] || ! kill -0 "$VITE_PID" 2>/dev/null; then
           if [[ -z "$UVICORN_PID" ]] || ! kill -0 "$UVICORN_PID" 2>/dev/null; then
-            echo "✓ All processes stopped gracefully"
-            return
+            if [[ -z "$SCRAPER_PID" ]] || ! kill -0 "$SCRAPER_PID" 2>/dev/null; then
+              all_stopped=1
+            fi
           fi
         fi
       fi
+    fi
+
+    if [[ $all_stopped -eq 1 ]]; then
+      echo "✓ All processes stopped gracefully"
+      return
     fi
     sleep 0.1
     wait_count=$((wait_count + 1))
@@ -245,6 +248,11 @@ cleanup() {
     kill -KILL "$UVICORN_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$SCRAPER_PID" ]] && kill -0 "$SCRAPER_PID" 2>/dev/null; then
+    echo "  ⚠ Force killing scraper (PID: $SCRAPER_PID)"
+    kill -KILL "$SCRAPER_PID" 2>/dev/null || true
+  fi
+
   # Step 4: Clean up any orphaned node processes on port 5173
   if lsof -ti:5173 >/dev/null 2>&1; then
     echo "  ⚠ Cleaning up orphaned port 5173 process..."
@@ -258,4 +266,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
-wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID 2>/dev/null || true
+wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID $SCRAPER_PID 2>/dev/null || true
