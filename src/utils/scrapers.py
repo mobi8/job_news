@@ -632,6 +632,7 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
             logger.warning("Batch processing failed: %s", exc)
             return [{"jobs": [], "error": str(exc)} for _ in batch]
 
+    logger.info("Browser probe queue start: %d urls batch_size=%d workers=%d", len(urls), batch_size, BROWSER_BATCH_WORKERS)
     with ThreadPoolExecutor(max_workers=BROWSER_BATCH_WORKERS) as executor:
         futures = {executor.submit(run_batch, batch): (start, len(batch)) for start, batch in indexed_batches}
         for future in as_completed(futures):
@@ -655,6 +656,7 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
     seen_urls = set()
     collected_at = utc_now().isoformat()
 
+    logger.info("Indeed browser fetch start: %d urls batch_size=%d", len(INDEED_SEARCH_URLS), BROWSER_INDEED_BATCH_SIZE)
     pages = _batch_browser_fetch(INDEED_SEARCH_URLS, batch_size=BROWSER_INDEED_BATCH_SIZE)
     if not pages:
         logger.warning("Indeed: no results from browser fetch")
@@ -801,6 +803,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
     seen_urls = set()
     collected_at = utc_now().isoformat()
 
+    logger.info("LinkedIn browser fetch start: %d urls batch_size=%d", len(all_urls), BROWSER_LINKEDIN_BATCH_SIZE)
     pages = _batch_browser_fetch(all_urls, batch_size=BROWSER_LINKEDIN_BATCH_SIZE)
     if not pages:
         logger.warning("LinkedIn: no results from browser fetch")
