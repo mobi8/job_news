@@ -41,21 +41,22 @@ IGAMING_RECRUITMENT_URL = "https://igamingrecruitment.io/jobs/"
 JOBRAPIDO_URL = "https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all"
 JOBLEADS_URL = "https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2"
 TELEGRAM_CHANNELS = [
-    {
-        "url": "https://t.me/s/job_crypto_uae",
-        "source": "telegram_job_crypto_uae",
-        "company": "Jobs Crypto UAE",
-    },
-    {
-        "url": "https://t.me/s/cryptojobslist",
-        "source": "telegram_cryptojobslist",
-        "company": "CryptoJobsList",
-    },
-    {
-        "url": "https://t.me/s/hr1win",
-        "source": "telegram_hr1win",
-        "company": "1Win HR",
-    },
+    # Temporarily disabled - browser_probe headless handling needs fix
+    # {
+    #     "url": "https://t.me/s/job_crypto_uae",
+    #     "source": "telegram_job_crypto_uae",
+    #     "company": "Jobs Crypto UAE",
+    # },
+    # {
+    #     "url": "https://t.me/s/cryptojobslist",
+    #     "source": "telegram_cryptojobslist",
+    #     "company": "CryptoJobsList",
+    # },
+    # {
+    #     "url": "https://t.me/s/hr1win",
+    #     "source": "telegram_hr1win",
+    #     "company": "1Win HR",
+    # },
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 INDEED_SEARCH_URLS = [
@@ -106,6 +107,9 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine%20OR%20DTC&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist%20OR%20DTC&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20DTC&location=Tbilisi%2C%20Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment%20OR%20neobanking&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20DTC&location=Malta",
 ]
 
 # JobSpy search keywords
@@ -301,28 +305,6 @@ JOBSPY_COUNTRY_PLANS = [
         "indeed_country": "United Arab Emirates",
         "google_source": "google_uae",
         "google_location": "Dubai, United Arab Emirates",
-    },
-    {
-        "country": "Georgia",
-        # Use Tbilisi to avoid pulling US Georgia / Atlanta-style results.
-        "linkedin_source": "linkedin_georgia",
-        "linkedin_location": "Tbilisi, Georgia",
-        "indeed_source": "indeed_georgia",
-        "indeed_location": "Tbilisi, Georgia",
-        # Indeed does not accept "Georgia" as a country filter in JobSpy, so we rely on location.
-        "indeed_country": None,
-        "google_source": "google_georgia",
-        "google_location": "Tbilisi, Georgia",
-    },
-    {
-        "country": "Malta",
-        "linkedin_source": "linkedin_malta",
-        "linkedin_location": "Malta",
-        "indeed_source": "indeed_malta",
-        "indeed_location": "Valletta, Malta",
-        "indeed_country": "Malta",
-        "google_source": "google_malta",
-        "google_location": "Malta",
     },
 ]
 
