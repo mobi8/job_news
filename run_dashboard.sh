@@ -11,7 +11,6 @@ VITE_PID=""
 SCRAPER_PID=""
 SCRAPER_TAIL_PID=""
 WATCH_LOOP_PID=""
-WATCH_LOOP_MONITOR_PID=""
 TELEGRAM_POLLER_PID=""
 CLEANUP_IN_PROGRESS=0
 
@@ -163,15 +162,13 @@ cleanup() {
   echo "Shutting down gracefully..."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+  kill_matching_processes "watch loop" "src/watch/loop.py"
+  kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
+
   # Step 1: Send SIGTERM (graceful shutdown)
   if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
     echo "  → Stopping Telegram poller (PID: $TELEGRAM_POLLER_PID)..."
     kill -TERM "$TELEGRAM_POLLER_PID" 2>/dev/null || true
-  fi
-
-  if [[ -n "$WATCH_LOOP_MONITOR_PID" ]] && kill -0 "$WATCH_LOOP_MONITOR_PID" 2>/dev/null; then
-    echo "  → Stopping watch loop monitor (PID: $WATCH_LOOP_MONITOR_PID)..."
-    kill -TERM "$WATCH_LOOP_MONITOR_PID" 2>/dev/null || true
   fi
 
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
@@ -232,11 +229,6 @@ cleanup() {
     kill -KILL "$TELEGRAM_POLLER_PID" 2>/dev/null || true
   fi
 
-  if [[ -n "$WATCH_LOOP_MONITOR_PID" ]] && kill -0 "$WATCH_LOOP_MONITOR_PID" 2>/dev/null; then
-    echo "  ⚠ Force killing watch loop monitor (PID: $WATCH_LOOP_MONITOR_PID)"
-    kill -KILL "$WATCH_LOOP_MONITOR_PID" 2>/dev/null || true
-  fi
-
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  ⚠ Force killing watch loop (PID: $WATCH_LOOP_PID)"
     kill -KILL "$WATCH_LOOP_PID" 2>/dev/null || true
@@ -275,4 +267,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
-wait $TELEGRAM_POLLER_PID $WATCH_LOOP_MONITOR_PID $VITE_PID $UVICORN_PID $SCRAPER_PID $SCRAPER_TAIL_PID 2>/dev/null || true
+wait $TELEGRAM_POLLER_PID $WATCH_LOOP_PID $VITE_PID $UVICORN_PID $SCRAPER_PID $SCRAPER_TAIL_PID 2>/dev/null || true

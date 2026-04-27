@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import json
+import fcntl
 import subprocess
 import sys
 import time
@@ -32,6 +33,7 @@ from utils.logger import watch_logger
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
+LOCK_PATH = "/Users/lewis/Desktop/agent/outputs/watch_loop.lock"
 
 
 def _console_step(message: str) -> None:
@@ -73,12 +75,31 @@ def run_once() -> int:
     return result.returncode
 
 
+def acquire_single_instance_lock() -> object | None:
+    Path(LOCK_PATH).parent.mkdir(parents=True, exist_ok=True)
+    lock_file = open(LOCK_PATH, "w", encoding="utf-8")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        watch_logger.warning("Another watch loop is already running; exiting.")
+        lock_file.close()
+        return None
+
+    lock_file.write(str(os.getpid()))
+    lock_file.flush()
+    return lock_file
+
+
 
 
 
 def main() -> int:
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
+    _lock_file = acquire_single_instance_lock()
+    if _lock_file is None:
+        return 0
 
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
