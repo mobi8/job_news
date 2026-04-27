@@ -66,19 +66,7 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=crypto+product+manager+OR+product+owner+OR+neobank+OR+digital+asset+OR+stable+coin&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=custody+OR+digital+asset+OR+digital+assets+OR+digital+asset+custody+OR+stable+coin+OR+game+OR+gaming&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=casino+OR+gaming+resort+OR+wynn+OR+al+marjan+OR+IT+product+manager&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+casino+OR+sportsbook+OR+live+casino+OR+gaming+platform&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=dmcc+OR+dtc+OR+gaming&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+coinbase+OR+kraken+OR+bitget+OR+gate.io+OR+kucoin+OR+htx+OR+crypto.com+OR+mexc&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=saudi+arabia&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=qatar&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+OR+custody+OR+digital+asset+OR+stable+coin+OR+game+OR+gaming+OR+payments+OR+neobanking+remote&l=bahrain&sort=date",
-    # 모바일 게임 관련 검색
-    "https://ae.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal+OR+dtc&l=dubai&sort=date",
-    "https://ae.indeed.com/jobs?q=game+studio+OR+indie+game+OR+game+design+OR+dtc&l=united+arab+emirates&sort=date",
-    # 조지아 검색 추가
-    "https://ge.indeed.com/jobs?q=crypto+OR+web3+OR+blockchain+OR+igaming+OR+casino+OR+payment+OR+neobanking&l=georgia&sort=date",
-    "https://ge.indeed.com/jobs?q=product+manager+OR+product+owner+OR+business+development+OR+sales&l=tbilisi&sort=date",
-    "https://ge.indeed.com/jobs?q=mobile+game+OR+game+developer+OR+unity+OR+unreal+OR+dtc&l=tbilisi&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
@@ -88,187 +76,58 @@ LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=custody%20OR%20digital%20asset%20OR%20digital%20assets%20OR%20digital%20asset%20custody%20OR%20stable%20coin%20OR%20game%20OR%20gaming&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=casino%20OR%20gaming%20resort%20OR%20wynn%20OR%20al%20marjan%20OR%20IT%20product%20manager&location=United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20casino%20OR%20sportsbook%20OR%20live%20casino%20OR%20gaming%20platform&location=United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=DMCC%20OR%20DTC%20OR%20gaming&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20coinbase%20OR%20kraken%20OR%20bitget%20OR%20gate.io%20OR%20kucoin%20OR%20htx%20OR%20crypto.com%20OR%20mexc&location=United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=xsolla%20OR%20payment%20platform%20OR%20payment%20gateway&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=payments%20engineer%20OR%20payments%20developer%20OR%20crypto%20payments%20OR%20stablecoin&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=sales%20manager%20OR%20business%20development%20OR%20account%20manager&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=designer%20OR%20ux%20OR%20ui&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=wallet%20specialist%20OR%20exchange%20operations%20OR%20digital%20asset%20operations&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Saudi%20Arabia",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Qatar",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20custody%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20game%20OR%20gaming%20OR%20payments%20OR%20neobanking&location=Bahrain",
-    # 조지아 (나라) 검색 추가 - Tbilisi만 사용하여 미국 조지아 제외
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment%20OR%20neobanking&location=Tbilisi%2C%20Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Tbilisi%2C%20Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=backend%20OR%20engineer%20OR%20developer%20OR%20software&location=Tbilisi%2C%20Georgia",
     # 모바일 게임 관련 검색
     "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine%20OR%20DTC&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist%20OR%20DTC&location=United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20DTC&location=Tbilisi%2C%20Georgia",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20blockchain%20OR%20igaming%20OR%20casino%20OR%20payment%20OR%20neobanking&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=product%20manager%20OR%20product%20owner%20OR%20business%20development%20OR%20sales&location=Malta",
-    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20DTC&location=Malta",
 ]
 
-# JobSpy search keywords
-# - LinkedIn / Indeed: use tighter, more exact phrase-style searches so the results stay focused.
-# - Google: reuse the same topic buckets, but keep the broader OR-style searches that Google Jobs
-#   handles better.
-#
-# Multi-word phrases are quoted intentionally to push JobSpy toward exact-match style queries.
+# Search keywords are intentionally kept compact so each batch stays lighter and
+# less likely to trigger rate limits or human verification prompts.
 LINKEDIN_SEARCH_KEYWORDS = [
-    # Language / market-specific
     "korean",
-    '"ADGM"',
-    '"FSRA"',
-    '"VARA"',
-
-    # Payments / crypto / wallet
+    "Cryptocurrency",
+    "Blockchain",
     '"crypto payment"',
-    '"stablecoin payment"',
-    '"crypto payments"',
     '"stablecoin"',
     '"web3"',
     '"neobanking"',
     '"payments engineer"',
     '"wallet"',
     '"custody"',
-    '"exchange operations"',
-    '"virtual assets"',
-    '"transaction monitoring"',
-    '"on-chain analytics"',
-
-    # Product / commercial roles
     '"crypto product manager"',
     '"product owner"',
     '"business development"',
-    '"sales"',
     '"account manager"',
-
-    # AI / ML / LLM roles
-    '"ai engineer"',
-    '"machine learning engineer"',
-    '"llm engineer"',
-    '"genai engineer"',
-    '"ai product manager"',
-    '"genai product manager"',
-    '"prompt engineer"',
-    '"data scientist"',
-    '"mlops"',
-    '"inference"',
-    '"embeddings"',
-
-    # Gaming / platform operators
     '"igaming"',
     '"casino"',
-    '"gaming resort"',
-    '"wynn"',
-    '"al marjan"',
-    '"it product manager"',
-    '"crypto casino"',
-    '"sportsbook"',
-    '"live casino"',
-    '"gaming platform"',
-    '"binance"',
-    '"bybit"',
-    '"okx"',
-    '"coinbase"',
-    '"kraken"',
-    '"bitget"',
-    '"gate.io"',
-    '"kucoin"',
-    '"htx"',
-    '"crypto.com"',
-    '"mexc"',
-
-    # Mobile game / DTC
     '"mobile game"',
-    '"game developer"',
-    '"unity"',
-    '"unreal"',
-    '"game studio"',
-    '"indie game"',
-    '"game design"',
     '"DTC"',
 ]
 
-# Indeed also prefers narrower search terms here, but we keep the set a little more practical
-# for the broader Indeed description matcher.
 INDEED_SEARCH_KEYWORDS = [
-    # Generic executive/management roles
-    "CEO",
-    "CTO",
-    "CFO",
-    "COO",
     "manager",
-    "director",
-    "head",
-
-    # Generic professional roles
-    "engineer",
-    "developer",
-    "analyst",
-    "specialist",
-    "officer",
-
-    # Crypto/fintech/blockchain domain keywords (less strict)
+    "Cryptocurrency",
+    "Blockchain",
     "crypto",
-    "blockchain",
-    "web3",
-    "defi",
-    "nft",
-    "wallet",
-    "exchange",
     "payment",
-    "fintech",
-    "virtual asset",
     "digital asset",
-
-    # Specific domain + role combinations
-    '"crypto engineer"',
-    '"blockchain developer"',
-    '"web3 engineer"',
-    '"defi developer"',
-    '"payments engineer"',
-    '"crypto product"',
-    '"blockchain operations"',
-    '"cryptocurrency"',
     "stablecoin",
     "custody",
     "neobanking",
-
-    # Specialized roles
-    "operations",
-    "compliance",
-    "risk",
-    "finance",
-    "hr",
-    "sales",
     "business development",
     "product manager",
-    "data scientist",
-
-    # Gaming/iGaming (secondary focus)
+    "sales",
+    "compliance",
+    "risk",
+    "game",
     "gaming",
     "igaming",
     "casino",
-    "sportsbook",
-    "game developer",
-
-    # Regulatory/compliance
-    "ADGM",
-    "FSRA",
-    "VARA",
-    "DIFC",
-
-    # Companies (reference)
-    "binance",
-    "coinbase",
-    "kraken",
-    "okx",
-    "bybit",
+    "wallet",
 ]
 
 # Google Jobs keeps the broader, current-style probes. We convert these into google_search_term
