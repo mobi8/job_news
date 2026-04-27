@@ -46,6 +46,8 @@ def setup_logger(
     log_file: Optional[str] = None,
     level: int = logging.INFO,
     json_format: bool = False,
+    console_json_format: Optional[bool] = None,
+    file_json_format: Optional[bool] = None,
 ) -> logging.Logger:
     """
     Setup a logger for a specific module.
@@ -54,7 +56,9 @@ def setup_logger(
         name: Logger name (typically __name__)
         log_file: Log file name in logs/ directory (e.g., 'scraper.log')
         level: Logging level (default: INFO)
-        json_format: Use JSON format instead of plain text
+        json_format: Backwards-compatible default for both console and file format.
+        console_json_format: Override the console formatter format.
+        file_json_format: Override the file formatter format.
 
     Returns:
         Configured logger instance
@@ -65,14 +69,18 @@ def setup_logger(
     # Remove existing handlers to avoid duplicates
     logger.handlers = []
 
-    # Determine formatter
-    formatter_class = JSONFormatter if json_format else PlainFormatter
-    formatter = formatter_class()
+    # Determine formatter(s)
+    console_use_json = json_format if console_json_format is None else console_json_format
+    file_use_json = json_format if file_json_format is None else file_json_format
+    console_formatter_class = JSONFormatter if console_use_json else PlainFormatter
+    file_formatter_class = JSONFormatter if file_use_json else PlainFormatter
+    console_formatter = console_formatter_class()
+    file_formatter = file_formatter_class()
 
     # Console handler (always INFO level)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
     # File handler with rotation
@@ -85,18 +93,18 @@ def setup_logger(
             encoding="utf-8",
         )
         file_handler.setLevel(level)
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
 
     return logger
 
 
 # Module-specific loggers
-scraper_logger = setup_logger("scraper", "scraper.log", json_format=True)
-watch_logger = setup_logger("watch_loop", "watch_loop.log", json_format=True)
-dashboard_logger = setup_logger("dashboard", "dashboard.log", json_format=True)
-db_logger = setup_logger("database", "database.log", json_format=True)
-notifications_logger = setup_logger("notifications", "notifications.log", json_format=True)
+scraper_logger = setup_logger("scraper", "scraper.log", json_format=True, console_json_format=False)
+watch_logger = setup_logger("watch_loop", "watch_loop.log", json_format=True, console_json_format=False)
+dashboard_logger = setup_logger("dashboard", "dashboard.log", json_format=True, console_json_format=False)
+db_logger = setup_logger("database", "database.log", json_format=True, console_json_format=False)
+notifications_logger = setup_logger("notifications", "notifications.log", json_format=True, console_json_format=False)
 
 
 def get_logger(module_name: str) -> logging.Logger:

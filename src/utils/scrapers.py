@@ -624,7 +624,7 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
     def run_batch(batch: List[str]) -> List[dict]:
         command = ["node", str(BROWSER_PROBE_PATH)] + batch
         try:
-            logger.info("Browser probe batch start: %d urls", len(batch))
+            browser_logger.info("Browser probe batch start: %d urls", len(batch))
             returncode, stdout, _stderr = _run_browser_probe_with_progress(command, timeout=600)
             if returncode != 0:
                 raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
@@ -637,7 +637,7 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
                 pages = [pages]
             return pages
         except Exception as exc:
-            logger.warning("Batch processing failed: %s", exc)
+            browser_logger.warning("Batch processing failed: %s", exc)
             return [{"jobs": [], "error": str(exc)} for _ in batch]
 
     browser_logger.info(
@@ -656,7 +656,7 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
                     if start + offset < len(ordered_results):
                         ordered_results[start + offset] = page
             except Exception as exc:
-                logger.warning("Batch fetch failed: %s", exc)
+                browser_logger.warning("Batch fetch failed: %s", exc)
 
     return [page for page in ordered_results if page is not None]
 
