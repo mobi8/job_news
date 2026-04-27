@@ -81,7 +81,7 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
                     or line.startswith("Playwright error for Indeed:")
                     or line.startswith("Error processing ")
                 ):
-                    browser_logger.info("browser_probe: %s", line)
+                    browser_logger.info("%s", line)
 
     stderr_thread = threading.Thread(target=_pump_stderr, daemon=True)
     stderr_thread.start()

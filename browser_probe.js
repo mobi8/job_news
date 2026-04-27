@@ -5,7 +5,68 @@ function textOrEmpty(node) {
 }
 
 function progress(message) {
-  console.error(`[browser_probe] ${new Date().toISOString()} ${message}`);
+  console.error(message);
+}
+
+function shorten(text, maxLen = 72) {
+  const normalized = (text || '').replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLen) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+function decodeQueryValue(value) {
+  return decodeURIComponent((value || '').replace(/\+/g, ' '));
+}
+
+function classifyLocation(location) {
+  const value = (location || '').toLowerCase();
+  if (value.includes('united arab emirates') || value.includes('dubai')) return 'UAE';
+  if (value.includes('georgia') || value.includes('tbilisi')) return 'Georgia';
+  if (value.includes('malta')) return 'Malta';
+  if (value.includes('qatar')) return 'Qatar';
+  if (value.includes('bahrain')) return 'Bahrain';
+  if (value.includes('saudi')) return 'Saudi Arabia';
+  return location || 'Unknown';
+}
+
+function compactKeywords(value) {
+  const text = decodeQueryValue(value)
+    .replace(/\bOR\b/gi, ' / ')
+    .replace(/\s+/g, ' ')
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  return shorten(text || 'search', 64);
+}
+
+function describeSearchUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (url.includes('linkedin.com/jobs/search')) {
+      const location = decodeQueryValue(parsed.searchParams.get('location') || '');
+      return {
+        platform: 'LinkedIn',
+        country: classifyLocation(location),
+        label: compactKeywords(parsed.searchParams.get('keywords') || ''),
+      };
+    }
+    if (url.includes('indeed.com')) {
+      const location = decodeQueryValue(parsed.searchParams.get('l') || parsed.searchParams.get('location') || '');
+      return {
+        platform: 'Indeed',
+        country: classifyLocation(location),
+        label: compactKeywords(parsed.searchParams.get('q') || parsed.searchParams.get('query') || ''),
+      };
+    }
+  } catch {
+    // Best-effort only.
+  }
+  return {
+    platform: url.includes('linkedin.com') ? 'LinkedIn' : url.includes('indeed.com') ? 'Indeed' : 'Search',
+    country: 'Unknown',
+    label: shorten(url, 64),
+  };
 }
 
 function errorResult(url, message) {
@@ -239,7 +300,8 @@ async function evaluateTelegramPage(page) {
 
 async function handleIndeedWithPlaywright(page, url) {
   try {
-    progress(`Indeed start ${url}`);
+    const searchContext = describeSearchUrl(url);
+    progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | start`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Wait for Cloudflare challenge to complete
@@ -247,7 +309,7 @@ async function handleIndeedWithPlaywright(page, url) {
     while (attempts < 15) {
       const title = await page.title();
       if (title === 'Just a moment...') {
-        progress(`Indeed waiting on challenge ${attempts + 1}/15 ${url}`);
+        progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | challenge ${attempts + 1}/15`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         attempts++;
       } else {
@@ -258,10 +320,11 @@ async function handleIndeedWithPlaywright(page, url) {
     await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 1000));
 
     const result = await evaluateIndeedPage(page);
-    progress(`Indeed done ${url} jobs=${result.jobs?.length || 0}`);
+    progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
     return result;
   } catch (error) {
-    progress(`Indeed error ${url}: ${error.message}`);
+    const searchContext = describeSearchUrl(url);
+    progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | error ${error.message}`);
     console.error(`Playwright error for Indeed: ${error.message}`);
     return {
       pageTitle: 'Error',
@@ -288,7 +351,7 @@ async function main() {
     require('os').tmpdir(),
     `chrome-profile-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`
   );
-  let context;
+  let browserContext;
   let browser;
   const results = [];
   const bundledExecutablePath = chromium.executablePath();
@@ -296,7 +359,7 @@ async function main() {
   const executablePath = bundledExecutablePath || systemChromePath;
 
   try {
-    context = await chromium.launchPersistentContext(
+    browserContext = await chromium.launchPersistentContext(
       profileDir,
       {
         executablePath,
@@ -316,19 +379,20 @@ async function main() {
       }
     );
 
-    browser = context.browser();
+    browser = browserContext.browser();
 
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
+      const searchContext = describeSearchUrl(url);
       let page;
       try {
-        progress(`url ${i + 1}/${urls.length} start ${url}`);
+        progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | start ${i + 1}/${urls.length}`);
         if (i > 0) {
           await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
         }
 
         try {
-          page = await context.newPage();
+          page = await browserContext.newPage();
         } catch (err) {
           progress(`Failed to create page (context closed?): ${err.message}`);
           results.push(errorResult(url, 'Browser context unavailable'));
@@ -366,7 +430,7 @@ async function main() {
         await page.goto(url, { waitUntil: waitUntilOption, timeout: isTelegram ? 180000 : 120000 });
 
         if (url.includes('linkedin.com/jobs/search')) {
-          progress(`LinkedIn load ${url}`);
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
           await page.waitForLoadState('domcontentloaded').catch(() => {});
           await page.waitForLoadState('networkidle').catch(() => {});
           await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
@@ -380,7 +444,7 @@ async function main() {
             const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
             if (newHeight === previousHeight) break;
 
-            progress(`LinkedIn scroll ${scrolls + 1}/${maxScrolls} ${url}`);
+            progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | scroll ${scrolls + 1}/${maxScrolls}`);
             await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
             await page.waitForTimeout(2000 + Math.random() * 1000);
             previousHeight = newHeight;
@@ -391,20 +455,20 @@ async function main() {
           await page.waitForTimeout(3000 + Math.random() * 2000);
 
           const result = await evaluateLinkedInPage(page);
-          progress(`LinkedIn done ${url} jobs=${result.jobs?.length || 0}`);
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
           results.push(result);
           await page.close().catch(() => {});
           continue;
         }
       } catch (error) {
-        progress(`url error ${url}: ${error.message}`);
+        progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | error ${error.message}`);
         console.error(`Error processing ${url}: ${error.message}`);
         results.push(errorResult(url, error.message));
         continue;
       }
 
       if (url.includes('t.me/s/')) {
-        progress(`Telegram page load complete ${url}`);
+        progress(`Telegram | ${searchContext.label} | load complete`);
         // Wait for Telegram JavaScript rendering
         try {
           await page.waitForFunction(() => {
@@ -436,7 +500,7 @@ async function main() {
           links,
         };
       });
-      progress(`generic done ${url}`);
+      progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | done`);
       results.push(result);
       await page.close().catch(() => {});
     }
@@ -445,9 +509,9 @@ async function main() {
     console.error(`Browser launch failed: ${error.message}`);
     urls.forEach((url) => results.push(errorResult(url, error.message)));
   } finally {
-    if (context) {
+    if (browserContext) {
       try {
-        await context.close();
+        await browserContext.close();
       } catch {
         // Ignore cleanup errors.
       }
