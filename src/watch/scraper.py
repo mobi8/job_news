@@ -94,6 +94,7 @@ from utils.scrapers import (
     fetch_all_rss_news,
     fetch_html,
     fetch_indeed_jobs_via_jobspy,
+    fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
     fetch_telegram_channel_jobs,
     parse_igaming_recruitment_jobs,
@@ -536,6 +537,22 @@ def scrape_linkedin_via_browser() -> list:
         return []
 
 
+def scrape_indeed_via_browser() -> list:
+    """Scrape Indeed jobs via browser."""
+    try:
+        _console_step("Browser phase starting: Indeed")
+        indeed_jobs = fetch_indeed_jobs_via_browser()
+        logger.info(
+            "Collected %s Indeed browser jobs",
+            len(indeed_jobs),
+        )
+        _console_step(f"Browser phase finished: Indeed={len(indeed_jobs)}")
+        return indeed_jobs
+    except Exception as e:
+        logger.error(f"Error scraping Indeed via browser probe: {e}")
+        return []
+
+
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
@@ -626,26 +643,32 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
             sources.append(("Telegram public channels", telegram_jobs))
 
-        # Scrape LinkedIn via browser probe first so richer descriptions win on dedupe.
+        # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
         _console_step("Starting browser scrape pass")
         browser_linkedin_jobs = scrape_linkedin_via_browser()
+        browser_indeed_jobs = scrape_indeed_via_browser()
 
         # Keep JobSpy as a second pass for Indeed coverage.
         _console_step("Starting JobSpy scrape pass")
         jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
 
         linkedin_jobs = browser_linkedin_jobs
-        indeed_jobs = jobspy_indeed_jobs
+        browser_indeed_jobs_filtered = browser_indeed_jobs
+        jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
             linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
-            indeed_jobs = [job for job in indeed_jobs if job.source in allowed_sources]
+            browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
+            jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
 
         if linkedin_jobs:
             sources.append(("LinkedIn browser", linkedin_jobs))
 
-        if indeed_jobs:
-            sources.append(("Indeed jobspy", indeed_jobs))
+        if browser_indeed_jobs_filtered:
+            sources.append(("Indeed browser", browser_indeed_jobs_filtered))
+
+        if jobspy_indeed_jobs_filtered:
+            sources.append(("Indeed jobspy", jobspy_indeed_jobs_filtered))
 
         jobs = [
             job
