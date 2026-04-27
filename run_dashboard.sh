@@ -109,20 +109,11 @@ TELEGRAM_POLLER_PID=$!
 echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
 sleep 1
 
-# Start watch loop monitor (auto-restart if crashes)
+# Start watch loop directly with caffeinate (keep system awake during long runs)
 cd "${WORKDIR}"
-{
-  while true; do
-    nohup caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
-    WATCH_LOOP_PID=$!
-    echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
-    wait $WATCH_LOOP_PID
-    echo "  ⚠ Watch loop crashed (exit code: $?), restarting in 10s..."
-    sleep 10
-  done
-} &
-WATCH_LOOP_MONITOR_PID=$!
-echo "  Watch loop monitor started (PID: $WATCH_LOOP_MONITOR_PID)"
+caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
+WATCH_LOOP_PID=$!
+echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
 
 cd "${WORKDIR}"
 uvicorn src.api.app:app --log-level info &
