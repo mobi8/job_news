@@ -49,7 +49,15 @@ def read_json(path: Path) -> Dict[str, Any]:
 
 
 def load_jobs_data() -> Dict[str, Any]:
-    return read_json(JOBS_DATA_PATH)
+    data = read_json(JOBS_DATA_PATH)
+    # Add Telegram jobs from database
+    from utils.db import Database
+    db = Database(OUTPUT_DIR / "jobs.sqlite3")
+    all_jobs = db.fetch_all_jobs()
+    tg_jobs = [job for job in all_jobs if job.get("source", "").startswith("telegram_")]
+    if tg_jobs:
+        data.setdefault("all_tracked_jobs", []).extend(tg_jobs)
+    return data
 
 
 def load_stats_data() -> Dict[str, Any]:
