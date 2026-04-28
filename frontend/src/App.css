@@ -546,9 +546,24 @@
   }
 
   .controls-panel {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
     padding: 0.5rem;
+  }
+
+  .controls-card {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .filter-inputs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.3rem;
+  }
+
+  .filter-inputs input,
+  .filter-inputs select {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.8rem;
   }
 
   .controls-left,
