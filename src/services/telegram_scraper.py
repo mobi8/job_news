@@ -123,18 +123,36 @@ def scrape_all_channels() -> Dict[str, Any]:
 def extract_job_postings(message_text: str) -> Optional[Dict[str, str]]:
     """
     Extract job posting info from Telegram message text.
-    Returns dict with company, role, location if found.
+    Handles both multi-line and single-line formats with emoji markers.
     """
-    # Simple heuristic: look for emoji and keywords
-    lines = message_text.split("\n")
     result = {}
 
-    for line in lines:
-        line = line.strip()
-        if "💼" in line or "🏛️" in line:
-            result["role"] = line.replace("💼", "").replace("🏛️", "").strip()
-        elif "🌍" in line or "📍" in line:
-            result["location"] = line.replace("🌍", "").replace("📍", "").strip()
+    # Try single-line format: 🔍[Role]💼Company: [Company]📍Location: [Location]🔗
+    if "💼" in message_text:
+        # Extract role: text between 🔍/start and 💼
+        import re
+        role_match = re.search(r'[🔍]?(.+?)(?:💼|🏛️)', message_text)
+        if role_match:
+            result["role"] = role_match.group(1).strip()
+
+        # Extract location: text after 📍 and before 🔗 or end
+        loc_match = re.search(r'(?:📍|🌍)([^🔗]*)', message_text)
+        if loc_match:
+            loc_text = loc_match.group(1).strip()
+            # Remove "Location:" prefix if present
+            loc_text = re.sub(r'^Location:\s*', '', loc_text)
+            if loc_text:
+                result["location"] = loc_text
+
+    # Fallback to multi-line format
+    if not result:
+        lines = message_text.split("\n")
+        for line in lines:
+            line = line.strip()
+            if "💼" in line or "🏛️" in line:
+                result["role"] = line.replace("💼", "").replace("🏛️", "").strip()
+            elif "🌍" in line or "📍" in line:
+                result["location"] = line.replace("🌍", "").replace("📍", "").strip()
 
     return result if result else None
 
@@ -185,16 +203,30 @@ def convert_to_job_posting(message: Dict, channel: str, channel_name: str) -> Op
     if not job_url:
         return None
 
-    # Parse company from role line if possible
+    # Parse company and title from extracted data
+    import re
     role_line = extracted.get("role", "")
     company = "Unknown"
-    if "at " in role_line.lower():
+    company_match = re.search(r'(?:Company:\s*|@)([^📍🔗\n]+?)(?=📍|🔗|$)', text)
+    if company_match:
+        company_text = company_match.group(1).strip()
+        company = clean_description(company_text).title() or "Unknown"
+
+    # Fallback: parse from role line if "at" pattern exists
+    if company == "Unknown" and "at " in role_line.lower():
         parts = role_line.lower().split("at ")
         if len(parts) > 1:
-            company = parts[1].split(",")[0].strip().title()
+            company = clean_description(parts[1].split(",")[0].strip()).title()
 
     title = role_line.split(" at ")[0].strip() if " at " in role_line else role_line
-    location = extracted.get("location", "UAE")
+    title = clean_description(title)
+    location = clean_description(extracted.get("location", "UAE"))
+
+    # Detect if job is remote
+    is_remote = 0
+    location_lower = location.lower().strip()
+    if location_lower.startswith('remote') or location_lower.startswith('anywhere') or '100% remote' in location_lower:
+        is_remote = 1
 
     return JobPosting(
         source=f"telegram_{channel}",
@@ -205,6 +237,7 @@ def convert_to_job_posting(message: Dict, channel: str, channel_name: str) -> Op
         url=job_url,
         description=clean_description(text),
         country="UAE",
+        remote=is_remote,
         match_score=70,  # Default score for Telegram jobs
         first_seen_at=timestamp,
         last_seen_at=timestamp,
