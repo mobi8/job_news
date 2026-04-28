@@ -139,6 +139,29 @@ def extract_job_postings(message_text: str) -> Optional[Dict[str, str]]:
     return result if result else None
 
 
+def clean_description(text: str) -> str:
+    """Clean Telegram message text for display: remove emoji, URLs, timestamps"""
+    import re
+
+    # Remove timestamps (ISO format)
+    text = re.sub(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*', '', text)
+
+    # Remove URLs
+    text = re.sub(r'https?://[^\s]+', '', text)
+    text = re.sub(r'→Https?://[^\s]+', '', text)
+
+    # Replace emoji with space (so adjacent words don't get concatenated)
+    text = re.sub(r'[^\w\s,.$%/()--￿]', lambda m: ' ' if ord(m.group()) > 127 else m.group(), text)
+
+    # Remove remaining non-ASCII characters (other emoji/special chars)
+    text = re.sub(r'[^\w\s,.$%/()-]', '', text, flags=re.UNICODE)
+
+    # Clean up whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text[:300] if text else ""
+
+
 def convert_to_job_posting(message: Dict, channel: str, channel_name: str) -> Optional[JobPosting]:
     """Convert Telegram message to JobPosting object"""
     text = message.get("text", "")
@@ -180,7 +203,7 @@ def convert_to_job_posting(message: Dict, channel: str, channel_name: str) -> Op
         company=company,
         location=location,
         url=job_url,
-        description=text[:500],  # First 500 chars of message
+        description=clean_description(text),
         country="UAE",
         match_score=70,  # Default score for Telegram jobs
         first_seen_at=timestamp,

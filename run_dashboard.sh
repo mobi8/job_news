@@ -16,8 +16,20 @@ TELEGRAM_POLLER_PID=""
 TELEGRAM_SCRAPER_PID=""
 CLEANUP_IN_PROGRESS=0
 
-# Setup venv
+# Setup venv with corruption detection
+venv_needs_rebuild=0
 if [[ ! -d "${VENV_DIR}" ]]; then
+  venv_needs_rebuild=1
+else
+  # Test if venv is valid by checking if pip works
+  if ! "${VENV_DIR}/bin/python3" -m pip --version >/dev/null 2>&1; then
+    echo "  ⚠ venv is corrupted (pip broken), rebuilding..."
+    rm -rf "${VENV_DIR}"
+    venv_needs_rebuild=1
+  fi
+fi
+
+if [[ $venv_needs_rebuild -eq 1 ]]; then
   echo "Creating Python virtual environment..."
   python3 -m venv "${VENV_DIR}"
 fi
