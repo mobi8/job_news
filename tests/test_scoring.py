@@ -134,6 +134,16 @@ class TestIsHardExcludedJob:
                 description="Medical insurance and patient support",
             ) is True
 
+    def test_hard_excluded_maintenance_roles(self):
+        """Test that maintenance roles are hard excluded when configured"""
+        with patch("utils.scoring.HARD_EXCLUDE_TITLE_TERMS", ["maintenance"]):
+            assert is_hard_excluded_job(
+                "Maintenance Manager",
+                company="Facilities Co",
+                location="Dubai",
+                description="Building maintenance and repairs",
+            ) is True
+
 
 class TestIsExecTechRejectJob:
     """Tests for is_exec_tech_reject_job function"""

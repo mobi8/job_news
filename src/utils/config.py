@@ -638,6 +638,7 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "workforce manager",
     "security agent",
     "downtime specialist",
+    "maintenance",
     "hospital",
     "medical",
     "medical center",
