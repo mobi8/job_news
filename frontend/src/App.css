@@ -594,50 +594,20 @@
   }
 
   .controls-card.category-card {
-    padding: 0.5rem;
-    gap: 0.4rem;
-  }
-
-  .category-main-tabs {
-    gap: 0.3rem;
-    flex-wrap: wrap;
-  }
-
-  .category-main-tabs .main-tab {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.75rem;
+    flex-direction: column;
+    padding: 0.7rem;
+    gap: 0.6rem;
   }
 
   .controls-card.category-card .slider-panel {
-    padding: 0.4rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    padding-left: 0.4rem;
-    gap: 0.3rem;
-  }
-
-  .slider-label {
-    font-size: 0.7rem;
+    padding: 0.5rem;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 0.5rem;
   }
 
   .filter-card {
     flex: 1 1 100%;
-    padding: 0.5rem 0.6rem;
-  }
-
-  .filter-frame {
-    gap: 0.4rem;
-  }
-
-  .filter-inputs {
-    grid-template-columns: repeat(3, 1fr);
-    flex: 1;
-    gap: 0.3rem;
-  }
-
-  .filter-inputs input,
-  .filter-inputs select {
-    padding: 0.5rem 0.4rem;
-    font-size: 0.8rem;
   }
 }
 
