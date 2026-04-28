@@ -76,6 +76,19 @@ def unique_preserve_order(items: List[str]) -> List[str]:
     return ordered
 
 
+def _term_matches_text(term: str, text: str) -> bool:
+    """Match terms with word boundaries for short tokens to avoid substring noise."""
+    normalized_term = term.lower().strip()
+    normalized_text = text.lower()
+    if not normalized_term:
+        return False
+    if " " in normalized_term:
+        return normalized_term in normalized_text
+    if len(normalized_term) <= 4:
+        return re.search(rf"(?<!\w){re.escape(normalized_term)}(?!\w)", normalized_text) is not None
+    return normalized_term in normalized_text
+
+
 def filter_records_by_sources(
     records: List[Dict[str, Any]],
     allowed_sources: Optional[set[str]] = None,
@@ -97,32 +110,59 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
     resume_blob = (resume_text or inferred_profile_text()).lower()
     is_remote = "remote" in text_blob
     is_global = "global" in text_blob
-    remote_gcc_tags = [term for term in REMOTE_GCC_LOCATION_TERMS if term in text_blob]
+    remote_gcc_tags = [term for term in REMOTE_GCC_LOCATION_TERMS if _term_matches_text(term, text_blob)]
 
-    location_tags = [term for term in FOCUS_LOCATION_TERMS if term in text_blob]
+    location_tags = [term for term in FOCUS_LOCATION_TERMS if _term_matches_text(term, text_blob)]
     if is_remote and remote_gcc_tags:
         location_tags = unique_preserve_order(location_tags + remote_gcc_tags)
     location_ok = bool(location_tags) or (is_remote and bool(remote_gcc_tags))
 
-    domain_tags = [term for term in FOCUS_DOMAIN_TERMS if term in text_blob]
-    strong_domain_tags = [term for term in STRONG_DOMAIN_TERMS if term in text_blob]
-    generic_payment_tags = [term for term in GENERIC_PAYMENT_TERMS if term in text_blob]
+    domain_tags = [term for term in FOCUS_DOMAIN_TERMS if _term_matches_text(term, text_blob)]
+    strong_domain_tags = [term for term in STRONG_DOMAIN_TERMS if _term_matches_text(term, text_blob)]
+    generic_payment_tags = [term for term in GENERIC_PAYMENT_TERMS if _term_matches_text(term, text_blob)]
     if source in {"jobvite_pragmaticplay", "igamingrecruitment"} and "igaming" not in domain_tags:
         domain_tags.append("igaming")
     if source in {"jobvite_pragmaticplay", "igamingrecruitment"} and "igaming" not in strong_domain_tags:
         strong_domain_tags.append("igaming")
-    role_tags = [term for term in FOCUS_ROLE_TERMS if term in title_lower]
-    commercial_role_tags = [term for term in COMMERCIAL_ROLE_TERMS if term in title_lower]
-    product_role_tags = [term for term in PRODUCT_ROLE_TERMS if term in title_lower]
-    recruiter_company_tags = [term for term in RECRUITER_COMPANIES if term in company.lower()]
-    resume_tags = [term for term in RESUME_SKILL_LEXICON if term in resume_blob and term in text_blob]
-    negative_tags = [term for term in NEGATIVE_ROLE_TERMS if term in text_blob]
-    non_commercial_role_tags = [term for term in NON_COMMERCIAL_ROLE_TERMS if term in title_lower]
-    generic_finance_tags = [term for term in GENERIC_FINANCE_TERMS if term in text_blob]
+    role_tags = [term for term in FOCUS_ROLE_TERMS if _term_matches_text(term, title_lower)]
+    commercial_role_tags = [term for term in COMMERCIAL_ROLE_TERMS if _term_matches_text(term, title_lower)]
+    product_role_tags = [term for term in PRODUCT_ROLE_TERMS if _term_matches_text(term, title_lower)]
+    recruiter_company_tags = [term for term in RECRUITER_COMPANIES if _term_matches_text(term, company.lower())]
+    resume_tags = [term for term in RESUME_SKILL_LEXICON if _term_matches_text(term, resume_blob) and _term_matches_text(term, text_blob)]
+    negative_tags = [term for term in NEGATIVE_ROLE_TERMS if _term_matches_text(term, text_blob)]
+    non_commercial_role_tags = [term for term in NON_COMMERCIAL_ROLE_TERMS if _term_matches_text(term, title_lower)]
+    generic_finance_tags = [term for term in GENERIC_FINANCE_TERMS if _term_matches_text(term, text_blob)]
     telegram_remote_role_tags = [
         term for term in ["affiliate", "network builder", "player operations", "retention"]
-        if term in title_lower
+        if _term_matches_text(term, title_lower)
     ]
+    healthcare_exclude_terms = [
+        "hospital",
+        "clinic",
+        "medical",
+        "medicine",
+        "healthcare",
+        "health care",
+        "medical center",
+        "medical centre",
+        "nurse",
+        "nursing",
+        "doctor",
+        "physician",
+        "surgeon",
+        "patient",
+        "dental",
+        "pharma",
+        "pharmaceutical",
+        "wellness",
+        "therapy",
+        "therapist",
+        "rehabilitation",
+        "oncology",
+        "radiology",
+        "immunology",
+    ]
+    healthcare_tags = [term for term in healthcare_exclude_terms if _term_matches_text(term, text_blob)]
 
     telegram_remote_ok = (
         source.startswith("telegram_")
@@ -196,6 +236,8 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
         score -= 18
     if generic_finance_tags and "compliance" not in title_lower and "risk" not in title_lower:
         score -= 8
+    if healthcare_tags:
+        score -= 30
     if not commercial_role_tags and not product_role_tags:
         score -= 22
     if non_commercial_role_tags and not commercial_role_tags and not product_role_tags:
@@ -235,6 +277,7 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
         "negative_tags": negative_tags,
         "non_commercial_role_tags": non_commercial_role_tags,
         "generic_finance_tags": generic_finance_tags,
+        "healthcare_tags": healthcare_tags,
     }
 
 

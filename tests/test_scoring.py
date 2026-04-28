@@ -28,6 +28,7 @@ from utils.scoring import (
     is_exec_tech_reject_job,
     is_hard_excluded_job,
     is_language_filtered_out,
+    _term_matches_text,
     source_label,
     top_recommendations,
     unique_preserve_order,
@@ -119,6 +120,19 @@ class TestIsHardExcludedJob:
         """Test that supply chain roles can be excluded when configured"""
         with patch("utils.scoring.HARD_EXCLUDE_TITLE_TERMS", ["supply chain"]):
             assert is_hard_excluded_job("Supply Chain Manager") is True
+
+    def test_hard_excluded_medical_roles(self):
+        """Test that medical and hospital roles are hard excluded when configured"""
+        with patch(
+            "utils.scoring.HARD_EXCLUDE_TITLE_TERMS",
+            ["hospital", "medical", "clinic", "patient", "nurse"],
+        ):
+            assert is_hard_excluded_job(
+                "Patient Admin Executive - UAEN",
+                company="NMC Health plc",
+                location="Dubai",
+                description="Medical insurance and patient support",
+            ) is True
 
 
 class TestIsExecTechRejectJob:
@@ -280,6 +294,18 @@ class TestUniquePreserveOrder:
         assert unique_preserve_order(["a"]) == ["a"]
 
 
+class TestTermMatching:
+    """Regression tests for token-aware keyword matching."""
+
+    def test_short_terms_use_word_boundaries(self):
+        assert _term_matches_text("ai", "We have an available role") is False
+        assert _term_matches_text("ai", "We need an AI engineer") is True
+
+    def test_short_regulatory_terms_do_not_leak(self):
+        assert _term_matches_text("vara", "coverage") is False
+        assert _term_matches_text("vara", "VARA licensed fintech role") is True
+
+
 class TestFilterRecordsBySource:
     """Tests for filter_records_by_sources function"""
 
@@ -433,6 +459,32 @@ class TestEvaluateFit:
         }
         fit = evaluate_fit(record, "sales")
         assert fit["score"] >= 0
+        assert fit["qualifies"] is False
+
+    @patch("utils.scoring.FOCUS_LOCATION_TERMS", ["dubai"])
+    @patch("utils.scoring.FOCUS_DOMAIN_TERMS", [])
+    @patch("utils.scoring.STRONG_DOMAIN_TERMS", [])
+    @patch("utils.scoring.FOCUS_ROLE_TERMS", [])
+    @patch("utils.scoring.COMMERCIAL_ROLE_TERMS", ["manager", "head of"])
+    @patch("utils.scoring.PRODUCT_ROLE_TERMS", [])
+    @patch("utils.scoring.GENERIC_PAYMENT_TERMS", [])
+    @patch("utils.scoring.RECRUITER_COMPANIES", [])
+    @patch("utils.scoring.RESUME_SKILL_LEXICON", [])
+    @patch("utils.scoring.NEGATIVE_ROLE_TERMS", [])
+    @patch("utils.scoring.NON_COMMERCIAL_ROLE_TERMS", [])
+    @patch("utils.scoring.GENERIC_FINANCE_TERMS", [])
+    @patch("utils.scoring.REMOTE_GCC_LOCATION_TERMS", [])
+    def test_evaluate_fit_penalizes_healthcare_noise(self, *mocks):
+        """Healthcare / hospital roles should not float to the top."""
+        record = {
+            "title": "Patient Admin Executive - UAEN",
+            "company": "NMC Health plc",
+            "location": "Dubai",
+            "description": "Provide information about medical insurance coverage to patients and collect payment/co-payment.",
+            "source": "indeed_uae",
+        }
+        fit = evaluate_fit(record, "")
+        assert fit["score"] < 30
         assert fit["qualifies"] is False
 
 

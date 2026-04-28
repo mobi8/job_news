@@ -431,14 +431,40 @@ class Database:
         )
         self.conn.commit()
 
-    def purge_hard_excluded_jobs(self) -> None:
-        clauses = " OR ".join(["lower(title) LIKE ?"] * len(HARD_EXCLUDE_TITLE_TERMS))
-        params = [f"%{term.lower()}%" for term in HARD_EXCLUDE_TITLE_TERMS]
-        self.conn.execute(
-            f"DELETE FROM jobs WHERE ({clauses})",
-            params,
-        )
-        self.conn.commit()
+    def purge_hard_excluded_jobs(self) -> int:
+        from .scoring import is_hard_excluded_job
+
+        rows = self.conn.execute(
+            """
+            SELECT fingerprint, title, company, location, description
+            FROM jobs
+            """
+        ).fetchall()
+        fingerprints_to_remove = [
+            row["fingerprint"]
+            for row in rows
+            if is_hard_excluded_job(
+                row["title"],
+                row["company"],
+                row["location"],
+                row["description"],
+            )
+        ]
+
+        if not fingerprints_to_remove:
+            return 0
+
+        with self.conn:
+            batch_size = 500
+            for start in range(0, len(fingerprints_to_remove), batch_size):
+                batch = fingerprints_to_remove[start:start + batch_size]
+                placeholders = ",".join("?" for _ in batch)
+                self.conn.execute(
+                    f"DELETE FROM jobs WHERE fingerprint IN ({placeholders})",
+                    batch,
+                )
+
+        return len(fingerprints_to_remove)
 
     def purge_reject_feedback_jobs(self, reject_feedback: List[Dict[str, Any]]) -> int:
         """Remove jobs that match reject_feedback patterns. Returns count removed."""
