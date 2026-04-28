@@ -573,13 +573,18 @@
   }
 
   .card-header {
-    flex-direction: column;
-    align-items: flex-start;
+    gap: 0.25rem;
   }
 
   .status-badge,
   .emoji-badge {
-    flex-shrink: 1;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .section-panel {
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.6rem;
   }
 }
 
