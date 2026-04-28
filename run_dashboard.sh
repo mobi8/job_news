@@ -5,6 +5,7 @@ WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
 SKIP_SCRAPE="${NO_SCRAPE:-0}"
 JOBS_DIR="${WORKDIR}/outputs"
+VENV_DIR="${WORKDIR}/venv"
 
 UVICORN_PID=""
 VITE_PID=""
@@ -12,7 +13,21 @@ SCRAPER_PID=""
 SCRAPER_TAIL_PID=""
 WATCH_LOOP_PID=""
 TELEGRAM_POLLER_PID=""
+TELEGRAM_SCRAPER_PID=""
 CLEANUP_IN_PROGRESS=0
+
+# Setup venv
+if [[ ! -d "${VENV_DIR}" ]]; then
+  echo "Creating Python virtual environment..."
+  python3 -m venv "${VENV_DIR}"
+fi
+
+# Activate venv
+source "${VENV_DIR}/bin/activate"
+
+# Install requirements
+echo "Ensuring dependencies are installed..."
+pip install -q -r "${WORKDIR}/requirements.txt"
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
@@ -71,6 +86,7 @@ kill_matching_processes() {
 # Clean up any older dashboard/watch processes before starting fresh.
 kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
 kill_matching_processes "telegram poller wrapper" "python3 src/api/telegram_poller.py"
+kill_matching_processes "telegram scraper" "src/services/telegram_scraper.py"
 kill_matching_processes "watch loop" "src/watch/loop.py"
 kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
 kill_matching_processes "scraper" "src/watch/scraper.py"
@@ -107,6 +123,13 @@ python3 src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
 TELEGRAM_POLLER_PID=$!
 echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
 sleep 1
+
+# Test Telegram scraper availability
+if python3 -c "import requests; import bs4" 2>/dev/null; then
+  echo "  Telegram scraper dependencies available ✓"
+else
+  echo "  ⚠ Warning: Telegram scraper dependencies not available"
+fi
 
 # Start watch loop directly with caffeinate (keep system awake during long runs)
 cd "${WORKDIR}"

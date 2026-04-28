@@ -28,6 +28,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.db import Database
 from utils.config import WATCH_INTERVAL_MINUTES_DEFAULT
 from utils.logger import watch_logger
+from services.queue_exporter import export_high_scoring_jobs
+from services.telegram_scraper import scrape_and_save
 
 # Updated path: scraper.py is in src/watch/
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
@@ -69,6 +71,25 @@ def run_once() -> int:
     if result.returncode == 0:
         watch_logger.info("✓ Scraper completed with detailed descriptions")
         _console_step("Watcher finished successfully")
+
+        # Scrape Telegram channels
+        try:
+            watch_logger.info("Starting Telegram channel scraping...")
+            tg_result = scrape_and_save(DB_PATH)
+            watch_logger.info(f"Telegram scraping complete: {tg_result['total_saved']} jobs saved")
+            _console_step(f"Telegram: {tg_result['total_saved']} jobs scraped")
+        except Exception as e:
+            watch_logger.error(f"Failed to scrape Telegram channels: {e}")
+            _console_step(f"Telegram scraping failed: {e}")
+
+        # Export high-scoring jobs to career-ops queue
+        try:
+            export_result = export_high_scoring_jobs(DB_PATH, min_score=60)
+            if export_result.get("count", 0) > 0:
+                watch_logger.info(f"Queue export: {export_result['count']} jobs added to career-ops")
+                _console_step(f"Queue updated: {export_result['count']} jobs exported")
+        except Exception as e:
+            watch_logger.error(f"Failed to export queue: {e}")
     else:
         _console_step(f"Watcher finished with exit code {result.returncode}")
 
