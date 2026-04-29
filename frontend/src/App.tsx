@@ -242,45 +242,37 @@ function MetadataBar({ jobsQuery, newsQuery, activeTab }: any) {
   const runStatus = jobsQuery?.data?.collection_metadata?.run_status;
   const batchNewCount = jobsQuery?.data?.collection_metadata?.new_jobs_this_run;
   const batchNewNews = jobsQuery?.data?.collection_metadata?.new_news_this_run;
-  const formattedScrapTime = collectedAt
-    ? new Date(collectedAt).toLocaleString("ko-KR", {
-      month: "2-digit",
-      day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      second: "2-digit",
-      })
-    : "—";
+  const formatCompactTime = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleString("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "—";
 
-  const nextBatchTime = runStatus === "running"
-    ? "진행 중"
-    : nextBatchAt
-    ? new Date(nextBatchAt).toLocaleString("ko-KR", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
-    : "—";
+  const formattedScrapTime = formatCompactTime(collectedAt);
+  const nextBatchTime = runStatus === "running" ? "진행 중" : formatCompactTime(nextBatchAt);
 
   return (
-    <section className="glass-panel metadata-bar">
+    <div className="metadata-bar">
       <div className="metadata-content">
         <div className="metadata-item">
-          <span className="metadata-label">최신 스크랩:</span>
+          <span className="metadata-label">최신</span>
           <span className="metadata-value">{formattedScrapTime}</span>
         </div>
         <div className="metadata-item">
-          <span className="metadata-label">이번 배치 신규:</span>
+          <span className="metadata-label">신규</span>
           <span className="metadata-value">{batchNewCount ?? "—"} 공고 · {batchNewNews ?? "—"} 뉴스</span>
         </div>
         <div className="metadata-item">
-          <span className="metadata-label">다음 배치:</span>
+          <span className="metadata-label">다음</span>
           <span className="metadata-value">{nextBatchTime}</span>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -801,23 +793,27 @@ function App() {
 
   return (
     <div className="app-shell">
-      <div className="main-tabs-row top-tabs">
-        <button
-          className={`main-tab ${activeTab === "jobs" ? "active" : ""}`}
-          onClick={() => setActiveTab("jobs")}
-        >
-          공고 ({jobCount})
-        </button>
-        <button
-          className={`main-tab ${activeTab === "news" ? "active" : ""}`}
-          onClick={() => setActiveTab("news")}
-        >
-          뉴스 ({newsCount})
-        </button>
+      <div className="top-header">
+        <div className="main-tabs-row top-tabs">
+          <button
+            className={`main-tab ${activeTab === "jobs" ? "active" : ""}`}
+            onClick={() => setActiveTab("jobs")}
+          >
+            공고 ({jobCount})
+          </button>
+          <button
+            className={`main-tab ${activeTab === "news" ? "active" : ""}`}
+            onClick={() => setActiveTab("news")}
+          >
+            뉴스 ({newsCount})
+          </button>
+        </div>
+
+        <MetadataBar jobsQuery={jobsQuery} newsQuery={newsQuery} activeTab={activeTab} />
       </div>
 
       {activeTab === "jobs" && (
-        <section className="glass-panel controls-panel compact-panel">
+        <section className="controls-panel">
           <div className="controls-card category-card">
             <CategoryTabs
               mainStatus={mainStatus}
@@ -846,8 +842,6 @@ function App() {
           </div>
         </section>
       )}
-
-      <MetadataBar jobsQuery={jobsQuery} newsQuery={newsQuery} activeTab={activeTab} />
 
       {activeTab === "jobs" && (
         <div className="country-bookmarks">
@@ -878,20 +872,18 @@ function App() {
         </div>
       )}
 
-      <section className="glass-panel section-panel">
-        <ContentSection
-          jobsData={jobsQuery.data}
-          jobsLoading={jobsQuery.isLoading}
-          newsData={newsQuery.data}
-          filters={filters}
-          activeTab={activeTab}
-          mainStatus={mainStatus}
-          subStatus={subStatus}
-          jobStatuses={jobStatuses}
-          onUpdateJobStatus={updateJobStatus}
-          onJobCardClick={openJobDetail}
-        />
-      </section>
+      <ContentSection
+        jobsData={jobsQuery.data}
+        jobsLoading={jobsQuery.isLoading}
+        newsData={newsQuery.data}
+        filters={filters}
+        activeTab={activeTab}
+        mainStatus={mainStatus}
+        subStatus={subStatus}
+        jobStatuses={jobStatuses}
+        onUpdateJobStatus={updateJobStatus}
+        onJobCardClick={openJobDetail}
+      />
 
       <JobDetailModal
         job={selectedJobDetail}

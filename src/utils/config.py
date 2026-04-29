@@ -132,6 +132,9 @@ INDEED_SEARCH_KEYWORDS = [
     "wallet",
 ]
 
+# Glassdoor shares the same broad search buckets as Indeed in this project.
+GLASSDOOR_SEARCH_KEYWORDS = INDEED_SEARCH_KEYWORDS
+
 # Google Jobs keeps the broader, current-style probes. We convert these into google_search_term
 # queries so each keyword bucket stays visible and easy to compare against LinkedIn / Indeed.
 GOOGLE_SEARCH_KEYWORDS = [

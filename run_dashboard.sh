@@ -37,9 +37,26 @@ fi
 # Activate venv
 source "${VENV_DIR}/bin/activate"
 
-# Install requirements
-echo "Ensuring dependencies are installed..."
-pip install -q -r "${WORKDIR}/requirements.txt"
+install_requirements() {
+  echo "Ensuring dependencies are installed..."
+  python -m pip install -q -r "${WORKDIR}/requirements.txt"
+}
+
+rebuild_venv() {
+  echo "  ⚠ rebuilding Python virtual environment..."
+  rm -rf "${VENV_DIR}"
+  python3 -m venv "${VENV_DIR}"
+  source "${VENV_DIR}/bin/activate"
+}
+
+if ! install_requirements; then
+  echo "  ⚠ dependency install failed, rebuilding venv and retrying..."
+  rebuild_venv
+  if ! install_requirements; then
+    echo "  ✖ dependency install failed after venv rebuild"
+    exit 1
+  fi
+fi
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
