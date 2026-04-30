@@ -34,6 +34,17 @@ if [[ $venv_needs_rebuild -eq 1 ]]; then
   python3 -m venv "${VENV_DIR}"
 fi
 
+# Some Python installs ship a venv with a half-broken pip bootstrap. Re-run ensurepip
+# so the dashboard can recover without looping on a corrupt pip install.
+if ! "${VENV_DIR}/bin/python3" -m ensurepip --upgrade >/dev/null 2>&1; then
+  echo "  ⚠ ensurepip bootstrap failed, retrying with a clean venv..."
+  rm -rf "${VENV_DIR}"
+  python3 -m venv "${VENV_DIR}"
+  "${VENV_DIR}/bin/python3" -m ensurepip --upgrade >/dev/null 2>&1 || true
+fi
+
+"${VENV_DIR}/bin/python3" -m pip install --upgrade --quiet pip setuptools wheel >/dev/null 2>&1 || true
+
 # Activate venv
 source "${VENV_DIR}/bin/activate"
 
@@ -46,6 +57,8 @@ rebuild_venv() {
   echo "  ⚠ rebuilding Python virtual environment..."
   rm -rf "${VENV_DIR}"
   python3 -m venv "${VENV_DIR}"
+  "${VENV_DIR}/bin/python3" -m ensurepip --upgrade >/dev/null 2>&1 || true
+  "${VENV_DIR}/bin/python3" -m pip install --upgrade --quiet pip setuptools wheel >/dev/null 2>&1 || true
   source "${VENV_DIR}/bin/activate"
 }
 
@@ -59,6 +72,17 @@ if ! install_requirements; then
 fi
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
+
+# Keep browser-based scraping conservative during the dashboard run so one slow
+# LinkedIn batch does not starve the rest of the pipeline.
+export BROWSER_BATCH_WORKERS="${BROWSER_BATCH_WORKERS:-1}"
+export BROWSER_LINKEDIN_BATCH_SIZE="${BROWSER_LINKEDIN_BATCH_SIZE:-1}"
+export BROWSER_INDEED_BATCH_SIZE="${BROWSER_INDEED_BATCH_SIZE:-1}"
+export BROWSER_GLASSDOOR_BATCH_SIZE="${BROWSER_GLASSDOOR_BATCH_SIZE:-1}"
+export BROWSER_GLASSDOOR_BATCH_WORKERS=1
+# Keep the dashboard bootstrap scrape light. Glassdoor stays on the separate
+# batch path so a manual dashboard run does not burn extra Browserless units.
+export DASHBOARD_STARTUP_SOURCES="${DASHBOARD_STARTUP_SOURCES:-jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,jobrapido_uae,jobleads,linkedin_public,indeed_uae}"
 
 echo "Starting Job Watch backend + frontend + watch loop..."
 
@@ -112,19 +136,31 @@ kill_matching_processes() {
   terminate_pids "$label" "${pids[@]}"
 }
 
+cleanup_stale_state() {
+  echo "  Cleaning up stale watch processes from a previous run..."
+  kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
+  kill_matching_processes "telegram poller wrapper" "python3 src/api/telegram_poller.py"
+  kill_matching_processes "telegram scraper" "src/services/telegram_scraper.py"
+  kill_matching_processes "watch loop" "src/watch/loop.py"
+  kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
+  kill_matching_processes "scraper" "src/watch/scraper.py"
+  kill_matching_processes "scraper collect wrapper" "python3 src/watch/scraper.py collect"
+  kill_matching_processes "glassdoor batch" "src/watch/glassdoor_batch.py"
+  kill_matching_processes "glassdoor browserless probe" "browserless_glassdoor_probe.js"
+  kill_matching_processes "browser probe" "browser_probe.js"
+  kill_matching_processes "playwright chrome profile" "chrome-profile-"
+  kill_matching_processes "scraper log tail" "job_watch_scraper.log"
+  kill_matching_processes "backend" "uvicorn src.api.app:app"
+  kill_matching_processes "frontend" "frontend/.bin/vite"
+  kill_matching_processes "frontend wrapper" "node_modules/.bin/vite"
+
+  rm -f "${WORKDIR}/outputs/watch_loop.lock" \
+        "${WORKDIR}/outputs/scrape_run.lock" \
+        "${WORKDIR}/outputs/job_watch_scraper.log"
+}
+
 # Clean up any older dashboard/watch processes before starting fresh.
-kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
-kill_matching_processes "telegram poller wrapper" "python3 src/api/telegram_poller.py"
-kill_matching_processes "telegram scraper" "src/services/telegram_scraper.py"
-kill_matching_processes "watch loop" "src/watch/loop.py"
-kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
-kill_matching_processes "scraper" "src/watch/scraper.py"
-kill_matching_processes "scraper collect wrapper" "python3 src/watch/scraper.py collect"
-kill_matching_processes "browser probe" "browser_probe.js"
-kill_matching_processes "playwright chrome profile" "chrome-profile-"
-kill_matching_processes "backend" "uvicorn src.api.app:app"
-kill_matching_processes "frontend" "frontend/.bin/vite"
-kill_matching_processes "frontend wrapper" "node_modules/.bin/vite"
+cleanup_stale_state
 
 if lsof -ti:8000 >/dev/null 2>&1; then
   terminate_pids "port 8000 listener" $(lsof -ti:8000)
@@ -180,7 +216,7 @@ if [[ "${SKIP_SCRAPE}" != "1" ]]; then
   echo "Running scraper (with detailed descriptions) in background..."
   cd "${WORKDIR}"
   touch /tmp/job_watch_scraper.log
-  python3 src/watch/scraper.py collect > /tmp/job_watch_scraper.log 2>&1 &
+  JOB_WATCH_SOURCES="${DASHBOARD_STARTUP_SOURCES}" python3 src/watch/scraper.py collect > /tmp/job_watch_scraper.log 2>&1 &
   SCRAPER_PID=$!
   echo "  Scraper started (PID: $SCRAPER_PID)"
   tail -n +1 -f /tmp/job_watch_scraper.log &
@@ -200,8 +236,8 @@ for port in 4173 4174 4175 4176 4177; do
   fi
 done
 
-echo "✓ Dashboard ready at http://localhost:$VITE_PORT/"
-open "http://localhost:$VITE_PORT/" 2>/dev/null || xdg-open "http://localhost:$VITE_PORT/" 2>/dev/null || echo "  Please open http://localhost:$VITE_PORT/ in your browser"
+echo "✓ Dashboard ready at http://127.0.0.1:$VITE_PORT/"
+open "http://127.0.0.1:$VITE_PORT/" 2>/dev/null || xdg-open "http://127.0.0.1:$VITE_PORT/" 2>/dev/null || echo "  Please open http://127.0.0.1:$VITE_PORT/ in your browser"
 
 cleanup() {
   if [[ $CLEANUP_IN_PROGRESS -eq 1 ]]; then

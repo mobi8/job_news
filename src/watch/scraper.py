@@ -34,7 +34,9 @@ from typing import Dict, Any, List
 
 # JobSpy for Indeed scraping
 try:
-    sys.path.insert(0, '/Users/lewis/Desktop/agent/jobspy_env/lib/python3.14/site-packages')
+    jobspy_site_packages = '/Users/lewis/Desktop/agent/jobspy_env/lib/python3.14/site-packages'
+    if jobspy_site_packages not in sys.path:
+        sys.path.insert(0, jobspy_site_packages)
     from jobspy import scrape_jobs
 except ImportError:
     scrape_jobs = None
@@ -93,6 +95,7 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_glassdoor_jobs_via_browserless,
     fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
@@ -166,6 +169,16 @@ def _row_value(row: Any, *names: str, default: Any = "") -> Any:
         if not _is_missing_value(value):
             return value
     return default
+
+
+def _source_allowed(allowed_sources: set[str] | None, source: str) -> bool:
+    return allowed_sources is None or source in allowed_sources
+
+
+def _any_source_allowed(allowed_sources: set[str] | None, *sources: str) -> bool:
+    if allowed_sources is None:
+        return True
+    return any(source in allowed_sources for source in sources)
 
 
 @contextmanager
@@ -304,6 +317,9 @@ def _run_jobspy_query(
     country_indeed: str | None = None,
     google_search_term: str | None = None,
 ) -> Any:
+    if not scrape_jobs:
+        raise ImportError("JobSpy not available")
+
     kwargs: Dict[str, Any] = {
         "site_name": site_name,
         "search_term": search_term,
@@ -553,6 +569,22 @@ def scrape_indeed_via_browser() -> list:
         return []
 
 
+def scrape_glassdoor_via_browserless() -> list:
+    """Scrape Glassdoor jobs via Browserless."""
+    try:
+        _console_step("Browser phase starting: Glassdoor")
+        glassdoor_jobs = fetch_glassdoor_jobs_via_browserless()
+        logger.info(
+            "Collected %s Glassdoor browserless jobs",
+            len(glassdoor_jobs),
+        )
+        _console_step(f"Browser phase finished: Glassdoor={len(glassdoor_jobs)}")
+        return glassdoor_jobs
+    except Exception as e:
+        logger.error(f"Error scraping Glassdoor via browserless probe: {e}")
+        return []
+
+
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
@@ -643,26 +675,56 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
             sources.append(("Telegram public channels", telegram_jobs))
 
-        # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
+        # Scrape browser-based sources in separate phases so one slow provider does not block another.
         _console_step("Starting browser scrape pass")
-        browser_linkedin_jobs = scrape_linkedin_via_browser()
-        browser_indeed_jobs = scrape_indeed_via_browser()
+        browser_linkedin_jobs = []
+        if _any_source_allowed(allowed_sources, "linkedin_public", "linkedin_georgia", "linkedin_malta"):
+            browser_linkedin_jobs = scrape_linkedin_via_browser()
 
+        browser_indeed_jobs = []
+        if _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
+            browser_indeed_jobs = scrape_indeed_via_browser()
+
+        glassdoor_executor = None
+        glassdoor_future = None
+        if _source_allowed(allowed_sources, "glassdoor_uae"):
+            glassdoor_executor = ProcessPoolExecutor(max_workers=1)
+            glassdoor_future = glassdoor_executor.submit(scrape_glassdoor_via_browserless)
+            logger.info("Submitted Glassdoor browserless scrape to a separate process.")
+
+        browser_glassdoor_jobs = []
+        if glassdoor_future is not None:
+            _console_step("Waiting for Glassdoor browserless result")
+            try:
+                browser_glassdoor_jobs = glassdoor_future.result()
+            except Exception as exc:
+                logger.error("Error collecting Glassdoor browserless result: %s", exc)
+                browser_glassdoor_jobs = []
+            finally:
+                if glassdoor_executor is not None:
+                    glassdoor_executor.shutdown(wait=False, cancel_futures=True)
         # Keep JobSpy as a second pass for Indeed coverage.
-        _console_step("Starting JobSpy scrape pass")
-        jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
+        jobspy_indeed_jobs = []
+        if _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
+            _console_step("Starting JobSpy scrape pass")
+            jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
 
         linkedin_jobs = browser_linkedin_jobs
+        glassdoor_jobs = browser_glassdoor_jobs
         browser_indeed_jobs_filtered = browser_indeed_jobs
         jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
             linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
+            glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
 
         if linkedin_jobs:
             sources.append(("LinkedIn browser", linkedin_jobs))
+
+        if glassdoor_jobs:
+            sources.append(("Glassdoor browserless", glassdoor_jobs))
 
         if browser_indeed_jobs_filtered:
             sources.append(("Indeed browser", browser_indeed_jobs_filtered))
@@ -867,6 +929,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         _console_step(f"Scrape run complete: {inserted} new jobs, {news_inserted} new news")
         return payload
     except Exception:
+        if "glassdoor_executor" in locals() and glassdoor_executor is not None:
+            glassdoor_executor.shutdown(wait=False, cancel_futures=True)
         logger.exception("Scrape run failed")
         save_scrape_state(
             mode,

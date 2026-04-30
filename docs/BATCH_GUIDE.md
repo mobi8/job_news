@@ -78,13 +78,9 @@ python3 services_status.py json
 
 ## 자동 실행 (cron)
 
-### 방법 1: cron으로 매일 배치 실행
+### 방법 1: 메인 배치만 유지
 ```bash
-# 매일 자정
-0 0 * * * cd /Users/lewis/Desktop/agent && python3 batch_scheduler.py >> /tmp/agent_batch.log 2>&1
-
-# 매일 오전 8시
-0 8 * * * cd /Users/lewis/Desktop/agent && python3 batch_scheduler.py >> /tmp/agent_batch.log 2>&1
+# 메인 워처는 기존 `src/watch/loop.py` 또는 `run_dashboard.sh` 흐름을 그대로 유지
 ```
 
 ### 방법 2: incremental을 더 자주 실행
@@ -130,11 +126,11 @@ cat outputs/scrape_state.json | jq .last_at
 
 ### 일반적인 운영
 ```
-매일 자정:    python3 batch_scheduler.py
-              (collect + incremental + daily 순서 실행)
+메인 워처:    python3 src/watch/loop.py
+              (Glassdoor 제외, 나머지 소스는 계속 수집)
 
-매 3시간:     python3 batch_scheduler.py incremental
-              (신규 공고 빠르게 수집)
+Glassdoor:    ./run_glassdoor.sh
+              (수동 실행 전용)
 ```
 
 ### 첫 실행 (Cold Start)
@@ -164,6 +160,7 @@ Visualization (http://127.0.0.1:8765)
 - **AI 인사이트**: 24시간 파일 캐싱으로 API 호출 최소화
 - **DB 쿼리**: 인덱싱 완료 (source_job_id)
 - **스크래핑**: 병렬 처리 (RSS) + Playwright headless (브라우저)
+- **Glassdoor**: 수동 실행 전용으로 분리
 
 ---
 
