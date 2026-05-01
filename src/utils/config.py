@@ -38,6 +38,7 @@ BROWSER_LOOKBACK_HOURS = _env_int("BROWSER_LOOKBACK_HOURS", BROWSER_LOOKBACK_HOU
 JOBVITE_URL = "https://jobs.jobvite.com/pragmaticplay/jobs"
 SMARTRECRUITMENT_URL = "https://jobs.smartrecruitment.com/jobs?department_id=20888"
 IGAMING_RECRUITMENT_URL = "https://igamingrecruitment.io/jobs/"
+GAMBLINGCAREERS_REMOTE_URL = "https://www.gamblingcareers.com/cities/remote-jobs/"
 JOBRAPIDO_URL = "https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all"
 JOBLEADS_URL = "https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2"
 TELEGRAM_CHANNELS = [
@@ -59,6 +60,36 @@ TELEGRAM_CHANNELS = [
     # },
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
+GLASSDOOR_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_glassdoor_probe.js")
+
+
+def _glassdoor_dubai_keyword_url(keyword: str) -> str:
+    slug = keyword.strip().lower().replace(" ", "-")
+    start = 6
+    end = start + len(slug)
+    return f"https://www.glassdoor.com/Job/dubai-{slug}-jobs-SRCH_IL.0,5_IC2204498_KO{start},{end}.htm"
+
+
+def _glassdoor_uae_keyword_url(keyword: str) -> str:
+    slug = keyword.strip().lower().replace(" ", "-")
+    end = len(slug)
+    return f"https://www.glassdoor.com/Job/{slug}-jobs-SRCH_IN6_KO0,{end}.htm"
+
+
+GLASSDOOR_BROWSERLESS_KEYWORDS = [
+    "crypto",
+    "igaming",
+    "payment",
+    "wallet",
+    "compliance",
+    "product",
+]
+GLASSDOOR_BROWSERLESS_SEARCH_URLS = [
+    _glassdoor_dubai_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
+] + [
+    _glassdoor_uae_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
+]
+
 INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=korean&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=payment+OR+crypto+OR+igaming+OR+neobanking&l=dubai&sort=date",
@@ -83,6 +114,39 @@ LINKEDIN_SEARCH_URLS = [
     # 모바일 게임 관련 검색
     "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine%20OR%20DTC&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist%20OR%20DTC&location=United%20Arab%20Emirates",
+    "https://www.linkedin.com/company/gamblingcareers/jobs/",
+]
+
+LINKEDIN_SEARCH_URLS += [
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=igaming&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=custody%20OR%20digital%20asset%20OR%20digital%20assets%20OR%20digital%20asset%20custody%20OR%20stable%20coin%20OR%20game%20OR%20gaming&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=casino%20OR%20gaming%20resort%20OR%20wynn%20OR%20al%20marjan%20OR%20IT%20product%20manager&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20coinbase%20OR%20kraken%20OR%20bitget%20OR%20gate.io%20OR%20kucoin%20OR%20htx%20OR%20crypto.com%20OR%20mexc&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=payments%20engineer%20OR%20payments%20developer%20OR%20crypto%20payments%20OR%20stablecoin&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=sales%20manager%20OR%20business%20development%20OR%20account%20manager&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=wallet%20specialist%20OR%20exchange%20operations%20OR%20digital%20asset%20operations&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine%20OR%20DTC&location=Georgia",
+    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist%20OR%20DTC&location=Georgia",
+]
+
+LINKEDIN_SEARCH_URLS += [
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=igaming&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=custody%20OR%20digital%20asset%20OR%20digital%20assets%20OR%20digital%20asset%20custody%20OR%20stable%20coin%20OR%20game%20OR%20gaming&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=casino%20OR%20gaming%20resort%20OR%20wynn%20OR%20al%20marjan%20OR%20IT%20product%20manager&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20coinbase%20OR%20kraken%20OR%20bitget%20OR%20gate.io%20OR%20kucoin%20OR%20htx%20OR%20crypto.com%20OR%20mexc&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=payments%20engineer%20OR%20payments%20developer%20OR%20crypto%20payments%20OR%20stablecoin&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=sales%20manager%20OR%20business%20development%20OR%20account%20manager&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=wallet%20specialist%20OR%20exchange%20operations%20OR%20digital%20asset%20operations&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal%20OR%20game%20engine%20OR%20DTC&location=Malta",
+    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20indie%20game%20OR%20game%20design%20OR%20game%20artist%20OR%20DTC&location=Malta",
 ]
 
 # Search keywords are intentionally kept compact so each batch stays lighter and
@@ -133,8 +197,6 @@ INDEED_SEARCH_KEYWORDS = [
 ]
 
 # Glassdoor shares the same broad search buckets as Indeed in this project.
-GLASSDOOR_SEARCH_KEYWORDS = INDEED_SEARCH_KEYWORDS
-
 # Google Jobs keeps the broader, current-style probes. We convert these into google_search_term
 # queries so each keyword bucket stays visible and easy to compare against LinkedIn / Indeed.
 GOOGLE_SEARCH_KEYWORDS = [
