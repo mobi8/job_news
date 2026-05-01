@@ -127,10 +127,10 @@ cat outputs/scrape_state.json | jq .last_at
 ### 일반적인 운영
 ```
 메인 워처:    python3 src/watch/loop.py
-              (Glassdoor 제외, 나머지 소스는 계속 수집)
+              (browserless 제외, 나머지 소스는 계속 수집)
 
-Glassdoor:    ./run_glassdoor.sh
-              (수동 실행 전용)
+Browserless:   ./run_browserless.sh
+              (Glassdoor + Indeed browserless 수동 실행 전용)
 ```
 
 ### 첫 실행 (Cold Start)
@@ -160,7 +160,7 @@ Visualization (http://127.0.0.1:8765)
 - **AI 인사이트**: 24시간 파일 캐싱으로 API 호출 최소화
 - **DB 쿼리**: 인덱싱 완료 (source_job_id)
 - **스크래핑**: 병렬 처리 (RSS) + Playwright headless (브라우저)
-- **Glassdoor**: 수동 실행 전용으로 분리
+- **Browserless**: 수동 실행 전용으로 분리
 
 ---
 

@@ -15,7 +15,11 @@ import "./App.css";
 const filterOptions = [
   { label: "전체", value: "" },
   { label: "LinkedIn Public", value: "linkedin_public" },
+  { label: "Glassdoor UAE", value: "glassdoor_uae" },
+  { label: "GamblingCareers Remote", value: "gamblingcareers_remote" },
+  { label: "Himalayas iGaming", value: "himalayas_igaming" },
   { label: "Indeed UAE", value: "indeed_uae" },
+  { label: "Indeed Browserless UAE", value: "indeed_browserless_uae" },
   { label: "Jobvite (Pragmatic Play)", value: "jobvite_pragmaticplay" },
   { label: "Jobrapido UAE", value: "jobrapido_uae" },
   { label: "LinkedIn Malta", value: "linkedin_malta" },
@@ -28,6 +32,7 @@ const filterOptions = [
 const countryOptions = [
   { label: "전체 국가", value: "" },
   { label: "UAE", value: "UAE" },
+  { label: "Remote", value: "Remote" },
   { label: "Georgia", value: "Georgia" },
   { label: "Malta", value: "Malta" },
 ];

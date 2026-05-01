@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import html
+import http.client
 import logging
 import os
+import json
+import socket
+import ssl
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
@@ -24,6 +28,8 @@ from .logger import notifications_logger
 from .template_renderer import render_template
 
 logger = notifications_logger
+_TELEGRAM_API_HOST = "api.telegram.org"
+_TELEGRAM_DOH_URL = "https://cloudflare-dns.com/dns-query?name=api.telegram.org&type=A"
 
 SOURCE_COUNTRY_OVERRIDES = {
     "jobvite_pragmaticplay": "UAE",
@@ -35,16 +41,19 @@ SOURCE_COUNTRY_OVERRIDES = {
     "telegram_cryptojobslist": "UAE",
     "telegram_hr1win": "UAE",
     "indeed_uae": "UAE",
+    "indeed_browserless_uae": "UAE",
     "indeed_georgia": "Georgia",
     "indeed_malta": "Malta",
     "linkedin_public": "UAE",
     "linkedin_jobspy": "UAE",
     "linkedin_malta": "Malta",
     "linkedin_georgia": "Georgia",
+    "glassdoor_uae": "UAE",
     "indeed_jobspy": "UAE",
     "google_uae": "UAE",
     "google_georgia": "Georgia",
     "google_malta": "Malta",
+    "himalayas_igaming": "Remote",
 }
 
 
@@ -83,6 +92,8 @@ def country_label_for_job(job: Any) -> str:
             return "Malta"
         if lowered in {"georgia"}:
             return "Georgia"
+        if lowered in {"remote"}:
+            return "Remote"
     source = _job_attr(job, "source").lower()
     if not source:
         return ""
@@ -184,6 +195,106 @@ def _job_score(job: Any) -> int:
         return 0
 
 
+def _is_dns_resolution_error(exc: Exception) -> bool:
+    if isinstance(exc, socket.gaierror):
+        return True
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, socket.gaierror):
+        return True
+    message = str(exc).lower()
+    return "nodename nor servname provided" in message or "name or service not known" in message
+
+
+def _resolve_telegram_api_ips() -> List[str]:
+    request = urllib.request.Request(
+        _TELEGRAM_DOH_URL,
+        headers={"Accept": "application/dns-json", "User-Agent": "Mozilla/5.0"},
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    answers = payload.get("Answer", []) if isinstance(payload, dict) else []
+    ips = []
+    for answer in answers:
+        if not isinstance(answer, dict):
+            continue
+        data = answer.get("data", "")
+        if isinstance(data, str) and data:
+            ips.append(data)
+    return ips
+
+
+def _post_telegram_payload(token: str, payload: bytes, timeout: int = 20) -> None:
+    request = urllib.request.Request(
+        f"https://{_TELEGRAM_API_HOST}/bot{token}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout):
+        return
+
+
+class _HTTPSConnectionWithSNI(http.client.HTTPSConnection):
+    def __init__(self, connect_host: str, server_hostname: str, *args: Any, **kwargs: Any):
+        super().__init__(connect_host, *args, **kwargs)
+        self._server_hostname = server_hostname
+
+    def connect(self) -> None:
+        sock = socket.create_connection((self.host, self.port), self.timeout, self.source_address)
+        context = self._context if self._context is not None else ssl.create_default_context()
+        self.sock = context.wrap_socket(sock, server_hostname=self._server_hostname)
+
+
+def _post_telegram_payload_via_ip(token: str, payload: bytes, timeout: int = 20) -> None:
+    ips = _resolve_telegram_api_ips()
+    if not ips:
+        raise socket.gaierror("Telegram DNS resolution returned no A records")
+
+    last_exc: Exception | None = None
+    for ip in ips[:3]:
+        conn: _HTTPSConnectionWithSNI | None = None
+        try:
+            conn = _HTTPSConnectionWithSNI(ip, _TELEGRAM_API_HOST, timeout=timeout)
+            conn.request(
+                "POST",
+                f"/bot{token}/sendMessage",
+                body=payload,
+                headers={
+                    "Host": _TELEGRAM_API_HOST,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+            )
+            response = conn.getresponse()
+            response.read()
+            if response.status >= 200 and response.status < 300:
+                return
+            last_exc = RuntimeError(f"Telegram API returned HTTP {response.status}")
+        except Exception as exc:
+            last_exc = exc
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    if last_exc is not None:
+        raise last_exc
+
+
+def _send_telegram_payload(token: str, payload: bytes, timeout: int = 20) -> None:
+    try:
+        _post_telegram_payload(token, payload, timeout=timeout)
+    except Exception as exc:
+        if not _is_dns_resolution_error(exc):
+            raise
+        logger.warning(
+            "Telegram DNS lookup failed for %s; retrying through resolved IPs.",
+            _TELEGRAM_API_HOST,
+        )
+        _post_telegram_payload_via_ip(token, payload, timeout=timeout)
+
+
 def _prepare_notification_jobs(jobs: List[Any]) -> List[Dict[str, Any]]:
     normalized = []
     for job in jobs:
@@ -223,16 +334,11 @@ def send_telegram_text(text: str) -> bool:
         }
     ).encode("utf-8")
 
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=payload,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
     last_exc: Exception | None = None
     for attempt in range(1, 3):
         try:
-            with urllib.request.urlopen(request, timeout=20):
-                logger.info("Telegram notification sent.")
+            _send_telegram_payload(token, payload, timeout=20)
+            logger.info("Telegram notification sent.")
             return True
         except Exception as exc:
             last_exc = exc
@@ -292,11 +398,7 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
             "disable_web_page_preview": "true", "reply_markup": reply_markup,
         }).encode("utf-8")
         try:
-            req = urllib.request.Request(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            urllib.request.urlopen(req, timeout=10)
+            _send_telegram_payload(token, payload, timeout=10)
             logger.info("Sent analysis card: %s - %s", company, title)
         except Exception as e:
             logger.warning("Failed to send analysis card: %s", e)

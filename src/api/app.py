@@ -206,7 +206,7 @@ def job_matches_filters(
 def get_jobs(
     source: Optional[str] = Query(
         None,
-        description="소스 이름 (e.g., linkedin_public, indeed_uae, telegram_job_crypto_uae)",
+        description="소스 이름 (e.g., linkedin_public, indeed_uae, indeed_browserless_uae, glassdoor_uae, gamblingcareers_remote, himalayas_igaming)",
     ),
     country: Optional[str] = Query(None, description="국가명 (예: UAE, Georgia, Malta)"),
     q: Optional[str] = Query(None, description="제목·회사·지역 검색"),

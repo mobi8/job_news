@@ -58,17 +58,19 @@ kill_matching_processes() {
   terminate_pids "$label" "${pids[@]}"
 }
 
-echo "Cleaning up stale Glassdoor runs..."
-kill_matching_processes "glassdoor batch" "src/watch/glassdoor_batch.py"
-kill_matching_processes "glassdoor scraper" "src/watch/scraper.py collect"
-kill_matching_processes "glassdoor browserless probe" "browserless_glassdoor_probe.js"
-kill_matching_processes "browser probe" "browser_probe.js"
+echo "Cleaning up stale browserless runs..."
+kill_matching_processes "browserless glassdoor probe" "browserless_glassdoor_probe.js"
+kill_matching_processes "browserless indeed probe" "browserless_indeed_probe.js"
+kill_matching_processes "browserless scraper" "src/watch/scraper.py collect"
 kill_matching_processes "playwright chrome profile" "chrome-profile-"
 rm -f "${WORKDIR}/outputs/scrape_run.lock"
 
 cd "${WORKDIR}"
+JOB_WATCH_SOURCES="${JOB_WATCH_SOURCES:-glassdoor_uae,indeed_browserless_uae}"
+export BROWSER_BATCH_WORKERS="${BROWSER_BATCH_WORKERS:-1}"
+export BROWSER_INDEED_BATCH_SIZE="${BROWSER_INDEED_BATCH_SIZE:-1}"
 if command -v caffeinate >/dev/null 2>&1; then
-  exec caffeinate -s env JOB_WATCH_SOURCES="glassdoor_uae" "${PYTHON_BIN}" src/watch/glassdoor_batch.py
+  exec caffeinate -s env JOB_WATCH_SOURCES="${JOB_WATCH_SOURCES}" SKIP_NEWS_COLLECTION="1" "${PYTHON_BIN}" src/watch/scraper.py collect
 fi
 
-exec env JOB_WATCH_SOURCES="glassdoor_uae" "${PYTHON_BIN}" src/watch/glassdoor_batch.py
+exec env JOB_WATCH_SOURCES="${JOB_WATCH_SOURCES}" SKIP_NEWS_COLLECTION="1" "${PYTHON_BIN}" src/watch/scraper.py collect

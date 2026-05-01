@@ -1020,7 +1020,11 @@ def save_dashboard(
             <option value="linkedin_public">LinkedIn</option>
             <option value="linkedin_georgia">LinkedIn Georgia</option>
             <option value="linkedin_malta">LinkedIn Malta</option>
+            <option value="glassdoor_uae">Glassdoor UAE</option>
+            <option value="gamblingcareers_remote">GamblingCareers Remote</option>
+            <option value="himalayas_igaming">Himalayas iGaming</option>
             <option value="indeed_uae">Indeed UAE</option>
+            <option value="indeed_browserless_uae">Indeed Browserless UAE</option>
             <option value="indeed_georgia">Indeed Georgia</option>
             <option value="indeed_malta">Indeed Malta</option>
             <option value="google_uae">Google UAE</option>

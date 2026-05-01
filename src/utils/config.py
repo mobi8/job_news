@@ -38,7 +38,12 @@ BROWSER_LOOKBACK_HOURS = _env_int("BROWSER_LOOKBACK_HOURS", BROWSER_LOOKBACK_HOU
 JOBVITE_URL = "https://jobs.jobvite.com/pragmaticplay/jobs"
 SMARTRECRUITMENT_URL = "https://jobs.smartrecruitment.com/jobs?department_id=20888"
 IGAMING_RECRUITMENT_URL = "https://igamingrecruitment.io/jobs/"
-GAMBLINGCAREERS_REMOTE_URL = "https://www.gamblingcareers.com/cities/remote-jobs/"
+GAMBLINGCAREERS_REMOTE_URL = "https://www.gamblingcareers.com/jobs/?q=&l=Remote"
+GAMBLINGCAREERS_REMOTE_FALLBACK_URLS = [
+    "https://www.gamblingcareers.com/cities/remote-jobs/",
+]
+HIMALAYAS_IGAMING_URL = "https://himalayas.app/jobs/igaming"
+HIMALAYAS_IGAMING_API_URL = "https://himalayas.app/jobs/api/search?q=igaming&worldwide=true&sort=recent"
 JOBRAPIDO_URL = "https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all"
 JOBLEADS_URL = "https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2"
 TELEGRAM_CHANNELS = [
@@ -61,6 +66,7 @@ TELEGRAM_CHANNELS = [
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 GLASSDOOR_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_glassdoor_probe.js")
+INDEED_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_indeed_probe.js")
 
 
 def _glassdoor_dubai_keyword_url(keyword: str) -> str:
@@ -81,12 +87,10 @@ GLASSDOOR_BROWSERLESS_KEYWORDS = [
     "igaming",
     "payment",
     "wallet",
-    "compliance",
+    "digital asset",
     "product",
 ]
 GLASSDOOR_BROWSERLESS_SEARCH_URLS = [
-    _glassdoor_dubai_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
-] + [
     _glassdoor_uae_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
 ]
 
@@ -98,6 +102,15 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=custody+OR+digital+asset+OR+digital+assets+OR+digital+asset+custody+OR+stable+coin+OR+game+OR+gaming&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=casino+OR+gaming+resort+OR+wynn+OR+al+marjan+OR+IT+product+manager&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+coinbase+OR+kraken+OR+bitget+OR+gate.io+OR+kucoin+OR+htx+OR+crypto.com+OR+mexc&l=united+arab+emirates&sort=date",
+]
+
+
+def _indeed_uae_browserless_url(url: str) -> str:
+    return url.replace("l=dubai", "l=united+arab+emirates")
+
+
+INDEED_BROWSERLESS_SEARCH_URLS = [
+    _indeed_uae_browserless_url(url) for url in INDEED_SEARCH_URLS
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",

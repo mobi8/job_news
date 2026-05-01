@@ -17,6 +17,7 @@ LOCK_PATH = "/Users/lewis/Desktop/agent/outputs/scrape_run.lock"
 def _run_glassdoor_batch() -> int:
     env = os.environ.copy()
     env["JOB_WATCH_SOURCES"] = "glassdoor_uae"
+    env["SKIP_NEWS_COLLECTION"] = "1"
     env.setdefault("BROWSER_GLASSDOOR_BATCH_SIZE", "1")
     env.setdefault("BROWSER_GLASSDOOR_BATCH_WORKERS", "1")
 

@@ -82,7 +82,7 @@ export BROWSER_GLASSDOOR_BATCH_SIZE="${BROWSER_GLASSDOOR_BATCH_SIZE:-1}"
 export BROWSER_GLASSDOOR_BATCH_WORKERS=1
 # Keep the dashboard bootstrap scrape light. Glassdoor stays on the separate
 # batch path so a manual dashboard run does not burn extra Browserless units.
-export DASHBOARD_STARTUP_SOURCES="${DASHBOARD_STARTUP_SOURCES:-jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,jobrapido_uae,jobleads,linkedin_public,indeed_uae}"
+export DASHBOARD_STARTUP_SOURCES="${DASHBOARD_STARTUP_SOURCES:-jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,jobrapido_uae,jobleads,gamblingcareers_remote,himalayas_igaming,linkedin_public,linkedin_georgia,linkedin_malta,indeed_uae,indeed_browserless_uae}"
 
 echo "Starting Job Watch backend + frontend + watch loop..."
 

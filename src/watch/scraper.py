@@ -95,7 +95,10 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_gamblingcareers_jobs_via_browser,
+    fetch_himalayas_jobs_via_api,
     fetch_glassdoor_jobs_via_browserless,
+    fetch_indeed_jobs_via_browserless,
     fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
@@ -179,6 +182,10 @@ def _any_source_allowed(allowed_sources: set[str] | None, *sources: str) -> bool
     if allowed_sources is None:
         return True
     return any(source in allowed_sources for source in sources)
+
+
+def _skip_news_collection() -> bool:
+    return os.getenv("SKIP_NEWS_COLLECTION", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 @contextmanager
@@ -569,6 +576,54 @@ def scrape_indeed_via_browser() -> list:
         return []
 
 
+def scrape_gamblingcareers_via_browser() -> list:
+    """Scrape GamblingCareers remote jobs via browser probe."""
+    try:
+        _console_step("Browser phase starting: GamblingCareers")
+        gamblingcareers_jobs = fetch_gamblingcareers_jobs_via_browser()
+        logger.info(
+            "Collected %s GamblingCareers browser jobs",
+            len(gamblingcareers_jobs),
+        )
+        _console_step(f"Browser phase finished: GamblingCareers={len(gamblingcareers_jobs)}")
+        return gamblingcareers_jobs
+    except Exception as e:
+        logger.error(f"Error scraping GamblingCareers via browser probe: {e}")
+        return []
+
+
+def scrape_himalayas_igaming() -> list:
+    """Scrape Himalayas iGaming jobs via the public API, with browser fallback."""
+    try:
+        _console_step("Fetching Himalayas board")
+        himalayas_jobs = fetch_himalayas_jobs_via_api()
+        logger.info(
+            "Collected %s Himalayas iGaming jobs",
+            len(himalayas_jobs),
+        )
+        _console_step(f"Finished Himalayas board: Himalayas={len(himalayas_jobs)}")
+        return himalayas_jobs
+    except Exception as e:
+        logger.error(f"Error scraping Himalayas iGaming jobs: {e}")
+        return []
+
+
+def scrape_indeed_via_browserless() -> list:
+    """Scrape Indeed jobs via Browserless."""
+    try:
+        _console_step("Browser phase starting: Indeed browserless")
+        indeed_jobs = fetch_indeed_jobs_via_browserless()
+        logger.info(
+            "Collected %s Indeed browserless jobs",
+            len(indeed_jobs),
+        )
+        _console_step(f"Browser phase finished: Indeed browserless={len(indeed_jobs)}")
+        return indeed_jobs
+    except Exception as e:
+        logger.error(f"Error scraping Indeed browserless jobs: {e}")
+        return []
+
+
 def scrape_glassdoor_via_browserless() -> list:
     """Scrape Glassdoor jobs via Browserless."""
     try:
@@ -675,7 +730,19 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             logger.info("Collected %s jobs from Telegram public channels.", len(telegram_jobs))
             sources.append(("Telegram public channels", telegram_jobs))
 
-        # Scrape browser-based sources in separate phases so one slow provider does not block another.
+        gamblingcareers_jobs = []
+        if _source_allowed(allowed_sources, "gamblingcareers_remote"):
+            _console_step("Fetching GamblingCareers board")
+            logger.info("Fetching GamblingCareers board...")
+            gamblingcareers_jobs = scrape_gamblingcareers_via_browser()
+
+        himalayas_jobs = []
+        if _source_allowed(allowed_sources, "himalayas_igaming"):
+            _console_step("Fetching Himalayas board")
+            logger.info("Fetching Himalayas board...")
+            himalayas_jobs = scrape_himalayas_igaming()
+
+        # Scrape browser-based sources in a later pass so the HTML/API sources finish first.
         _console_step("Starting browser scrape pass")
         browser_linkedin_jobs = []
         if _any_source_allowed(allowed_sources, "linkedin_public", "linkedin_georgia", "linkedin_malta"):
@@ -703,6 +770,10 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             finally:
                 if glassdoor_executor is not None:
                     glassdoor_executor.shutdown(wait=False, cancel_futures=True)
+
+        browserless_indeed_jobs = []
+        if _source_allowed(allowed_sources, "indeed_browserless_uae"):
+            browserless_indeed_jobs = scrape_indeed_via_browserless()
         # Keep JobSpy as a second pass for Indeed coverage.
         jobspy_indeed_jobs = []
         if _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
@@ -711,12 +782,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         linkedin_jobs = browser_linkedin_jobs
         glassdoor_jobs = browser_glassdoor_jobs
+        browserless_indeed_jobs_filtered = browserless_indeed_jobs
         browser_indeed_jobs_filtered = browser_indeed_jobs
         jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
             linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
             glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
+            browserless_indeed_jobs_filtered = [job for job in browserless_indeed_jobs_filtered if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
 
@@ -726,11 +799,20 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if glassdoor_jobs:
             sources.append(("Glassdoor browserless", glassdoor_jobs))
 
+        if browserless_indeed_jobs_filtered:
+            sources.append(("Indeed browserless", browserless_indeed_jobs_filtered))
+
         if browser_indeed_jobs_filtered:
             sources.append(("Indeed browser", browser_indeed_jobs_filtered))
 
         if jobspy_indeed_jobs_filtered:
             sources.append(("Indeed jobspy", jobspy_indeed_jobs_filtered))
+
+        if gamblingcareers_jobs:
+            sources.append(("GamblingCareers", gamblingcareers_jobs))
+
+        if himalayas_jobs:
+            sources.append(("Himalayas iGaming", himalayas_jobs))
 
         jobs = [
             job
@@ -751,13 +833,22 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
 
-        # Collect and store news from RSS feeds
-        news_items = fetch_all_rss_news()
-        player_news_items = fetch_all_player_rss_news()
-        all_news_items = news_items + player_news_items
-        news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
-        logger.info("Collected %d news items (%d industry + %d player), %d new.",
-                    len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+        skip_news_collection = _skip_news_collection()
+        if skip_news_collection:
+            news_items = []
+            player_news_items = []
+            all_news_items = []
+            inserted_news_items = []
+            news_inserted = 0
+            logger.info("Skipping news collection for this run.")
+        else:
+            # Collect and store news from RSS feeds
+            news_items = fetch_all_rss_news()
+            player_news_items = fetch_all_player_rss_news()
+            all_news_items = news_items + player_news_items
+            news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
+            logger.info("Collected %d news items (%d industry + %d player), %d new.",
+                        len(all_news_items), len(news_items), len(player_news_items), news_inserted)
 
         all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
 
@@ -921,7 +1012,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if mode == "collect":
             batch_jobs = [job.to_dict() for job in inserted_jobs]
             maybe_send_telegram(inserted, batch_jobs)
-            send_news_summary(inserted_news_items, db=db)
+            if not skip_news_collection:
+                send_news_summary(inserted_news_items, db=db)
         elif mode == "incremental":
             send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 
