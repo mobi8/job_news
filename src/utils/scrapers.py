@@ -24,8 +24,6 @@ from .config import (
     GLASSDOOR_BROWSERLESS_SEARCH_URLS,
     COMMERCIAL_ROLE_TERMS,
     HIMALAYAS_IGAMING_API_URL,
-    INDEED_BROWSERLESS_PROBE_PATH,
-    INDEED_BROWSERLESS_SEARCH_URLS,
     GAMBLINGCAREERS_REMOTE_URL,
     GAMBLINGCAREERS_REMOTE_FALLBACK_URLS,
     IGAMING_RECRUITMENT_URL,
@@ -1212,76 +1210,6 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
                     title=title,
                     company=clean_text(item.get("company", "")) or "Indeed",
                     location=clean_text(item.get("location", "")),
-                    url=url,
-                    description=clean_text(item.get("description", "")),
-                    remote=bool(item.get("remote", False)),
-                    country=country,
-                    collected_at=collected_at,
-                )
-            )
-
-    return jobs
-
-
-def fetch_indeed_jobs_via_browserless() -> List[JobPosting]:
-    if not INDEED_BROWSERLESS_SEARCH_URLS:
-        return []
-
-    if not INDEED_BROWSERLESS_PROBE_PATH.exists():
-        logger.warning("Indeed Browserless probe script not found at %s", INDEED_BROWSERLESS_PROBE_PATH)
-        return []
-
-    jobs: List[JobPosting] = []
-    seen_urls = set()
-    collected_at = utc_now().isoformat()
-
-    browser_logger.info(
-        "Indeed browserless fetch start: %d urls batch_size=%d",
-        len(INDEED_BROWSERLESS_SEARCH_URLS),
-        BROWSER_INDEED_BATCH_SIZE,
-    )
-    pages = _batch_browserless_fetch(
-        INDEED_BROWSERLESS_PROBE_PATH,
-        INDEED_BROWSERLESS_SEARCH_URLS,
-        batch_size=BROWSER_INDEED_BATCH_SIZE,
-        workers=BROWSER_BATCH_WORKERS,
-    )
-    if not pages:
-        logger.warning("Indeed browserless: no results from browserless fetch")
-        return []
-
-    for search_url, page in zip(INDEED_BROWSERLESS_SEARCH_URLS, pages):
-        for item in page.get("jobs", []):
-            url = clean_text(item.get("url", "").strip())
-            title = clean_text(item.get("title", ""))
-            if not url or not title or url in seen_urls:
-                continue
-
-            seen_urls.add(url)
-            source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
-            location_str = clean_text(item.get("location", "")).lower()
-            search_lower = search_url.lower()
-
-            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "florida", "remote - usa"]):
-                logger.debug("Skipping Indeed browserless job from excluded region: %s", location_str)
-                continue
-
-            country = "UAE"
-            if "malta" in location_str or "valletta" in location_str or "georgia" in location_str or "tbilisi" in location_str:
-                logger.debug("Skipping Indeed browserless job from non-UAE region: %s", location_str)
-                continue
-            if "uae" not in search_lower and "dubai" not in search_lower and "emirates" not in search_lower:
-                # Browserless URLs are intended to be UAE-only; keep the guard for clarity.
-                logger.debug("Skipping Indeed browserless job with unexpected search URL: %s", search_url)
-                continue
-
-            jobs.append(
-                JobPosting(
-                    source="indeed_browserless_uae",
-                    source_job_id=source_job_id,
-                    title=title,
-                    company=clean_text(item.get("company", "")) or "Indeed",
-                    location=clean_text(item.get("location", "")) or "UAE",
                     url=url,
                     description=clean_text(item.get("description", "")),
                     remote=bool(item.get("remote", False)),

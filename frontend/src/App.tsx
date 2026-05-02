@@ -19,7 +19,6 @@ const filterOptions = [
   { label: "GamblingCareers Remote", value: "gamblingcareers_remote" },
   { label: "Himalayas iGaming", value: "himalayas_igaming" },
   { label: "Indeed UAE", value: "indeed_uae" },
-  { label: "Indeed Browserless UAE", value: "indeed_browserless_uae" },
   { label: "Jobvite (Pragmatic Play)", value: "jobvite_pragmaticplay" },
   { label: "Jobrapido UAE", value: "jobrapido_uae" },
   { label: "LinkedIn Malta", value: "linkedin_malta" },

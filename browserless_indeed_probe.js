@@ -227,6 +227,17 @@ async function extractIndeedJobs(page) {
       pageTitle: document.title,
       href: window.location.href,
       jobs,
+      debug: {
+        bodyTextSample: clean(document.body ? document.body.innerText : '').slice(0, 1200),
+        anchorsSample: Array.from(document.querySelectorAll('a'))
+          .map((a) => clean(a.innerText || a.textContent || ''))
+          .filter(Boolean)
+          .slice(0, 40),
+        testIds: Array.from(document.querySelectorAll('[data-testid]'))
+          .map((el) => el.getAttribute('data-testid'))
+          .filter(Boolean)
+          .slice(0, 80),
+      },
     };
   });
 }
@@ -274,6 +285,15 @@ async function main() {
         await page.waitForLoadState('networkidle', { timeout: 2500 }).catch(() => {});
         await page.waitForTimeout(300).catch(() => {});
         const result = await extractIndeedJobs(page);
+        if (!result.jobs.length) {
+          progress(`Indeed | empty page title=${clean(result.pageTitle || '')} href=${clean(result.href || '')}`);
+          const testIds = Array.isArray(result.debug?.testIds) ? result.debug.testIds.slice(0, 20).join(' | ') : '';
+          const anchors = Array.isArray(result.debug?.anchorsSample) ? result.debug.anchorsSample.slice(0, 12).join(' | ') : '';
+          const bodySample = clean(result.debug?.bodyTextSample || '').slice(0, 500);
+          if (testIds) progress(`Indeed | testIds ${testIds}`);
+          if (anchors) progress(`Indeed | anchors ${anchors}`);
+          if (bodySample) progress(`Indeed | body ${bodySample}`);
+        }
         progress(`Indeed | jobs=${result.jobs.length} | ${url}`);
         results.push(result);
         await page.close().catch(() => {});

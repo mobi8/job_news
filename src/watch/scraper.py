@@ -771,9 +771,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 if glassdoor_executor is not None:
                     glassdoor_executor.shutdown(wait=False, cancel_futures=True)
 
-        browserless_indeed_jobs = []
-        if _source_allowed(allowed_sources, "indeed_browserless_uae"):
-            browserless_indeed_jobs = scrape_indeed_via_browserless()
         # Keep JobSpy as a second pass for Indeed coverage.
         jobspy_indeed_jobs = []
         if _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
@@ -782,14 +779,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         linkedin_jobs = browser_linkedin_jobs
         glassdoor_jobs = browser_glassdoor_jobs
-        browserless_indeed_jobs_filtered = browserless_indeed_jobs
         browser_indeed_jobs_filtered = browser_indeed_jobs
         jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
             linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
             glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
-            browserless_indeed_jobs_filtered = [job for job in browserless_indeed_jobs_filtered if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
 
@@ -798,9 +793,6 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         if glassdoor_jobs:
             sources.append(("Glassdoor browserless", glassdoor_jobs))
-
-        if browserless_indeed_jobs_filtered:
-            sources.append(("Indeed browserless", browserless_indeed_jobs_filtered))
 
         if browser_indeed_jobs_filtered:
             sources.append(("Indeed browser", browser_indeed_jobs_filtered))

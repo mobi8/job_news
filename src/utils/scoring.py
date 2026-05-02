@@ -401,7 +401,6 @@ def source_label(source: str) -> str:
         "smartrecruitment": "SmartRecruitment",
         "igamingrecruitment": "iGaming Recruitment",
         "indeed_uae": "Indeed UAE",
-        "indeed_browserless_uae": "Indeed Browserless UAE",
         "indeed_jobspy": "Indeed UAE",
         "indeed_georgia": "Indeed Georgia",
         "indeed_malta": "Indeed Malta",

@@ -66,7 +66,6 @@ TELEGRAM_CHANNELS = [
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 GLASSDOOR_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_glassdoor_probe.js")
-INDEED_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_indeed_probe.js")
 
 
 def _glassdoor_dubai_keyword_url(keyword: str) -> str:
@@ -105,13 +104,6 @@ INDEED_SEARCH_URLS = [
 ]
 
 
-def _indeed_uae_browserless_url(url: str) -> str:
-    return url.replace("l=dubai", "l=united+arab+emirates")
-
-
-INDEED_BROWSERLESS_SEARCH_URLS = [
-    _indeed_uae_browserless_url(url) for url in INDEED_SEARCH_URLS
-]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
