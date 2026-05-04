@@ -76,6 +76,22 @@ const subStatusOptions = [
   { label: "참고", value: "reference" },
 ];
 
+function getJobKey(job: any) {
+  return job.dashboard_key ?? job.url;
+}
+
+function dedupeJobsByKey(jobs: any[]) {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const job of jobs || []) {
+    const key = getJobKey(job);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(job);
+  }
+  return unique;
+}
+
 // API Health Status Component
 function HealthStatus() {
   const healthQuery = useQuery({
@@ -302,8 +318,7 @@ function JobsList({
 }) {
 
   const sortedAndFiltered = useMemo(() => {
-    let jobs = jobsData?.jobs || [];
-    const getJobKey = (job: any) => job.dashboard_key ?? job.url;
+    let jobs = dedupeJobsByKey(jobsData?.jobs || []);
     const getJobStatus = (job: any): StatusKey =>
       jobStatuses[getJobKey(job)] || "unseen";
     const getJobBucket = (job: any) => {
@@ -733,7 +748,7 @@ function App() {
   };
 
 
-  const jobCount = jobsQuery.data?.total ?? 0;
+  const jobCount = dedupeJobsByKey(jobsQuery.data?.jobs ?? []).length;
   const newsCount = newsQuery.data?.length ?? 0;
   const statusCounts = useMemo<Record<StatusKey, number>>(() => {
     const initial: Record<StatusKey, number> = {
@@ -742,7 +757,7 @@ function App() {
       applied: 0,
       removed: 0,
     };
-    const jobs = jobsQuery.data?.jobs ?? [];
+    const jobs = dedupeJobsByKey(jobsQuery.data?.jobs ?? []);
     const jobKeys = new Set(jobs.map((j: any) => j.dashboard_key ?? j.url));
 
     // Count jobs from current results
@@ -766,7 +781,7 @@ function App() {
     // Calculate sub-status counts only for unseen jobs
     const getJobStatus = (job: any): StatusKey =>
       jobStatuses[job.dashboard_key ?? job.url] || "unseen";
-    const unseenJobs = (jobsQuery.data?.jobs || []).filter(
+    const unseenJobs = dedupeJobsByKey(jobsQuery.data?.jobs || []).filter(
       (job: any) => getJobStatus(job) === "unseen"
     );
     return {
