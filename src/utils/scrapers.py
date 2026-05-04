@@ -1221,6 +1221,11 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
     return jobs
 
 
+def fetch_indeed_jobs_via_browserless() -> List[JobPosting]:
+    """Backward-compatible alias for the Indeed browser-based scraper."""
+    return fetch_indeed_jobs_via_browser()
+
+
 def fetch_indeed_jobs_via_jobspy() -> List[JobPosting]:
     """Fetch Indeed jobs using JobSpy library across UAE, Malta, Georgia."""
     scrape_jobs = _get_jobspy_scrape_jobs()

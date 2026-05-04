@@ -752,24 +752,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
             browser_indeed_jobs = scrape_indeed_via_browser()
 
-        glassdoor_executor = None
-        glassdoor_future = None
-        if _source_allowed(allowed_sources, "glassdoor_uae"):
-            glassdoor_executor = ProcessPoolExecutor(max_workers=1)
-            glassdoor_future = glassdoor_executor.submit(scrape_glassdoor_via_browserless)
-            logger.info("Submitted Glassdoor browserless scrape to a separate process.")
-
         browser_glassdoor_jobs = []
-        if glassdoor_future is not None:
-            _console_step("Waiting for Glassdoor browserless result")
+        if _source_allowed(allowed_sources, "glassdoor_uae"):
+            _console_step("Running Glassdoor browserless scrape inline")
             try:
-                browser_glassdoor_jobs = glassdoor_future.result()
+                browser_glassdoor_jobs = scrape_glassdoor_via_browserless()
             except Exception as exc:
                 logger.error("Error collecting Glassdoor browserless result: %s", exc)
                 browser_glassdoor_jobs = []
-            finally:
-                if glassdoor_executor is not None:
-                    glassdoor_executor.shutdown(wait=False, cancel_futures=True)
 
         # Keep JobSpy as a second pass for Indeed coverage.
         jobspy_indeed_jobs = []

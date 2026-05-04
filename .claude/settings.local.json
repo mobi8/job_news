@@ -246,7 +246,14 @@
       "Bash(/Users/lewis/Desktop/agent/venv/bin/python3 *)",
       "Bash(pkill -f \"vite\")",
       "Bash(pkill -f \"uvicorn\\\\|vite\\\\|loop.py\")",
-      "Bash(bash /Users/lewis/Desktop/agent/run_dashboard.sh)"
+      "Bash(bash /Users/lewis/Desktop/agent/run_dashboard.sh)",
+      "Bash(awk '/@media \\\\\\(max-width: 768px\\\\\\)/,/^}[^}]/' frontend/src/App.css)",
+      "Bash(./run_dashboard.sh)",
+      "Bash(pkill -f \"vite|uvicorn|watch_loop|telegram_poller|browser_probe\")",
+      "Bash(pkill -f \"vite|node\")",
+      "Bash(rm -rf .vite dist node_modules/.vite)",
+      "Bash(git revert *)",
+      "Bash(pkill -9 -f \"vite|node|uvicorn\")"
     ]
   }
 }
