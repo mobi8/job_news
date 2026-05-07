@@ -734,6 +734,7 @@ HARD_EXCLUDE_TITLE_TERMS = [
     "field worker",
     "site worker",
     "offline",
+    "devops",
     "Surveillance",
     "food",
     "3d",

@@ -4,7 +4,7 @@ import datetime
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 # Add src to path so utils can be imported
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -106,7 +106,7 @@ def load_rejected_jobs_keys() -> set[str]:
 
 class JobStatusRequest(BaseModel):
     job_key: str
-    status: str  # "unseen", "viewed", "applied", "removed"
+    status: Literal["unseen", "viewed", "applied", "removed"]
     title: str = ""
     company: str = ""
     location: str = ""
@@ -356,16 +356,18 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
         data["statuses"] = statuses
         data["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        # Also update reject_feedback.json if removing
+        # Keep reject_feedback.json in sync with the current status.
+        # Removed jobs are hidden from /api/jobs. If a user restores a removed job
+        # to unseen/viewed/applied, it must be removed from reject_feedback too.
+        if REJECT_FEEDBACK_PATH.exists():
+            reject_data = json.loads(REJECT_FEEDBACK_PATH.read_text(encoding="utf-8"))
+        else:
+            reject_data = {"rejected_jobs": []}
+
+        rejected_jobs: List[Dict[str, Any]] = reject_data.get("rejected_jobs", [])
+        existing = next((j for j in rejected_jobs if j.get("key") == request.job_key), None)
+
         if request.status == "removed":
-            if REJECT_FEEDBACK_PATH.exists():
-                reject_data = json.loads(REJECT_FEEDBACK_PATH.read_text(encoding="utf-8"))
-            else:
-                reject_data = {"rejected_jobs": []}
-
-            rejected_jobs: List[Dict[str, Any]] = reject_data.get("rejected_jobs", [])
-            existing = next((j for j in rejected_jobs if j["key"] == request.job_key), None)
-
             if not existing:
                 rejected_jobs.append({
                     "key": request.job_key,
@@ -376,11 +378,12 @@ def update_job_status(request: JobStatusRequest) -> Dict[str, Any]:
                     "remove_reason": "",
                     "note": request.note,
                 })
-                reject_data["rejected_jobs"] = rejected_jobs
-                reject_data["synced_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                REJECT_FEEDBACK_PATH.write_text(json.dumps(reject_data, indent=2, ensure_ascii=False))
-                if hasattr(load_rejected_jobs_keys, 'cache_clear'):
-                    load_rejected_jobs_keys.cache_clear()
+        elif existing:
+            rejected_jobs = [j for j in rejected_jobs if j.get("key") != request.job_key]
+
+        reject_data["rejected_jobs"] = rejected_jobs
+        reject_data["synced_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        REJECT_FEEDBACK_PATH.write_text(json.dumps(reject_data, indent=2, ensure_ascii=False))
 
         # Write job statuses
         JOB_STATUSES_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False))

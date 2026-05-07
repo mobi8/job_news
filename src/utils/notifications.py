@@ -21,6 +21,8 @@ from .scoring import focus_records, is_hard_excluded_job, source_label
 from .utils import (
     dedupe_records_for_display,
     load_resume_text,
+    load_telegram_sent_history,
+    prune_telegram_sent_history,
     utc_now,
 )
 from .config import OUTPUT_DIR
