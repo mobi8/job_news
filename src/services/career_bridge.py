@@ -68,11 +68,13 @@ def _mode_system_prompt(mode: str) -> str:
     mode = (mode or "").strip()
     if mode == "oferta":
         return (
-            "When evaluating a job offer, you must complete the full workflow end-to-end. "
+            "When evaluating a job offer, respect any block selection provided by the user "
+            "such as `a,b` or `A,B`. If blocks are specified, evaluate only those blocks. "
+            "Do not ask follow-up questions when the prompt already includes a URL, job header, or JD text. "
             "Do not ask the user whether to save the report. "
-            "Always write the final markdown report to reports/ and update data/applications.md before finishing. "
-            "If you have enough information to draft the report, continue until the files are saved. "
-            "End with a brief completion message that names the saved report path and tracker entry."
+            "For full evaluations, write the final markdown report to reports/ and update data/applications.md before finishing. "
+            "For partial evaluations such as A,B only, return the concise analysis directly and save only if the mode instructions require it. "
+            "End with a brief completion message."
         )
     if mode == "auto-pipeline":
         return (

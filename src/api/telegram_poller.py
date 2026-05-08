@@ -72,24 +72,32 @@ def _get_job_record(key: str) -> dict[str, str] | None:
         return None
 
 
-def _build_job_context(key: str) -> str | None:
-    """Build a compact prompt payload for a quick oferta pass."""
+def _build_job_context(key: str) -> str:
+    """Build the payload passed to `/career-ops oferta a,b` from a Telegram button."""
     resolved_url = _resolve_url(key)
     record = _get_job_record(key)
     if not record:
         return "\n".join([
-            "Job context:",
+            "a,b",
             f"Job URL: {resolved_url}",
-            "Instruction: give a quick first-pass fit check only.",
+            "Use blocks A and B only. Read the URL/JD if available and provide a concise fit check.",
         ]).strip()
 
-    return "\n".join([
-        "Job context:",
+    description = (record.get("description") or "").strip()[:MAX_DESCRIPTION_CHARS]
+    lines = [
+        "a,b",
+        f"Job URL: {resolved_url}",
         f"Title: {record.get('title', '')}",
         f"Company: {record.get('company', '')}",
         f"Location: {record.get('location', '')}",
-        "Instruction: give a quick first-pass fit check only. Use the candidate summary and the job header.",
-    ]).strip()
+        f"Source: {record.get('source', '')}",
+        f"Match score: {record.get('match_score', '')}",
+        "",
+        "Run `/career-ops oferta a,b` semantics: evaluate only blocks A and B, do not ask follow-up questions.",
+    ]
+    if description:
+        lines.extend(["", "JD:", description])
+    return "\n".join(lines).strip()
 
 
 def _get_job_description(key: str) -> str | None:
@@ -998,12 +1006,8 @@ def poll_messages() -> None:
                         url = _resolve_url(key)
                         print(f"📨 {user} [분석 버튼]: {url}")
                         try:
-                            if context:
-                                send_telegram_text(f"🔍 career-ops 분석 중...\n(공고 요약)")
-                                result = analyze(context)
-                            else:
-                                send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
-                                result = analyze(url)
+                            send_telegram_text(f"🔍 career-ops oferta a,b 분석 중...\n{url}")
+                            result = run("oferta", context)
                             chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
                             for chunk in chunks:
                                 send_telegram_text(chunk)

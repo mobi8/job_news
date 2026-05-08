@@ -392,7 +392,10 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
 
         text = f"{flag} <b>{company}</b> — {title}\nScore: {score} | {country}"
         reply_markup = _json.dumps({
-            "inline_keyboard": [[{"text": "🔍 career-ops 분석", "callback_data": f"a:{key}"}]]
+            "inline_keyboard": [[
+                {"text": "📄 원문 JD 보기", "url": url},
+                {"text": "🔍 oferta 분석", "callback_data": f"a:{key}"},
+            ]]
         })
         payload = urllib.parse.urlencode({
             "chat_id": chat_id, "text": text, "parse_mode": "HTML",
