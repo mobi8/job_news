@@ -19,6 +19,8 @@ const filterOptions = [
   { label: "GamblingCareers Remote", value: "gamblingcareers_remote" },
   { label: "Himalayas iGaming", value: "himalayas_igaming" },
   { label: "Indeed UAE", value: "indeed_uae" },
+  { label: "Indeed Georgia", value: "indeed_georgia" },
+  { label: "Indeed Malta", value: "indeed_malta" },
   { label: "Jobvite (Pragmatic Play)", value: "jobvite_pragmaticplay" },
   { label: "Jobrapido UAE", value: "jobrapido_uae" },
   { label: "LinkedIn Malta", value: "linkedin_malta" },
@@ -51,6 +53,22 @@ const sortOptions = [
   { label: "점수높음 (↓)", value: "score-desc" },
   { label: "점수낮음 (↑)", value: "score-asc" },
 ];
+
+const sourceCountryMap: Record<string, string> = {
+  linkedin_public: "UAE",
+  glassdoor_uae: "UAE",
+  indeed_uae: "UAE",
+  jobvite_pragmaticplay: "UAE",
+  jobrapido_uae: "UAE",
+  smartrecruitment: "UAE",
+  jobleads: "UAE",
+  linkedin_georgia: "Georgia",
+  indeed_georgia: "Georgia",
+  linkedin_malta: "Malta",
+  indeed_malta: "Malta",
+  gamblingcareers_remote: "Remote",
+  himalayas_igaming: "Remote",
+};
 
 type FilterState = {
   source: string;
@@ -217,7 +235,15 @@ function FilterBar({
         />
         <select
           value={filters.source}
-          onChange={(event) => onChange({ ...filters, source: event.target.value })}
+          onChange={(event) => {
+            const source = event.target.value;
+            const sourceCountry = sourceCountryMap[source];
+            onChange({
+              ...filters,
+              source,
+              country: sourceCountry ?? filters.country,
+            });
+          }}
         >
           {filterOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -366,25 +392,29 @@ function JobsList({
         jobs = jobs.filter((job: any) => getJobStatus(job) === filters.status);
     }
 
-    // Sort
+    // Sort with deterministic fallbacks so changing filters never leaves cards
+    // in a stale/API-return order when dates or scores tie.
+    const getTime = (job: any) => {
+      const value = new Date(job.first_seen_at || 0).getTime();
+      return Number.isFinite(value) ? value : 0;
+    };
+    const getScore = (job: any) => Number(job.match_score) || 0;
+    const byTitle = (a: any, b: any) =>
+      `${a.company || ""} ${a.title || ""}`.localeCompare(`${b.company || ""} ${b.title || ""}`);
     const sorted = [...jobs];
     switch (filters?.sortBy) {
       case "date-asc":
-        sorted.sort((a: any, b: any) =>
-          new Date(a.first_seen_at || 0).getTime() - new Date(b.first_seen_at || 0).getTime()
-        );
+        sorted.sort((a: any, b: any) => getTime(a) - getTime(b) || byTitle(a, b));
         break;
       case "score-desc":
-        sorted.sort((a: any, b: any) => (b.match_score || 0) - (a.match_score || 0));
+        sorted.sort((a: any, b: any) => getScore(b) - getScore(a) || getTime(b) - getTime(a) || byTitle(a, b));
         break;
       case "score-asc":
-        sorted.sort((a: any, b: any) => (a.match_score || 0) - (b.match_score || 0));
+        sorted.sort((a: any, b: any) => getScore(a) - getScore(b) || getTime(b) - getTime(a) || byTitle(a, b));
         break;
       case "date-desc":
       default:
-        sorted.sort((a: any, b: any) =>
-          new Date(b.first_seen_at || 0).getTime() - new Date(a.first_seen_at || 0).getTime()
-        );
+        sorted.sort((a: any, b: any) => getTime(b) - getTime(a) || getScore(b) - getScore(a) || byTitle(a, b));
     }
     return sorted;
   }, [jobsData?.jobs, filters?.status, filters?.sortBy, mainStatus, subStatus, jobStatuses]);
@@ -866,25 +896,25 @@ function App() {
         <div className="country-bookmarks">
           <button
             className={`bookmark ${filters.country === "" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "" })}
+            onClick={() => setFilters({ ...filters, country: "", source: "" })}
           >
             전체
           </button>
           <button
             className={`bookmark UAE ${filters.country === "UAE" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "UAE" })}
+            onClick={() => setFilters({ ...filters, country: "UAE", source: "" })}
           >
             UAE
           </button>
           <button
             className={`bookmark Georgia ${filters.country === "Georgia" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "Georgia" })}
+            onClick={() => setFilters({ ...filters, country: "Georgia", source: "" })}
           >
             Georgia
           </button>
           <button
             className={`bookmark Malta ${filters.country === "Malta" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "Malta" })}
+            onClick={() => setFilters({ ...filters, country: "Malta", source: "" })}
           >
             Malta
           </button>

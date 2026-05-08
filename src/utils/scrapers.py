@@ -1331,6 +1331,15 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             country = None
             source_name = None
 
+            # Skip US Georgia before interpreting "Georgia" as the country.
+            if any(x in location_str for x in [
+                "미국 조지아", "georgia, united states", "georgia, usa",
+                "atlanta", "alpharetta", "duluth", "sandy springs", "buckhead",
+                "austell", "covington", "warner robins",
+            ]):
+                logger.debug("Skipping LinkedIn US Georgia job: %s", location_str)
+                continue
+
             # Check location_str first for explicit keywords
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
                 country = "Malta"
@@ -1360,7 +1369,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                 continue
 
             # Validate location doesn't contain excluded countries (USA, UK, etc.)
-            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl"]):
+            if any(x in location_str for x in ["미국", "united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl"]):
                 logger.debug("Skipping LinkedIn job from excluded region: %s", location_str)
                 continue
 
