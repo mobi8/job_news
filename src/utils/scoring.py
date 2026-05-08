@@ -408,6 +408,7 @@ def source_label(source: str) -> str:
         "linkedin_jobspy": "LinkedIn",
         "linkedin_georgia": "LinkedIn Georgia",
         "linkedin_malta": "LinkedIn Malta",
+        "linkedin_post": "LinkedIn Posts",
         "glassdoor_uae": "Glassdoor UAE",
         "gamblingcareers_remote": "GamblingCareers Remote",
         "himalayas_igaming": "Himalayas iGaming",

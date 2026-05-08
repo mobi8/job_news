@@ -49,6 +49,7 @@ SOURCE_COUNTRY_OVERRIDES = {
     "linkedin_jobspy": "UAE",
     "linkedin_malta": "Malta",
     "linkedin_georgia": "Georgia",
+    "linkedin_post": "UAE",
     "glassdoor_uae": "UAE",
     "indeed_jobspy": "UAE",
     "google_uae": "UAE",

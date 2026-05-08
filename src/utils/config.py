@@ -66,6 +66,8 @@ TELEGRAM_CHANNELS = [
 ]
 BROWSER_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browser_probe.js")
 GLASSDOOR_BROWSERLESS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/browserless_glassdoor_probe.js")
+LINKEDIN_POSTS_PROFILE_DIR = OUTPUT_DIR / "linkedin-post-profile"
+LINKEDIN_POSTS_PROBE_PATH = Path("/Users/lewis/Desktop/agent/linkedin_posts_probe.js")
 
 
 def _glassdoor_dubai_keyword_url(keyword: str) -> str:
@@ -91,6 +93,41 @@ GLASSDOOR_BROWSERLESS_KEYWORDS = [
 ]
 GLASSDOOR_BROWSERLESS_SEARCH_URLS = [
     _glassdoor_uae_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
+]
+
+LINKEDIN_POST_LEAD_KEYWORDS = ["hire", "hiring", "job", "job alert"]
+LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset"]
+LINKEDIN_POST_LOCATION_GROUPS = [
+    {"country": "UAE", "label": "UAE", "query": "in UAE"},
+    {"country": "Georgia", "label": "Georgia Tbilisi", "query": "in Georgia Tbilisi"},
+    {"country": "Malta", "label": "Malta", "query": "in Malta"},
+]
+LINKEDIN_POST_DOMAIN_BY_ROLE = {
+    "crypto": "crypto_payments",
+    "igaming": "igaming",
+    "web3": "web3",
+    "digital asset": "digital_asset",
+}
+
+
+def _linkedin_post_category(lead: str) -> str:
+    if lead == "job alert":
+        return "recruiter_post"
+    if lead == "job":
+        return "job_post"
+    return "hiring_post"
+
+
+LINKEDIN_POST_SEARCH_PLANS = [
+    {
+        "category": _linkedin_post_category(lead),
+        "domain": LINKEDIN_POST_DOMAIN_BY_ROLE[role],
+        "country": location["country"],
+        "query": f"{lead} {role} {location['query']}",
+    }
+    for location in LINKEDIN_POST_LOCATION_GROUPS
+    for role in LINKEDIN_POST_ROLE_KEYWORDS
+    for lead in LINKEDIN_POST_LEAD_KEYWORDS
 ]
 
 INDEED_SEARCH_URLS = [
