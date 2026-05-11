@@ -36,6 +36,16 @@ SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
 LOCK_PATH = "/Users/lewis/Desktop/agent/outputs/watch_loop.lock"
+CONTINUOUS_WATCH_SOURCES = (
+    "jobvite_pragmaticplay,"
+    "smartrecruitment,"
+    "igamingrecruitment,"
+    "drjobs,"
+    "jobrapido_uae,"
+    "jobleads,"
+    "linkedin_public,"
+    "indeed_uae"
+)
 
 
 def _console_step(message: str) -> None:
@@ -55,6 +65,7 @@ def load_watch_settings() -> dict:
 
 def run_once() -> int:
     env = os.environ.copy()
+    env.setdefault("JOB_WATCH_SOURCES", CONTINUOUS_WATCH_SOURCES)
     settings = load_watch_settings()
     interval_seconds = int(settings["scrape_interval_minutes"] * 60)
     watch_mode = "collect"
