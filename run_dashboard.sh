@@ -223,9 +223,9 @@ cleanup() {
     kill -TERM "$UVICORN_PID" 2>/dev/null || true
   fi
 
-  # Step 2: Wait up to 3 seconds for graceful shutdown
+  # Step 2: Wait up to 10 seconds for graceful shutdown
   local wait_count=0
-  while [[ $wait_count -lt 30 ]]; do
+  while [[ $wait_count -lt 100 ]]; do
     local all_stopped=0
     if [[ -z "$TELEGRAM_POLLER_PID" ]] || ! kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
       if [[ -z "$WATCH_LOOP_PID" ]] || ! kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
@@ -245,7 +245,7 @@ cleanup() {
     wait_count=$((wait_count + 1))
   done
 
-  # Step 3: Force kill if still running (after 3 seconds)
+  # Step 3: Force kill if still running (after 10 seconds)
   echo "  → Forcing shutdown..."
   if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
     echo "  ⚠ Force killing Telegram poller (PID: $TELEGRAM_POLLER_PID)"
