@@ -992,17 +992,17 @@ def poll_messages() -> None:
                         urllib.request.urlopen(ack_url, timeout=5)
                     except Exception:
                         pass
-                    if callback_data.startswith("a:"):
-                        key = callback_data[2:]
+                    if callback_data.startswith("a:") or callback_data.startswith("oferta:"):
+                        key = callback_data.split(":", 1)[1]
                         context = _build_job_context(key)
                         url = _resolve_url(key)
-                        print(f"📨 {user} [분석 버튼]: {url}")
+                        print(f"📨 {user} [oferta 버튼]: {url}")
                         try:
                             if context:
-                                send_telegram_text(f"🔍 career-ops 분석 중...\n(공고 요약)")
+                                send_telegram_text(f"🔍 career-ops oferta 중...\n(공고 요약)")
                                 result = analyze(context)
                             else:
-                                send_telegram_text(f"🔍 career-ops 분석 중...\n{url}")
+                                send_telegram_text(f"🔍 career-ops oferta 중...\n{url}")
                                 result = analyze(url)
                             chunks = [result[i:i+4000] for i in range(0, len(result), 4000)]
                             for chunk in chunks:

@@ -429,7 +429,7 @@ async def telegram_webhook(data: Dict[str, Any]) -> Dict[str, Any]:
                 return {"ok": True}
 
             label = {
-                "oferta": "분석",
+                "oferta": "oferta",
                 "deep": "회사정보",
                 "contacto": "연락",
             }.get(mode, mode)
