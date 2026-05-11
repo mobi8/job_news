@@ -577,17 +577,17 @@ function JobDetailModal({
               <span className="modal-location">📍 {job.location}</span>
               <span className="modal-score">점수: {job.match_score}</span>
             </div>
+            <div className="modal-actions">
+              <a href={job.url} target="_blank" rel="noreferrer" className="modal-link-button">
+                원문 링크 보기 →
+              </a>
+            </div>
             {job.description && (
               <div className="modal-description">
                 <h3>공고 상세</h3>
                 <div className="description-text">{job.description}</div>
               </div>
             )}
-            <div className="modal-actions">
-              <a href={job.url} target="_blank" rel="noreferrer" className="modal-link-button">
-                원문 링크 보기 →
-              </a>
-            </div>
           </>
         ) : (
           <div className="modal-error">공고를 불러올 수 없습니다.</div>
