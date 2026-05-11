@@ -10,6 +10,7 @@ VENV_DIR="${WORKDIR}/venv"
 UVICORN_PID=""
 VITE_PID=""
 WATCH_LOOP_PID=""
+WATCH_LOOP_LOG_TAIL_PID=""
 TELEGRAM_POLLER_PID=""
 TELEGRAM_SCRAPER_PID=""
 CLEANUP_IN_PROGRESS=0
@@ -159,6 +160,12 @@ fi
 
 # Start watch loop directly with caffeinate (keep system awake during long runs)
 cd "${WORKDIR}"
+# Stream the watch loop log back into this terminal so each scraper phase stays visible.
+: > /tmp/watch_loop.log
+tail -n 0 -f /tmp/watch_loop.log &
+WATCH_LOOP_LOG_TAIL_PID=$!
+echo "  Watch loop log tail started (PID: $WATCH_LOOP_LOG_TAIL_PID)"
+
 caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
 WATCH_LOOP_PID=$!
 echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
@@ -213,6 +220,11 @@ cleanup() {
     kill -TERM "$WATCH_LOOP_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "$WATCH_LOOP_LOG_TAIL_PID" ]] && kill -0 "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null; then
+    echo "  → Stopping watch loop log tail (PID: $WATCH_LOOP_LOG_TAIL_PID)..."
+    kill -TERM "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "$VITE_PID" ]] && kill -0 "$VITE_PID" 2>/dev/null; then
     echo "  → Stopping frontend (PID: $VITE_PID)..."
     kill -TERM "$VITE_PID" 2>/dev/null || true
@@ -255,6 +267,11 @@ cleanup() {
   if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
     echo "  ⚠ Force killing watch loop (PID: $WATCH_LOOP_PID)"
     kill -KILL "$WATCH_LOOP_PID" 2>/dev/null || true
+  fi
+
+  if [[ -n "$WATCH_LOOP_LOG_TAIL_PID" ]] && kill -0 "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null; then
+    echo "  ⚠ Force killing watch loop log tail (PID: $WATCH_LOOP_LOG_TAIL_PID)"
+    kill -KILL "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null || true
   fi
 
   if [[ -n "$VITE_PID" ]] && kill -0 "$VITE_PID" 2>/dev/null; then

@@ -43,6 +43,18 @@ function compactKeywords(value) {
 function describeSearchUrl(url) {
   try {
     const parsed = new URL(url);
+    if (url.includes('drjobs.ae')) {
+      const pathLabel = (parsed.pathname || '')
+        .replace(/^\/+/, '')
+        .replace(/-jobs\/?$/, '')
+        .replace(/-/g, ' ')
+        .trim();
+      return {
+        platform: 'DrJobs',
+        country: 'UAE',
+        label: shorten(pathLabel || 'search', 64),
+      };
+    }
     if (url.includes('linkedin.com/jobs/search')) {
       const location = decodeQueryValue(parsed.searchParams.get('location') || '');
       return {
@@ -290,6 +302,65 @@ async function evaluateLinkedInPage(page) {
   });
 }
 
+async function evaluateDrJobsPage(page) {
+  return page.evaluate(() => {
+    const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
+    const pageTitle = document.title || '';
+    const titleLocationMatch = pageTitle.match(/\bin\s+([^|]+?)(?:\s*\||$)/i);
+    const fallbackLocation = clean(titleLocationMatch ? titleLocationMatch[1] : 'UAE');
+
+    const jobAnchors = Array.from(document.querySelectorAll(
+      'a.job-card-item[href*="/job/view/"], a[href*="/job/view/"]'
+    ));
+    const jobs = [];
+    const seenUrls = new Set();
+
+    for (const anchor of jobAnchors) {
+      const url = anchor.href || '';
+      const title = clean(anchor.innerText);
+      if (!title || !url || seenUrls.has(url)) {
+        continue;
+      }
+      seenUrls.add(url);
+
+      const sourceJobIdMatch = url.match(/\/job\/view\/([^/?#]+)/);
+      const card = anchor.closest('article, li, div') || anchor.parentElement;
+      const cardText = clean(card ? card.innerText : '');
+      const locationMatch = cardText.match(/\b(UAE|Dubai|Abu Dhabi|Sharjah|Ras Al Khaimah|Ajman|Al Ain|Fujairah|Remote)\b/i);
+      const jobLocation = clean(locationMatch ? locationMatch[1] : fallbackLocation || 'UAE');
+
+      jobs.push({
+        source: 'drjobs',
+        source_job_id: sourceJobIdMatch ? sourceJobIdMatch[1] : url,
+        title,
+        company: 'Dr.Job',
+        location: jobLocation,
+        url,
+        description: pageTitle,
+        remote: /remote/i.test(`${title} ${jobLocation} ${pageTitle} ${cardText}`),
+        country: 'UAE',
+      });
+    }
+
+    const links = Array.from(document.querySelectorAll('a'))
+      .map((a) => ({
+        text: clean(a.innerText),
+        href: a.href || '',
+        testid: a.getAttribute('data-testid') || '',
+        cls: a.className || '',
+      }))
+      .filter((item) => item.text && item.href)
+      .slice(0, 160);
+
+    return {
+      pageTitle,
+      href: location.href,
+      links,
+      jobs,
+    };
+  });
+}
+
 async function evaluateTelegramPage(page) {
   return page.evaluate(() => ({
     pageTitle: document.title,
@@ -455,6 +526,17 @@ async function main() {
           await page.waitForTimeout(3000 + Math.random() * 2000);
 
           const result = await evaluateLinkedInPage(page);
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
+          results.push(result);
+          await page.close().catch(() => {});
+          continue;
+        }
+
+        if (url.includes('drjobs.ae')) {
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
+          await page.waitForTimeout(2000 + Math.random() * 1000);
+          const result = await evaluateDrJobsPage(page);
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
           results.push(result);
           await page.close().catch(() => {});

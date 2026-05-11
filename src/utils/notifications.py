@@ -39,12 +39,15 @@ SOURCE_COUNTRY_OVERRIDES = {
     "indeed_malta": "Malta",
     "linkedin_public": "UAE",
     "linkedin_jobspy": "UAE",
+    "linkedin_post": "UAE",
     "linkedin_malta": "Malta",
     "linkedin_georgia": "Georgia",
     "indeed_jobspy": "UAE",
     "google_uae": "UAE",
     "google_georgia": "Georgia",
     "google_malta": "Malta",
+    "glassdoor_uae": "UAE",
+    "himalayas_igaming": "Remote",
 }
 
 
@@ -83,6 +86,8 @@ def country_label_for_job(job: Any) -> str:
             return "Malta"
         if lowered in {"georgia"}:
             return "Georgia"
+        if lowered in {"remote"}:
+            return "Remote"
     source = _job_attr(job, "source").lower()
     if not source:
         return ""

@@ -661,6 +661,98 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
     return [page for page in ordered_results if page is not None]
 
 
+def _drjobs_keyword_to_slug(keyword: str) -> str:
+    cleaned = clean_text(keyword)
+    cleaned = re.split(r'\bOR\b', cleaned, maxsplit=1, flags=re.IGNORECASE)[0]
+    cleaned = cleaned.strip(' "\'()')
+    cleaned = re.sub(r"[^a-zA-Z0-9]+", "-", cleaned.lower())
+    cleaned = re.sub(r"-+", "-", cleaned).strip("-")
+    return cleaned or "search"
+
+
+def _build_drjobs_search_urls() -> List[str]:
+    keywords = [
+        "igaming",
+        "crypto",
+        "digital asset",
+        "exchange",
+        "custody",
+        "wallet",
+    ]
+    urls: List[str] = []
+    seen = set()
+
+    for keyword in keywords:
+        slug = _drjobs_keyword_to_slug(keyword)
+        if slug in seen:
+            continue
+        seen.add(slug)
+        urls.append(f"https://drjobs.ae/{slug}-jobs")
+
+    # The plain igaming landing page is the most reliable starting point, so keep it first.
+    urls.insert(0, "https://drjobs.ae/igaming-jobs")
+
+    return urls
+
+
+def fetch_drjobs_jobs_via_browser() -> List[JobPosting]:
+    """Scrape Dr.Job keyword pages using browser_probe."""
+    all_urls = _build_drjobs_search_urls()
+    if not all_urls:
+        return []
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+
+    browser_logger.info(
+        "DrJobs browser fetch start: %d urls batch_size=%d",
+        len(all_urls),
+        BROWSER_LINKEDIN_BATCH_SIZE,
+    )
+    pages = _batch_browser_fetch(all_urls, batch_size=BROWSER_LINKEDIN_BATCH_SIZE)
+    if not pages:
+        logger.warning("DrJobs: no results from browser fetch")
+        return []
+
+    for search_url, page in zip(all_urls, pages):
+        page_title = clean_text(page.get("pageTitle", ""))
+        for item in page.get("jobs", []):
+            url = clean_text(item.get("url", ""))
+            title = clean_text(item.get("title", ""))
+            if not url or not title or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+
+            location = clean_text(item.get("location", "")) or "UAE"
+            description = clean_text(item.get("description", "")) or page_title or f"Dr.Job search results for {search_url}"
+
+            if "remote" in f"{title} {location} {description}".lower():
+                remote = True
+            else:
+                remote = False
+
+            jobs.append(
+                JobPosting(
+                    source="drjobs",
+                    source_job_id=source_job_id,
+                    title=title,
+                    company=clean_text(item.get("company", "")) or "Dr.Job",
+                    location=location,
+                    url=url,
+                    description=description,
+                    remote=remote,
+                    country="UAE",
+                    collected_at=collected_at,
+                )
+            )
+
+    logger.info("Collected %s DrJobs entries from %s pages.", len(jobs), len(all_urls))
+    return jobs
+
+
 def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
     if not INDEED_SEARCH_URLS:
         return []

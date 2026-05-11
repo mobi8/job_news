@@ -93,6 +93,7 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_drjobs_jobs_via_browser,
     fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
@@ -631,6 +632,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 sources.append((JOBLEADS_URL, jobleads_jobs))
             except Exception as exc:
                 logger.warning("Skipping JobLeads for this run: %s", exc)
+
+        if allowed_sources is None or "drjobs" in allowed_sources:
+            _console_step("Fetching drjobs board")
+            logger.info("Fetching drjobs browser pages...")
+            drjobs_jobs = fetch_drjobs_jobs_via_browser()
+            logger.info("Collected %s jobs from DrJobs.", len(drjobs_jobs))
+            if drjobs_jobs:
+                sources.append(("drjobs", drjobs_jobs))
 
         if False and (allowed_sources is None or (
             "telegram_job_crypto_uae" in allowed_sources or "telegram_cryptojobslist" in allowed_sources

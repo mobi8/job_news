@@ -1918,3 +1918,59 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* Crisp text overrides for the light theme */
+.app-shell .hero-text h1,
+.app-shell .hero-text p,
+.app-shell .stats-label,
+.app-shell .tab,
+.app-shell .tab-meta,
+.app-shell .slider-label,
+.app-shell .slider-control label,
+.app-shell .metadata-label,
+.app-shell .metadata-value,
+.app-shell .filter-panel label,
+.app-shell .category-count,
+.app-shell .time-badge,
+.app-shell .source-label,
+.app-shell .card-subtitle,
+.app-shell .card-location,
+.app-shell .card-description,
+.app-shell .empty,
+.app-shell .loading,
+.app-shell .modal-company,
+.app-shell .modal-location,
+.app-shell .modal-score,
+.app-shell .modal-description,
+.app-shell .description-text {
+  color: var(--ink);
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.app-shell .stats-label,
+.app-shell .tab-meta,
+.app-shell .metadata-label,
+.app-shell .category-count,
+.app-shell .source-label,
+.app-shell .time-badge,
+.app-shell .card-location,
+.app-shell .card-description,
+.app-shell .modal-company,
+.app-shell .modal-location,
+.app-shell .modal-score {
+  color: var(--muted);
+}
+
+.app-shell .filter-inputs input,
+.app-shell .filter-inputs select,
+.app-shell .bookmark,
+.app-shell .status-btn,
+.app-shell .main-tab,
+.app-shell .category-tab,
+.app-shell .category-sub-tab,
+.app-shell .list-card,
+.app-shell .modal-content {
+  color: var(--ink);
+}
