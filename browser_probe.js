@@ -5,7 +5,7 @@ function textOrEmpty(node) {
 }
 
 function progress(message) {
-  console.error(message);
+  console.error(`[browser_probe] ${message}`);
 }
 
 function shorten(text, maxLen = 72) {

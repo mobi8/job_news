@@ -656,6 +656,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     )
 
     allowed_sources = parse_requested_sources(os.getenv("JOB_WATCH_SOURCES"))
+    skip_linkedin_browser = safe_bool(os.getenv("SKIP_LINKEDIN_BROWSER"))
+    skip_jobspy = safe_bool(os.getenv("SKIP_JOBSPY"))
     sources = []
     jobs = []
     inserted_jobs = []
@@ -731,12 +733,20 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
         _console_step("Starting browser scrape pass")
-        browser_linkedin_jobs = scrape_linkedin_via_browser()
+        browser_linkedin_jobs = []
+        if skip_linkedin_browser:
+            logger.info("Skipping LinkedIn browser phase due to SKIP_LINKEDIN_BROWSER=1")
+        else:
+            browser_linkedin_jobs = scrape_linkedin_via_browser()
         browser_indeed_jobs = scrape_indeed_via_browser()
 
-        # Keep JobSpy as a second pass for Indeed coverage.
-        _console_step("Starting JobSpy scrape pass")
-        jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
+        # Keep JobSpy as a second pass for Indeed coverage unless an explicit browser-only mode is requested.
+        jobspy_indeed_jobs = []
+        if skip_jobspy:
+            logger.info("Skipping JobSpy phase due to SKIP_JOBSPY=1")
+        else:
+            _console_step("Starting JobSpy scrape pass")
+            jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
 
         linkedin_jobs = browser_linkedin_jobs
         browser_indeed_jobs_filtered = browser_indeed_jobs
