@@ -18,6 +18,7 @@ All logic lives in the modules below:
 from __future__ import annotations
 
 import hashlib
+import multiprocessing
 import json
 import logging
 import os
@@ -126,12 +127,12 @@ jobspy_logger = setup_logger("jobspy_progress", json_format=False)
 JOBSPY_RESULTS_WANTED = int(os.getenv("JOBSPY_RESULTS_WANTED", "20"))
 JOBSPY_INDEED_RESULTS_WANTED = int(os.getenv("JOBSPY_INDEED_RESULTS_WANTED", "30"))
 JOBSPY_GOOGLE_RESULTS_WANTED = int(os.getenv("JOBSPY_GOOGLE_RESULTS_WANTED", "20"))
-JOBSPY_TIMEOUT_SECONDS = int(os.getenv("JOBSPY_TIMEOUT_SECONDS", "90"))
-JOBSPY_MAX_RETRIES = int(os.getenv("JOBSPY_MAX_RETRIES", "3"))
-JOBSPY_RETRY_BASE_DELAY_SECONDS = int(os.getenv("JOBSPY_RETRY_BASE_DELAY_SECONDS", "20"))
+JOBSPY_TIMEOUT_SECONDS = int(os.getenv("JOBSPY_TIMEOUT_SECONDS", "45"))
+JOBSPY_MAX_RETRIES = int(os.getenv("JOBSPY_MAX_RETRIES", "2"))
+JOBSPY_RETRY_BASE_DELAY_SECONDS = int(os.getenv("JOBSPY_RETRY_BASE_DELAY_SECONDS", "10"))
 JOBSPY_INTER_KEYWORD_DELAY_SECONDS = float(os.getenv("JOBSPY_INTER_KEYWORD_DELAY_SECONDS", "2.0"))
 JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS = float(
-    os.getenv("JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS", "4.0")
+    os.getenv("JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS", "1.0")
 )
 JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS = float(
     os.getenv("JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS", "2.0")
@@ -185,6 +186,28 @@ def _time_limit(seconds: int):
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)
+
+
+def _jobspy_query_worker(payload_queue: multiprocessing.Queue, kwargs: Dict[str, Any]) -> None:
+    """Run a JobSpy query in a child process so hung network calls can be terminated."""
+    try:
+        if scrape_jobs is None:
+            payload_queue.put({"ok": False, "error": "JobSpy not available"})
+            return
+
+        rows = scrape_jobs(**kwargs)
+        if rows is None:
+            payload_queue.put({"ok": True, "rows": None})
+            return
+
+        if hasattr(rows, "to_dict"):
+            rows = rows.to_dict("records")
+        elif not isinstance(rows, list):
+            rows = list(rows)
+
+        payload_queue.put({"ok": True, "rows": rows})
+    except Exception as exc:  # pragma: no cover - child-process failure path
+        payload_queue.put({"ok": False, "error": repr(exc)})
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -338,47 +361,82 @@ def _run_jobspy_query(
         kwargs["google_search_term"] = google_search_term
 
     last_error: Exception | None = None
+    retry_base_delay = max(0, JOBSPY_RETRY_BASE_DELAY_SECONDS)
+    timeout_seconds = max(1, JOBSPY_TIMEOUT_SECONDS)
+    ctx = multiprocessing.get_context("spawn")
+
     for attempt in range(1, JOBSPY_MAX_RETRIES + 1):
-        try:
-            with _time_limit(JOBSPY_TIMEOUT_SECONDS):
-                return scrape_jobs(**kwargs)
-        except TimeoutError as exc:
-            last_error = exc
+        payload_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+        process = ctx.Process(
+            target=_jobspy_query_worker,
+            args=(payload_queue, kwargs),
+        )
+        process.start()
+        process.join(timeout_seconds)
+
+        if process.is_alive():
+            process.terminate()
+            process.join(10)
+            last_error = TimeoutError(f"JobSpy call timed out after {timeout_seconds}s")
             logger.warning(
                 "JobSpy timeout for %s keyword %r on attempt %d/%d: %s",
                 site_name[0],
                 search_term,
                 attempt,
                 JOBSPY_MAX_RETRIES,
-                exc,
+                last_error,
             )
-        except Exception as exc:
-            last_error = exc
-            if _is_rate_limit_error(exc):
-                logger.warning(
-                    "JobSpy rate-limit for %s keyword %r on attempt %d/%d: %s",
-                    site_name[0],
-                    search_term,
-                    attempt,
-                    JOBSPY_MAX_RETRIES,
-                    exc,
-                )
+        else:
+            payload: dict[str, Any] | None = None
+            try:
+                payload = payload_queue.get_nowait()
+            except Exception:
+                payload = None
+
+            if payload and payload.get("ok"):
+                return payload.get("rows")
+
+            error_message = None
+            if payload:
+                error_message = payload.get("error")
+
+            if error_message:
+                last_error = RuntimeError(error_message)
+                if _is_rate_limit_error(last_error):
+                    logger.warning(
+                        "JobSpy rate-limit for %s keyword %r on attempt %d/%d: %s",
+                        site_name[0],
+                        search_term,
+                        attempt,
+                        JOBSPY_MAX_RETRIES,
+                        last_error,
+                    )
+                else:
+                    logger.warning(
+                        "JobSpy error for %s keyword %r on attempt %d/%d: %s",
+                        site_name[0],
+                        search_term,
+                        attempt,
+                        JOBSPY_MAX_RETRIES,
+                        last_error,
+                    )
             else:
+                last_error = RuntimeError(
+                    f"JobSpy worker exited without results for {site_name[0]} keyword {search_term!r}"
+                )
                 logger.warning(
                     "JobSpy error for %s keyword %r on attempt %d/%d: %s",
                     site_name[0],
                     search_term,
                     attempt,
                     JOBSPY_MAX_RETRIES,
-                    exc,
+                    last_error,
                 )
 
         if attempt < JOBSPY_MAX_RETRIES:
-            sleep_seconds = min(
-                120,
-                JOBSPY_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1)),
-            )
-            time.sleep(sleep_seconds)
+            sleep_seconds = min(120, retry_base_delay * (2 ** (attempt - 1)))
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
 
     if last_error is not None:
         logger.warning("Giving up on %s keyword %r after retries.", site_name[0], search_term)
