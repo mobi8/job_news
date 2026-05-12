@@ -498,32 +498,35 @@ async function main() {
 
         const isTelegram = url.includes('t.me/s/');
         const waitUntilOption = isTelegram ? 'networkidle' : 'domcontentloaded';
-        await page.goto(url, { waitUntil: waitUntilOption, timeout: isTelegram ? 180000 : 120000 });
+        const isLinkedIn = url.includes('linkedin.com/jobs/search');
+        const isIndeed = url.includes('indeed.com');
+        const navigationTimeout = isTelegram ? 180000 : (isLinkedIn || isIndeed ? 45000 : 60000);
+        await page.goto(url, { waitUntil: waitUntilOption, timeout: navigationTimeout });
 
-        if (url.includes('linkedin.com/jobs/search')) {
+        if (isLinkedIn) {
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
           await page.waitForLoadState('domcontentloaded').catch(() => {});
           await page.waitForLoadState('networkidle').catch(() => {});
-          await page.waitForSelector('a.base-card__full-link', { timeout: 30000 }).catch(() => {});
-          await page.waitForTimeout(3000 + Math.random() * 1000);
+          await page.waitForSelector('a.base-card__full-link', { timeout: 15000 }).catch(() => {});
+          await page.waitForTimeout(1200 + Math.random() * 800);
 
           let previousHeight = 0;
           let scrolls = 0;
           // Keep LinkedIn pagination lighter; most runs do not need a deep scroll sweep.
-          const maxScrolls = 2;
+          const maxScrolls = 1;
           while (scrolls < maxScrolls) {
             const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
             if (newHeight === previousHeight) break;
 
             progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | scroll ${scrolls + 1}/${maxScrolls}`);
             await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-            await page.waitForTimeout(2000 + Math.random() * 1000);
+            await page.waitForTimeout(1000 + Math.random() * 500);
             previousHeight = newHeight;
             scrolls++;
           }
 
           await expandLinkedInMoreButtons(page);
-          await page.waitForTimeout(3000 + Math.random() * 2000);
+          await page.waitForTimeout(1200 + Math.random() * 800);
 
           const result = await evaluateLinkedInPage(page);
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
@@ -535,7 +538,7 @@ async function main() {
         if (url.includes('drjobs.ae')) {
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
           await page.waitForLoadState('domcontentloaded').catch(() => {});
-          await page.waitForTimeout(2000 + Math.random() * 1000);
+          await page.waitForTimeout(1200 + Math.random() * 800);
           const result = await evaluateDrJobsPage(page);
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
           results.push(result);
