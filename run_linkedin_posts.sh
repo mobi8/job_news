@@ -40,9 +40,15 @@ export LINKEDIN_POST_AUTO_LOGIN_SETUP="${LINKEDIN_POST_AUTO_LOGIN_SETUP:-1}"
 export LINKEDIN_USE_SYSTEM_CHROME="${LINKEDIN_USE_SYSTEM_CHROME:-1}"
 export LINKEDIN_CDP_PORT="${LINKEDIN_CDP_PORT:-9223}"
 # Each Python-managed batch disconnects/restarts the scraper Chrome profile.
-export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-1}"
+# Keep Chrome open by default; only close it when explicitly requested.
+export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-0}"
 
 mkdir -p "${LINKEDIN_POSTS_PROFILE_DIR}"
+
+if ! lsof -ti:"${LINKEDIN_CDP_PORT}" >/dev/null 2>&1; then
+  echo "  ⚠ LinkedIn Chrome CDP port ${LINKEDIN_CDP_PORT} is not listening."
+  echo "  → If this is the first run, use ./setup_linkedin_posts_login.sh and log in once."
+fi
 
 # Chrome must be launched with --remote-debugging-port for the scraper to attach.
 # If the same profile is already open without CDP, close it and let the probe
