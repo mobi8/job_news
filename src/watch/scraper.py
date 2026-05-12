@@ -241,6 +241,7 @@ def _run_jobspy_keyword_bucket(
 ) -> None:
     for keyword in keywords:
         google_search_term = _build_google_search_term(keyword, location) if use_google_search_term else None
+        started_at = time.monotonic()
         jobspy_logger.info(
             "JobSpy %s %s keyword=%r location=%r%s",
             site_name,
@@ -268,6 +269,22 @@ def _run_jobspy_keyword_bucket(
                 default_location=location,
                 now_iso=now_iso,
                 existing_fingerprints=existing_fingerprints,
+            )
+            jobspy_logger.info(
+                "JobSpy %s %s keyword=%r done in %.1fs rows=%d",
+                site_name,
+                country,
+                keyword,
+                time.monotonic() - started_at,
+                len(rows),
+            )
+        else:
+            jobspy_logger.warning(
+                "JobSpy %s %s keyword=%r returned no rows after %.1fs",
+                site_name,
+                country,
+                keyword,
+                time.monotonic() - started_at,
             )
         if inter_keyword_delay_seconds > 0:
             time.sleep(inter_keyword_delay_seconds)
@@ -467,6 +484,8 @@ def _process_jobspy_country(
         country_indeed=plan["indeed_country"],
         inter_keyword_delay_seconds=JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS,
     )
+
+    jobspy_logger.info("Finished JobSpy country bucket: %s jobs=%d", country, len(indeed_jobs))
 
     return indeed_jobs
 
