@@ -25,7 +25,7 @@ if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
   export LINKEDIN_POST_MAX_PLANS="$2"
 fi
 export LINKEDIN_POSTS_PROFILE_DIR="${LINKEDIN_POSTS_PROFILE_DIR:-${WORKDIR}/outputs/linkedin-post-profile}"
-export LINKEDIN_POST_MAX_PLANS="${LINKEDIN_POST_MAX_PLANS:-24}"
+export LINKEDIN_POST_MAX_PLANS="${LINKEDIN_POST_MAX_PLANS:-64}"
 export LINKEDIN_POST_SCROLL_ROUNDS="${LINKEDIN_POST_SCROLL_ROUNDS:-2}"
 # Stability controls: run searches in small sequential batches, then cool down.
 export LINKEDIN_POST_BATCH_SIZE="${LINKEDIN_POST_BATCH_SIZE:-2}"

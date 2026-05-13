@@ -93,6 +93,7 @@ LINKEDIN_POST_LEAD_KEYWORDS = ["hire", "hiring", "job", "job alert"]
 LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset"]
 LINKEDIN_POST_LOCATION_GROUPS = [
     {"country": "UAE", "label": "UAE", "query": "in UAE"},
+    {"country": "Remote", "label": "MENA Remote", "query": "remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman"},
     {"country": "Georgia", "label": "Georgia Tbilisi", "query": "in Georgia Tbilisi"},
     {"country": "Malta", "label": "Malta", "query": "in Malta"},
 ]
