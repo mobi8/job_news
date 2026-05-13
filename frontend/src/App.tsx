@@ -15,6 +15,7 @@ import "./App.css";
 const filterOptions = [
   { label: "전체", value: "" },
   { label: "LinkedIn Public", value: "linkedin_public" },
+  { label: "LinkedIn EMEA", value: "linkedin_emea" },
   { label: "Glassdoor UAE", value: "glassdoor_uae" },
   { label: "GamblingCareers Remote", value: "gamblingcareers_remote" },
   { label: "Himalayas iGaming", value: "himalayas_igaming" },
@@ -866,25 +867,37 @@ function App() {
         <div className="country-bookmarks">
           <button
             className={`bookmark ${filters.country === "" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "" })}
+            onClick={() => setFilters({ ...filters, source: "", country: "" })}
           >
             전체
           </button>
           <button
             className={`bookmark UAE ${filters.country === "UAE" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "UAE" })}
+            onClick={() => setFilters({ ...filters, source: "", country: "UAE" })}
           >
             UAE
           </button>
           <button
+            className={`bookmark Remote ${filters.source === "linkedin_emea" ? "active" : ""}`}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                source: "linkedin_emea",
+                country: "",
+              })
+            }
+          >
+            EMEA
+          </button>
+          <button
             className={`bookmark Georgia ${filters.country === "Georgia" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "Georgia" })}
+            onClick={() => setFilters({ ...filters, source: "", country: "Georgia" })}
           >
             Georgia
           </button>
           <button
             className={`bookmark Malta ${filters.country === "Malta" ? "active" : ""}`}
-            onClick={() => setFilters({ ...filters, country: "Malta" })}
+            onClick={() => setFilters({ ...filters, source: "", country: "Malta" })}
           >
             Malta
           </button>

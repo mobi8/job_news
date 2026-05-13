@@ -44,6 +44,7 @@ CONTINUOUS_WATCH_SOURCES = (
     "jobrapido_uae,"
     "jobleads,"
     "linkedin_public,"
+    "linkedin_emea,"
     "indeed_uae"
 )
 

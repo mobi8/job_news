@@ -133,6 +133,10 @@ INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+coinbase+OR+kraken+OR+bitget+OR+gate.io+OR+kucoin+OR+htx+OR+crypto.com+OR+mexc&l=united+arab+emirates&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
+    "https://www.linkedin.com/jobs/search/?f_C=42167861&geoId=92000000&origin=COMPANY_PAGE_JOBS_CLUSTER_EXPANSION",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20stablecoin%20OR%20digital%20asset%20OR%20payments%20OR%20igaming&geoId=92000000&location=EMEA&f_WT=2",
+    "https://www.linkedin.com/jobs/search/?keywords=game%20OR%20gaming%20OR%20mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal&geoId=92000000&location=EMEA&f_WT=2",
+    "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20game%20design%20OR%20game%20producer%20OR%20game%20economy%20OR%20live%20ops%20OR%20user%20acquisition&geoId=92000000&location=EMEA&f_WT=2",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=United%20Arab%20Emirates",

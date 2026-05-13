@@ -221,7 +221,7 @@ def get_jobs(
 ) -> Dict[str, Any]:
     jobs_data = load_jobs_data()
     # Use all_tracked_jobs which contains the full historical data
-    all_jobs = jobs_data.get("all_tracked_jobs", jobs_data.get("filtered_jobs", []))
+    all_jobs = jobs_data.get("all_tracked_jobs", jobs_data.get("all_jobs", jobs_data.get("filtered_jobs", [])))
 
     # Filter out rejected jobs
     rejected_keys = load_rejected_jobs_keys()

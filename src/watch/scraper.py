@@ -94,6 +94,7 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_glassdoor_jobs_via_browserless,
     fetch_drjobs_jobs_via_browser,
     fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
@@ -168,6 +169,16 @@ def _row_value(row: Any, *names: str, default: Any = "") -> Any:
         if not _is_missing_value(value):
             return value
     return default
+
+
+def _source_allowed(allowed_sources: set[str] | None, source: str) -> bool:
+    return allowed_sources is None or source in allowed_sources
+
+
+def _any_source_allowed(allowed_sources: set[str] | None, *sources: str) -> bool:
+    if allowed_sources is None:
+        return True
+    return any(source in allowed_sources for source in sources)
 
 
 @contextmanager
@@ -631,6 +642,22 @@ def scrape_indeed_via_browser() -> list:
         return []
 
 
+def scrape_glassdoor_via_browserless() -> list:
+    """Scrape Glassdoor jobs via browserless."""
+    try:
+        _console_step("Browser phase starting: Glassdoor")
+        glassdoor_jobs = fetch_glassdoor_jobs_via_browserless()
+        logger.info(
+            "Collected %s Glassdoor browserless jobs",
+            len(glassdoor_jobs),
+        )
+        _console_step(f"Browser phase finished: Glassdoor={len(glassdoor_jobs)}")
+        return glassdoor_jobs
+    except Exception as e:
+        logger.error(f"Error scraping Glassdoor via browserless probe: {e}")
+        return []
+
+
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
@@ -657,6 +684,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
     allowed_sources = parse_requested_sources(os.getenv("JOB_WATCH_SOURCES"))
     skip_linkedin_browser = safe_bool(os.getenv("SKIP_LINKEDIN_BROWSER"))
+    skip_indeed_browser = safe_bool(os.getenv("SKIP_INDEED_BROWSER"))
     skip_jobspy = safe_bool(os.getenv("SKIP_JOBSPY"))
     sources = []
     jobs = []
@@ -734,31 +762,45 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
         _console_step("Starting browser scrape pass")
         browser_linkedin_jobs = []
-        if skip_linkedin_browser:
-            logger.info("Skipping LinkedIn browser phase due to SKIP_LINKEDIN_BROWSER=1")
+        if skip_linkedin_browser or not _any_source_allowed(allowed_sources, "linkedin_public", "linkedin_emea", "linkedin_georgia", "linkedin_malta"):
+            logger.info("Skipping LinkedIn browser phase.")
         else:
             browser_linkedin_jobs = scrape_linkedin_via_browser()
-        browser_indeed_jobs = scrape_indeed_via_browser()
+        browser_indeed_jobs = []
+        if skip_indeed_browser or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
+            logger.info("Skipping Indeed browser phase.")
+        else:
+            browser_indeed_jobs = scrape_indeed_via_browser()
+
+        if _source_allowed(allowed_sources, "glassdoor_uae"):
+            browser_glassdoor_jobs = scrape_glassdoor_via_browserless()
+        else:
+            browser_glassdoor_jobs = []
 
         # Keep JobSpy as a second pass for Indeed coverage unless an explicit browser-only mode is requested.
         jobspy_indeed_jobs = []
-        if skip_jobspy:
-            logger.info("Skipping JobSpy phase due to SKIP_JOBSPY=1")
+        if skip_jobspy or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
+            logger.info("Skipping JobSpy phase.")
         else:
             _console_step("Starting JobSpy scrape pass")
             jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
 
         linkedin_jobs = browser_linkedin_jobs
+        glassdoor_jobs = browser_glassdoor_jobs
         browser_indeed_jobs_filtered = browser_indeed_jobs
         jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
             linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
+            glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
 
         if linkedin_jobs:
             sources.append(("LinkedIn browser", linkedin_jobs))
+
+        if glassdoor_jobs:
+            sources.append(("Glassdoor browserless", glassdoor_jobs))
 
         if browser_indeed_jobs_filtered:
             sources.append(("Indeed browser", browser_indeed_jobs_filtered))
@@ -798,6 +840,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         # Re-detect country based on location for all jobs
         # This ensures old jobs are properly classified even if they were stored with wrong country
         for job in all_jobs_annotated:
+            if job.get("source") == "linkedin_emea":
+                job["country"] = "Remote"
+                job["remote"] = True
+                continue
+
             location = (job.get("location") or "").lower()
             # Malta (high priority)
             if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:

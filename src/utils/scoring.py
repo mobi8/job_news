@@ -405,6 +405,7 @@ def source_label(source: str) -> str:
         "indeed_georgia": "Indeed Georgia",
         "indeed_malta": "Indeed Malta",
         "linkedin_public": "LinkedIn",
+        "linkedin_emea": "LinkedIn EMEA",
         "linkedin_jobspy": "LinkedIn",
         "linkedin_georgia": "LinkedIn Georgia",
         "linkedin_malta": "LinkedIn Malta",

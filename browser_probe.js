@@ -22,6 +22,7 @@ function decodeQueryValue(value) {
 
 function classifyLocation(location) {
   const value = (location || '').toLowerCase();
+  if (value.includes('emea') || value.includes('europe, middle east')) return 'EMEA';
   if (value.includes('united arab emirates') || value.includes('dubai')) return 'UAE';
   if (value.includes('georgia') || value.includes('tbilisi')) return 'Georgia';
   if (value.includes('malta')) return 'Malta';
@@ -59,7 +60,7 @@ function describeSearchUrl(url) {
       const location = decodeQueryValue(parsed.searchParams.get('location') || '');
       return {
         platform: 'LinkedIn',
-        country: classifyLocation(location),
+        country: parsed.searchParams.get('geoId') === '92000000' ? 'EMEA' : classifyLocation(location),
         label: compactKeywords(parsed.searchParams.get('keywords') || ''),
       };
     }
@@ -272,14 +273,14 @@ async function evaluateLinkedInPage(page) {
       seenUrls.add(url);
 
       jobs.push({
-        source: 'linkedin_public',
+        source: /emea|europe, middle east/i.test(location) ? 'linkedin_emea' : 'linkedin_public',
         source_job_id: sourceJobIdMatch ? sourceJobIdMatch[1] : url,
         title,
         company: company || 'LinkedIn',
         location,
         url,
         description,
-        remote: /remote/i.test(`${title} ${location} ${description}`),
+        remote: /remote|emea|europe, middle east/i.test(`${title} ${location} ${description}`),
       });
     }
 

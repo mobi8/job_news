@@ -996,7 +996,7 @@
   background: linear-gradient(90deg, #4ade80 0%, #22c55e 50%, #15803d 100%);
   border-radius: 3px;
   overflow: hidden;
-  border: 2px solid rgba(17, 17, 17, 0.55);
+  border: 1px solid rgba(17, 17, 17, 0.22);
   box-shadow: none;
 }
 
@@ -1006,6 +1006,11 @@
   font-weight: 950;
   min-width: 2.6rem;
   text-align: right;
+  -webkit-text-stroke: 0.6px rgba(17, 17, 17, 0.28);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    1px 0 0 rgba(255, 255, 255, 0.35),
+    -1px 0 0 rgba(255, 255, 255, 0.35);
 }
 
 /* Card Status Buttons */
@@ -2087,7 +2092,7 @@ select {
 
 .app-shell .gauge-bar {
   height: 10px;
-  border: 2px solid rgba(17, 17, 17, 0.72);
+  border: 1px solid rgba(17, 17, 17, 0.22);
   box-shadow: none;
 }
 
@@ -2095,4 +2100,9 @@ select {
   color: var(--ink);
   font-size: 0.9rem;
   font-weight: 950;
+  -webkit-text-stroke: 0.6px rgba(17, 17, 17, 0.28);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    1px 0 0 rgba(255, 255, 255, 0.35),
+    -1px 0 0 rgba(255, 255, 255, 0.35);
 }

@@ -38,6 +38,7 @@ SOURCE_COUNTRY_OVERRIDES = {
     "indeed_georgia": "Georgia",
     "indeed_malta": "Malta",
     "linkedin_public": "UAE",
+    "linkedin_emea": "Remote",
     "linkedin_jobspy": "UAE",
     "linkedin_post": "UAE",
     "linkedin_malta": "Malta",
@@ -86,7 +87,7 @@ def country_label_for_job(job: Any) -> str:
             return "Malta"
         if lowered in {"georgia"}:
             return "Georgia"
-        if lowered in {"remote"}:
+        if lowered in {"remote", "emea"}:
             return "Remote"
     source = _job_attr(job, "source").lower()
     if not source:
@@ -263,7 +264,7 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
     url_map = _json.loads(url_map_path.read_text()) if url_map_path.exists() else {}
     next_id = max((int(k) for k in url_map), default=0) + 1
 
-    country_emoji = {"UAE": "🇦🇪", "Georgia": "🇬🇪", "Malta": "🇲🇹", "Bahrain": "🇧🇭", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦"}
+    country_emoji = {"UAE": "🇦🇪", "Georgia": "🇬🇪", "Malta": "🇲🇹", "Bahrain": "🇧🇭", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦", "Remote": "🌍"}
     high_score_jobs = [
         j for j in jobs
         if _job_score(j) >= min_score

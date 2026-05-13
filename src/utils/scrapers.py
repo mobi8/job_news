@@ -22,6 +22,8 @@ from jobspy import scrape_jobs
 
 from .config import (
     BROWSER_PROBE_PATH,
+    GLASSDOOR_BROWSERLESS_PROBE_PATH,
+    GLASSDOOR_BROWSERLESS_SEARCH_URLS,
     COMMERCIAL_ROLE_TERMS,
     IGAMING_RECRUITMENT_URL,
     INDEED_SEARCH_KEYWORDS,
@@ -46,6 +48,8 @@ browser_logger = setup_logger("browser_progress", json_format=False)
 BROWSER_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_BATCH_WORKERS", "3")))
 BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "2")))
 BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "2")))
+BROWSER_GLASSDOOR_BATCH_SIZE = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_SIZE", "1")))
+BROWSER_GLASSDOOR_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_WORKERS", "1")))
 
 
 def _emit_captured_stderr(prefix: str, stderr: str) -> None:
@@ -77,8 +81,10 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
                 stderr_lines.append(line)
                 if (
                     "[browser_probe]" in line
+                    or "[browserless_glassdoor_probe]" in line
                     or line.startswith("Browser launch failed:")
                     or line.startswith("Playwright error for Indeed:")
+                    or line.startswith("Playwright error for Glassdoor:")
                     or line.startswith("Error processing ")
                 ):
                     browser_logger.info("%s", line)
@@ -661,6 +667,66 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
     return [page for page in ordered_results if page is not None]
 
 
+def _batch_browserless_fetch(
+    script_path: Path,
+    urls: List[str],
+    batch_size: int,
+    workers: int | None = None,
+) -> List[dict]:
+    """Fetch browserless pages in parallel batches. Returns list of page results."""
+    if not script_path.exists():
+        logger.warning("Browserless probe script not found at %s", script_path)
+        return []
+
+    indexed_batches = [
+        (start, urls[start:start + batch_size])
+        for start in range(0, len(urls), batch_size)
+    ]
+    ordered_results: list[dict | None] = [None] * len(urls)
+
+    def run_batch(batch: List[str]) -> List[dict]:
+        command = ["node", str(script_path)] + batch
+        try:
+            browser_logger.info("Browserless batch start: %d urls", len(batch))
+            returncode, stdout, stderr = _run_browser_probe_with_progress(command, timeout=600)
+            if returncode != 0:
+                stderr_tail = " | ".join((stderr or "").splitlines()[-6:])
+                if stderr_tail:
+                    logger.warning("Browserless probe stderr: %s", stderr_tail)
+                raise subprocess.SubprocessError(f"browserless probe exited with {returncode}")
+            stdout = stdout.strip()
+            if not stdout:
+                return [{"jobs": [], "error": "empty output"} for _ in batch]
+
+            pages = json.loads(stdout)
+            if not isinstance(pages, list):
+                pages = [pages]
+            return pages
+        except Exception as exc:
+            browser_logger.warning("Browserless batch processing failed: %s", exc)
+            return [{"jobs": [], "error": str(exc)} for _ in batch]
+
+    browser_logger.info(
+        "Browserless probe queue start: %d urls batch_size=%d workers=%d",
+        len(urls),
+        batch_size,
+        workers or BROWSER_BATCH_WORKERS,
+    )
+    with ThreadPoolExecutor(max_workers=workers or BROWSER_BATCH_WORKERS) as executor:
+        futures = {executor.submit(run_batch, batch): (start, len(batch)) for start, batch in indexed_batches}
+        for future in as_completed(futures):
+            try:
+                results = future.result()
+                start, batch_len = futures[future]
+                for offset, page in enumerate(results[:batch_len]):
+                    if start + offset < len(ordered_results):
+                        ordered_results[start + offset] = page
+            except Exception as exc:
+                browser_logger.warning("Browserless batch fetch failed: %s", exc)
+
+    return [page for page in ordered_results if page is not None]
+
+
 def _drjobs_keyword_to_slug(keyword: str) -> str:
     cleaned = clean_text(keyword)
     cleaned = re.split(r'\bOR\b', cleaned, maxsplit=1, flags=re.IGNORECASE)[0]
@@ -839,6 +905,108 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
     return jobs
 
 
+def fetch_glassdoor_jobs_via_browserless() -> List[JobPosting]:
+    if not GLASSDOOR_BROWSERLESS_SEARCH_URLS:
+        return []
+
+    if not GLASSDOOR_BROWSERLESS_PROBE_PATH.exists():
+        logger.warning("Glassdoor Browserless probe script not found at %s", GLASSDOOR_BROWSERLESS_PROBE_PATH)
+        return []
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+
+    browser_logger.info(
+        "Glassdoor browserless fetch start: %d urls batch_size=%d",
+        len(GLASSDOOR_BROWSERLESS_SEARCH_URLS),
+        BROWSER_GLASSDOOR_BATCH_SIZE,
+    )
+    pages = _batch_browserless_fetch(
+        GLASSDOOR_BROWSERLESS_PROBE_PATH,
+        GLASSDOOR_BROWSERLESS_SEARCH_URLS,
+        batch_size=BROWSER_GLASSDOOR_BATCH_SIZE,
+        workers=BROWSER_GLASSDOOR_BATCH_WORKERS,
+    )
+    if not pages:
+        logger.warning("Glassdoor: no results from browserless fetch")
+        return []
+
+    for search_url, page in zip(GLASSDOOR_BROWSERLESS_SEARCH_URLS, pages):
+        page_jobs = 0
+        if page.get("error"):
+            browser_logger.info(
+                "Glassdoor browserless page error: %s | %s",
+                search_url,
+                clean_text(page.get("error", ""))[:240],
+            )
+        if page.get("pageTitle"):
+            browser_logger.info(
+                "Glassdoor browserless page title: %s | %s",
+                search_url,
+                clean_text(page.get("pageTitle", ""))[:180],
+            )
+
+        for item in page.get("jobs", []):
+            url = clean_text(item.get("url", "").strip())
+            title = clean_text(item.get("title", ""))
+            if not url or not title or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            source_job_id = clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+
+            location = clean_text(item.get("location", ""))
+            location_lower = location.lower()
+            search_lower = search_url.lower()
+
+            country = "UAE"
+            source_name = "glassdoor_uae"
+            if any(x in location_lower for x in ["malta", "valletta", "georgia", "tbilisi"]):
+                continue
+            if any(x in search_lower for x in ["malta", "georgia"]):
+                continue
+
+            jobs.append(
+                JobPosting(
+                    source=source_name,
+                    source_job_id=source_job_id,
+                    title=title,
+                    company=clean_text(item.get("company", "")) or "Glassdoor",
+                    location=location,
+                    url=url,
+                    description=clean_text(item.get("description", "")),
+                    remote=bool(item.get("remote", False)),
+                    country=country,
+                    collected_at=collected_at,
+                )
+            )
+            page_jobs += 1
+
+        if page_jobs == 0:
+            debug = page.get("debug") or {}
+            body_lines = debug.get("bodyLinesSample") or []
+            anchor_samples = debug.get("anchorSamples") or []
+            if body_lines:
+                browser_logger.info(
+                    "Glassdoor zero-job body sample: %s | %s",
+                    search_url,
+                    " || ".join(clean_text(line) for line in body_lines[:8] if clean_text(line))[:800],
+                )
+            if anchor_samples:
+                browser_logger.info(
+                    "Glassdoor zero-job anchor sample: %s | %s",
+                    search_url,
+                    " || ".join(
+                        f"{clean_text(anchor.get('text', ''))} => {clean_text(anchor.get('href', ''))}"
+                        for anchor in anchor_samples[:8]
+                        if clean_text(anchor.get('text', '')) or clean_text(anchor.get('href', ''))
+                    )[:800],
+                )
+
+    return jobs
+
+
 def fetch_indeed_jobs_via_jobspy() -> List[JobPosting]:
     """Fetch Indeed jobs using JobSpy library across UAE, Malta, Georgia."""
     jobs: List[JobPosting] = []
@@ -949,6 +1117,9 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             elif "dubai" in location_str or "emirates" in location_str or "uae" in location_str or "abu dhabi" in location_str or "sharjah" in location_str:
                 country = "UAE"
                 source_name = "linkedin_public"
+            elif any(x in location_str for x in ["emea", "europe, middle east", "remote", "유럽연합", "유럽 연합", "eu"]):
+                country = "Remote"
+                source_name = "linkedin_emea"
 
             # Fallback to search URL if location is ambiguous or empty
             if not country:
@@ -961,6 +1132,9 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                 elif "dubai" in search_lower or "emirates" in search_lower or "uae" in search_lower:
                     country = "UAE"
                     source_name = "linkedin_public"
+                elif "geoid=92000000" in search_lower or "location=emea" in search_lower:
+                    country = "Remote"
+                    source_name = "linkedin_emea"
 
             # Skip jobs from wrong regions (e.g., USA jobs when searching UAE)
             if not country:
@@ -968,7 +1142,12 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                 continue
 
             # Validate location doesn't contain excluded countries (USA, UK, etc.)
-            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl"]):
+            if any(x in location_str for x in [
+                "united states", "usa", "united kingdom", "uk", "canada",
+                "california", "new york", "texas", "ohio", "oh", "florida", "fl",
+                "미국", "뉴욕", "샌프란시스코", "영국", "런던", "맨체스터", "버밍엄",
+                "캐나다", "중국", "일본", "홍콩", "싱가포르",
+            ]):
                 logger.debug("Skipping LinkedIn job from excluded region: %s", location_str)
                 continue
 
@@ -981,7 +1160,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                     location=clean_text(item.get("location", "")),
                     url=url,
                     description=clean_text(item.get("description", "")),
-                    remote=bool(item.get("remote", False)),
+                    remote=bool(item.get("remote", False)) or country == "Remote",
                     country=country,
                     collected_at=collected_at,
                 )

@@ -121,7 +121,7 @@ def normalize_linkedin_url(url: str) -> str:
     return urllib.parse.urlunparse(("https", "www.linkedin.com", normalized_path, "", "", ""))
 
 def normalize_linkedin_identifier(source: str, value: str) -> str:
-    if source in ["linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy"]:
+    if source in ["linkedin_public", "linkedin_emea", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy"]:
         return normalize_linkedin_url(value)
     return value
 
@@ -271,8 +271,9 @@ def save_scrape_state(
         "jobvite_pragmaticplay", "smartrecruitment", "igamingrecruitment",
         "drjobs",
         "jobrapido_uae", "jobleads", "telegram_job_crypto_uae", "telegram_cryptojobslist", "telegram_hr1win",
+        "glassdoor_uae",
         "indeed_uae", "indeed_georgia", "indeed_malta",
-        "linkedin_public", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy",
+        "linkedin_public", "linkedin_emea", "linkedin_georgia", "linkedin_malta", "linkedin_jobspy",
         "google_uae", "google_georgia", "google_malta",
     ]
 
@@ -500,6 +501,9 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "igaming recruitment": "igamingrecruitment",
         "drjobs": "drjobs",
         "drjobs.ae": "drjobs",
+        "glassdoor": "glassdoor_uae",
+        "glassdoor_uae": "glassdoor_uae",
+        "glassdoor_browserless_uae": "glassdoor_uae",
         "indeed": "indeed_uae",
         "indeed_uae": "indeed_uae",
         "indeed_jobspy": "indeed_uae",
@@ -509,6 +513,8 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         "indeed_malta": "indeed_malta",
         "linkedin": "linkedin_public",
         "linkedin_public": "linkedin_public",
+        "linkedin_emea": "linkedin_emea",
+        "linkedin emea": "linkedin_emea",
         "linkedin_jobspy": "linkedin_public",
         "jobspy_linkedin": "linkedin_public",
         "linkedin_georgia": "linkedin_georgia",
