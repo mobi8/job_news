@@ -84,13 +84,14 @@ GLASSDOOR_BROWSERLESS_KEYWORDS = [
     "wallet",
     "digital asset",
     "product",
+    "backlog",
 ]
 GLASSDOOR_BROWSERLESS_SEARCH_URLS = [
     _glassdoor_uae_keyword_url(keyword) for keyword in GLASSDOOR_BROWSERLESS_KEYWORDS
 ]
 
 LINKEDIN_POST_LEAD_KEYWORDS = ["hire", "hiring", "job", "job alert"]
-LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset"]
+LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset", "backlog"]
 LINKEDIN_POST_LOCATION_GROUPS = [
     {"country": "UAE", "label": "UAE", "query": "in UAE"},
     {"country": "Remote", "label": "MENA Remote", "query": "remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman"},
@@ -102,6 +103,7 @@ LINKEDIN_POST_DOMAIN_BY_ROLE = {
     "igaming": "igaming",
     "web3": "web3",
     "digital asset": "digital_asset",
+    "backlog": "backlog",
 }
 
 
@@ -126,23 +128,26 @@ LINKEDIN_POST_SEARCH_PLANS = [
 ]
 INDEED_SEARCH_URLS = [
     "https://ae.indeed.com/jobs?q=korean&l=dubai&sort=date",
-    "https://ae.indeed.com/jobs?q=payment+OR+crypto+OR+igaming+OR+neobanking&l=dubai&sort=date",
+    "https://ae.indeed.com/jobs?q=payment+OR+crypto+OR+igaming+OR+neobanking+OR+backlog&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=adgm+OR+fsra+OR+vara&l=united+arab+emirates&sort=date",
-    "https://ae.indeed.com/jobs?q=crypto+product+manager+OR+product+owner+OR+neobank+OR+digital+asset+OR+stable+coin&l=dubai&sort=date",
+    "https://ae.indeed.com/jobs?q=backlog&l=dubai&sort=date",
+    "https://ae.indeed.com/jobs?q=crypto+product+manager+OR+product+owner+OR+neobank+OR+digital+asset+OR+stable+coin+OR+backlog&l=dubai&sort=date",
     "https://ae.indeed.com/jobs?q=custody+OR+digital+asset+OR+digital+assets+OR+digital+asset+custody+OR+stable+coin+OR+game+OR+gaming&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=casino+OR+gaming+resort+OR+wynn+OR+al+marjan+OR+IT+product+manager&l=united+arab+emirates&sort=date",
     "https://ae.indeed.com/jobs?q=binance+OR+bybit+OR+okx+OR+coinbase+OR+kraken+OR+bitget+OR+gate.io+OR+kucoin+OR+htx+OR+crypto.com+OR+mexc&l=united+arab+emirates&sort=date",
 ]
 LINKEDIN_SEARCH_URLS = [
     "https://www.linkedin.com/jobs/search/?f_C=42167861&geoId=92000000&origin=COMPANY_PAGE_JOBS_CLUSTER_EXPANSION",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20stablecoin%20OR%20digital%20asset%20OR%20payments%20OR%20igaming&geoId=92000000&location=EMEA&f_WT=2",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20OR%20web3%20OR%20stablecoin%20OR%20digital%20asset%20OR%20payments%20OR%20igaming%20OR%20backlog&geoId=92000000&location=EMEA&f_WT=2",
     "https://www.linkedin.com/jobs/search/?keywords=game%20OR%20gaming%20OR%20mobile%20game%20OR%20game%20developer%20OR%20unity%20OR%20unreal&geoId=92000000&location=EMEA&f_WT=2",
     "https://www.linkedin.com/jobs/search/?keywords=game%20studio%20OR%20game%20design%20OR%20game%20producer%20OR%20game%20economy%20OR%20live%20ops%20OR%20user%20acquisition&geoId=92000000&location=EMEA&f_WT=2",
     "https://www.linkedin.com/jobs/search/?keywords=crypto%20payment%20OR%20stablecoin%20payment%20OR%20crypto%20payments%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=web3%20OR%20stablecoin%20OR%20crypto%20OR%20wallet%20OR%20neobanking&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=ADGM%20OR%20FSRA%20OR%20VARA&location=United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=backlog&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=backlog&geoId=92000000&location=EMEA&f_WT=2",
     "https://www.linkedin.com/jobs/search/?keywords=igaming&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=crypto%20product%20manager%20OR%20product%20owner%20OR%20neobank%20OR%20digital%20asset%20OR%20stable%20coin%20OR%20backlog&location=Dubai%2C%20United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=custody%20OR%20digital%20asset%20OR%20digital%20assets%20OR%20digital%20asset%20custody%20OR%20stable%20coin%20OR%20game%20OR%20gaming&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=casino%20OR%20gaming%20resort%20OR%20wynn%20OR%20al%20marjan%20OR%20IT%20product%20manager&location=United%20Arab%20Emirates",
     "https://www.linkedin.com/jobs/search/?keywords=binance%20OR%20bybit%20OR%20okx%20OR%20coinbase%20OR%20kraken%20OR%20bitget%20OR%20gate.io%20OR%20kucoin%20OR%20htx%20OR%20crypto.com%20OR%20mexc&location=United%20Arab%20Emirates",
@@ -175,6 +180,7 @@ LINKEDIN_SEARCH_KEYWORDS = [
     '"casino"',
     '"mobile game"',
     '"DTC"',
+    '"backlog"',
 ]
 
 INDEED_SEARCH_KEYWORDS = [
@@ -199,6 +205,7 @@ INDEED_SEARCH_KEYWORDS = [
     "igaming",
     "casino",
     "wallet",
+    "backlog",
 ]
 
 # Glassdoor shares the same broad search buckets as Indeed in this project.
@@ -209,11 +216,12 @@ GLASSDOOR_SEARCH_KEYWORDS = INDEED_SEARCH_KEYWORDS
 GOOGLE_SEARCH_KEYWORDS = [
     "korean",
     "ADGM OR FSRA OR VARA",
+    "backlog",
     "crypto payment OR stablecoin payment OR crypto payments OR neobanking",
     "web3 OR stablecoin OR crypto OR neobanking",
     "payments engineer OR payments developer OR crypto payments OR stablecoin OR wallet OR custody",
     "crypto product manager OR product owner OR neobank OR digital asset OR stable coin",
-    "product manager OR product owner OR business development OR sales OR account manager",
+    "product manager OR product owner OR business development OR sales OR account manager OR backlog",
     "ai engineer OR machine learning engineer OR llm engineer OR genai engineer",
     "ai product manager OR genai product manager OR machine learning product manager OR prompt engineer OR rag",
     "data scientist OR research scientist OR applied scientist OR mlops OR inference OR embeddings",
@@ -221,7 +229,7 @@ GOOGLE_SEARCH_KEYWORDS = [
     "casino OR gaming resort OR wynn OR al marjan OR IT product manager",
     "crypto casino OR sportsbook OR live casino OR gaming platform",
     "binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc",
-    "crypto OR web3 OR blockchain OR payment OR neobanking",
+    "crypto OR web3 OR blockchain OR payment OR neobanking OR backlog",
     "mobile game OR game developer OR unity OR unreal OR game engine OR game studio OR indie game OR game design OR game artist OR DTC",
 ]
 
@@ -257,10 +265,10 @@ RECRUITER_COMPANIES = [
     "Hyphen Connect",
 ]
 RECRUITER_SEARCH_URLS = [
-    "https://www.linkedin.com/jobs/search/?keywords=Robert%20Walters%20crypto%20OR%20web3%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Michael%20Page%20crypto%20OR%20payments%20OR%20product&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Hays%20crypto%20OR%20fintech%20OR%20payments&location=Dubai%2C%20United%20Arab%20Emirates",
-    "https://www.linkedin.com/jobs/search/?keywords=Crypto%20Recruit%20web3%20OR%20crypto&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=Robert%20Walters%20crypto%20OR%20web3%20OR%20payments%20OR%20backlog&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=Michael%20Page%20crypto%20OR%20payments%20OR%20product%20OR%20backlog&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=Hays%20crypto%20OR%20fintech%20OR%20payments%20OR%20backlog&location=Dubai%2C%20United%20Arab%20Emirates",
+    "https://www.linkedin.com/jobs/search/?keywords=Crypto%20Recruit%20web3%20OR%20crypto%20OR%20backlog&location=Dubai%2C%20United%20Arab%20Emirates",
 ]
 
 

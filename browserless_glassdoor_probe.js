@@ -108,6 +108,65 @@ function buildBrowserlessUrls({ solveCaptchas = false } = {}) {
   return [...new Set(candidates.filter(Boolean))];
 }
 
+
+function browserlessHttpBaseUrl() {
+  if (process.env.BROWSERLESS_HTTP_URL) {
+    return process.env.BROWSERLESS_HTTP_URL.replace(/\/$/, '');
+  }
+  if (process.env.BROWSERLESS_WS_URL) {
+    return process.env.BROWSERLESS_WS_URL
+      .replace(/^wss:/, 'https:')
+      .replace(/^ws:/, 'http:')
+      .replace(/\/$/, '');
+  }
+  const region = process.env.BROWSERLESS_REGION;
+  if (region) {
+    return `https://${region.replace(/^wss?:\/\//, '').replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  }
+  return 'https://production-sfo.browserless.io';
+}
+
+function browserlessToken() {
+  return process.env.BROWSERLESS_TOKEN || process.env.BROWSERLESS_API_KEY || '';
+}
+
+function numberFromMetric(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+async function logBrowserlessCreditSummary() {
+  const token = browserlessToken();
+  if (!token) return;
+
+  const baseUrl = browserlessHttpBaseUrl();
+  const metricsUrl = `${baseUrl}/metrics/total?token=${encodeURIComponent(token)}`;
+  try {
+    const response = await fetch(metricsUrl, { method: 'GET' });
+    if (!response.ok) {
+      progress(`Browserless credits | metrics unavailable status=${response.status}`);
+      return;
+    }
+
+    const payload = await response.json();
+    const entries = Array.isArray(payload) ? payload : [payload];
+    const unitsUsed = entries.reduce((sum, item) => sum + numberFromMetric(item?.units), 0);
+    const successful = entries.reduce((sum, item) => sum + numberFromMetric(item?.successful), 0);
+    const errors = entries.reduce((sum, item) => sum + numberFromMetric(item?.error), 0);
+    const limit = Number(process.env.BROWSERLESS_MONTHLY_UNITS || process.env.BROWSERLESS_CREDIT_LIMIT || 0);
+
+    if (Number.isFinite(limit) && limit > 0) {
+      const remaining = Math.max(limit - unitsUsed, 0);
+      const percent = ((remaining / limit) * 100).toFixed(1);
+      progress(`Browserless credits | used=${unitsUsed} remaining=${remaining}/${limit} (${percent}%) successful=${successful} errors=${errors}`);
+    } else {
+      progress(`Browserless credits | used=${unitsUsed} successful=${successful} errors=${errors} percent=unknown set BROWSERLESS_MONTHLY_UNITS or BROWSERLESS_CREDIT_LIMIT`);
+    }
+  } catch (error) {
+    progress(`Browserless credits | metrics failed: ${error.message || error}`);
+  }
+}
+
 function getStorageStatePath() {
   return process.env.GLASSDOOR_STORAGE_STATE_PATH
     || path.join('/Users/lewis/Desktop/agent/outputs', 'browserless_glassdoor_storage_state.json');
@@ -443,10 +502,12 @@ async function main() {
   if (allowCaptchaRetry && results.some(shouldRetryWithCaptcha) && results.every((result) => result.jobs.length === 0)) {
     progress('Glassdoor | captcha-like block detected, retrying with captcha solving');
     const secondPass = await runWithMode({ solveCaptchas: true });
+    await logBrowserlessCreditSummary();
     process.stdout.write(JSON.stringify(secondPass, null, 2));
     return;
   }
 
+  await logBrowserlessCreditSummary();
   process.stdout.write(JSON.stringify(results, null, 2));
 }
 

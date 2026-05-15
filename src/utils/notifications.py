@@ -25,6 +25,25 @@ from .template_renderer import render_template
 
 logger = notifications_logger
 
+
+
+def _ensure_telegram_env_loaded() -> None:
+    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
+        return
+    env_path = OUTPUT_DIR.parent / ".env"
+    if not env_path.exists():
+        return
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+    except Exception as exc:
+        logger.warning("Failed to load Telegram env from %s: %s", env_path, exc)
+
+
 SOURCE_COUNTRY_OVERRIDES = {
     "jobvite_pragmaticplay": "UAE",
     "smartrecruitment": "UAE",
@@ -214,6 +233,7 @@ def _prepare_notification_jobs(jobs: List[Any]) -> List[Dict[str, Any]]:
 
 
 def send_telegram_text(text: str) -> bool:
+    _ensure_telegram_env_loaded()
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:

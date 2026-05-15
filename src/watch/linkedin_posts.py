@@ -15,6 +15,17 @@ from typing import Any, Dict, List
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Load .env for standalone LinkedIn post runs so Telegram alerts work
+# the same way they do in src/watch/scraper.py.
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
 from utils.config import (  # noqa: E402
     LINKEDIN_POST_SEARCH_PLANS,
     LINKEDIN_POSTS_PROBE_PATH,
@@ -35,6 +46,7 @@ HIRING_TERMS = [
 DOMAIN_TERMS = [
     "crypto", "web3", "blockchain", "payment", "payments", "fintech", "igaming",
     "gaming", "casino", "sportsbook", "product", "business development", "wallet",
+    "backlog",
 ]
 LOCATION_TERMS_BY_COUNTRY = {
     "UAE": ["uae", "dubai", "abu dhabi", "united arab emirates", "emirates"],

@@ -744,6 +744,7 @@ def _build_drjobs_search_urls() -> List[str]:
         "exchange",
         "custody",
         "wallet",
+        "backlog",
     ]
     urls: List[str] = []
     seen = set()
