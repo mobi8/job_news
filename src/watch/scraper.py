@@ -686,6 +686,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     skip_linkedin_browser = safe_bool(os.getenv("SKIP_LINKEDIN_BROWSER"))
     skip_indeed_browser = safe_bool(os.getenv("SKIP_INDEED_BROWSER"))
     skip_jobspy = safe_bool(os.getenv("SKIP_JOBSPY"))
+    skip_news = safe_bool(os.getenv("SKIP_NEWS"))
     sources = []
     jobs = []
     inserted_jobs = []
@@ -827,19 +828,25 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
 
-        # Collect and store news from RSS feeds
-        news_items = fetch_all_rss_news()
-        player_news_items = fetch_all_player_rss_news()
-        all_news_items = news_items + player_news_items
-        news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
-        logger.info("Collected %d news items (%d industry + %d player), %d new.",
-                    len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+        if skip_news:
+            logger.info("Skipping RSS news phase because SKIP_NEWS=1.")
+        else:
+            # Collect and store news from RSS feeds
+            news_items = fetch_all_rss_news()
+            player_news_items = fetch_all_player_rss_news()
+            all_news_items = news_items + player_news_items
+            news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
+            logger.info("Collected %d news items (%d industry + %d player), %d new.",
+                        len(all_news_items), len(news_items), len(player_news_items), news_inserted)
 
         all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
 
         # Re-detect country based on location for all jobs
         # This ensures old jobs are properly classified even if they were stored with wrong country
         for job in all_jobs_annotated:
+            if job.get("country") == "Other" or job.get("source") in {"linkedin_post_spot", "linkedin_job_spot"}:
+                job["country"] = "Other"
+                continue
             if job.get("source") == "linkedin_emea":
                 job["country"] = "Remote"
                 job["remote"] = True
@@ -1002,7 +1009,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if mode == "collect":
             batch_jobs = [job.to_dict() for job in inserted_jobs]
             maybe_send_telegram(inserted, batch_jobs)
-            send_news_summary(inserted_news_items, db=db)
+            if not skip_news:
+                send_news_summary(inserted_news_items, db=db)
         elif mode == "incremental":
             send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 

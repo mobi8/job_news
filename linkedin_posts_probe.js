@@ -124,7 +124,12 @@ async function extractPosts(page, plan) {
     for (const card of candidateCards) {
       const text = clean(card?.innerText || '');
       if (!text || text.length < 80) continue;
-      if (!/(hiring|we.?re hiring|we are hiring|open role|job alert|looking for|vacancy|dubai|uae|georgia|tbilisi|malta)/i.test(text)) continue;
+      const locationTerms = Array.isArray(plan.location_terms) ? plan.location_terms : [];
+      const hasHiringSignal = /(#hiring\b|we.?re hiring|we are hiring|is hiring|actively hiring|hiring for|job alert|open (role|roles|position|positions|vacancy|vacancies)|vacanc(y|ies)|join our team|apply (now|here|today)|job title\s*:|(^|\s)(role|position)\s*:|looking for .{0,50}(manager|engineer|developer|lead|specialist|candidate|talent|product|sales|business development|bd))/i.test(text);
+      const hasLocationSignal = locationTerms.length
+        ? locationTerms.some((term) => term && text.toLowerCase().includes(String(term).toLowerCase()))
+        : /(dubai|uae|georgia|tbilisi|malta)/i.test(text);
+      if (!hasHiringSignal || !hasLocationSignal) continue;
 
       const lines = text.split('\n').map((line) => clean(line)).filter(Boolean);
       const authorProfile = Array.from(card.querySelectorAll('a[href*="/in/"], a[href*="/company/"]'))
@@ -163,7 +168,7 @@ async function extractPosts(page, plan) {
         .slice(0, 8);
 
       cards.push({
-        source: 'linkedin_post',
+        source: plan.source || 'linkedin_post',
         source_job_id: id,
         url: permalink || '',
         author_profile: authorProfile || '',
@@ -174,6 +179,9 @@ async function extractPosts(page, plan) {
         category: plan.category,
         domain: plan.domain,
         country: plan.country || 'UAE',
+        store_country: plan.store_country || plan.country || 'UAE',
+        display_location: plan.display_location || plan.country || 'UAE',
+        location_terms: locationTerms,
       });
     }
     return cards;

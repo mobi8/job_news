@@ -16,12 +16,24 @@ if [[ -f "${WORKDIR}/.env" ]]; then
   set +a
 fi
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
+
+RUN_ARGS=("$@")
+if [[ "${1:-}" == "spot" ]]; then
+  export LINKEDIN_POST_MAX_PLANS="${LINKEDIN_POST_MAX_PLANS:-8}"
+  export LINKEDIN_POST_SCROLL_ROUNDS="${LINKEDIN_POST_SCROLL_ROUNDS:-1}"
+  export LINKEDIN_POST_BATCH_SIZE="${LINKEDIN_POST_BATCH_SIZE:-8}"
+  export LINKEDIN_POST_BATCH_PAUSE_MIN_SECONDS="${LINKEDIN_POST_BATCH_PAUSE_MIN_SECONDS:-1}"
+  export LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS="${LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS:-2}"
+  export LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS="${LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS:-2}"
+  export LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS="${LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS:-4}"
+fi
+
 # Optional positional args to avoid shell env-var mistakes:
 #   ./run_linkedin_posts.sh 36 48   # run plans 36..48
-if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+if [[ "${1:-}" != "spot" && "${1:-}" =~ ^[0-9]+$ ]]; then
   export LINKEDIN_POST_START_PLAN="$1"
 fi
-if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+if [[ "${1:-}" != "spot" && "${2:-}" =~ ^[0-9]+$ ]]; then
   export LINKEDIN_POST_MAX_PLANS="$2"
 fi
 export LINKEDIN_POSTS_PROFILE_DIR="${LINKEDIN_POSTS_PROFILE_DIR:-${WORKDIR}/outputs/linkedin-post-profile}"
@@ -57,7 +69,7 @@ pkill -f -- "--user-data-dir=${LINKEDIN_POSTS_PROFILE_DIR}" 2>/dev/null || true
 sleep 1
 
 if command -v caffeinate >/dev/null 2>&1; then
-  exec caffeinate -s "${PYTHON_BIN}" src/watch/linkedin_posts.py
+  exec caffeinate -s "${PYTHON_BIN}" src/watch/linkedin_posts.py "${RUN_ARGS[@]}"
 fi
 
-exec "${PYTHON_BIN}" src/watch/linkedin_posts.py
+exec "${PYTHON_BIN}" src/watch/linkedin_posts.py "${RUN_ARGS[@]}"

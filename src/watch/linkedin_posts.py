@@ -43,6 +43,29 @@ HIRING_TERMS = [
     "hiring", "we are hiring", "we're hiring", "open role", "job alert", "looking for",
     "vacancy", "join our team", "apply", "referral", "recruiting",
 ]
+JOB_POST_SIGNAL_PATTERNS = [
+    r"\b(?:we(?: are|'re)|is|now|actively)\s+hiring\b",
+    r"#hiring\b",
+    r"\bhiring\s+(?:for|:|-|–|—)\b",
+    r"\bjob\s+alert\b",
+    r"\bopen\s+(?:role|roles|position|positions|vacancy|vacancies)\b",
+    r"\bvacanc(?:y|ies)\b",
+    r"\bjoin\s+our\s+team\b",
+    r"\bapply\s+(?:now|here|today)\b",
+    r"\bjob\s+title\s*:",
+    r"\b(?:role|position)\s*:",
+    r"\b(?:we(?: are|'re)\s+)?looking\s+for\s+(?:a|an|our)?\s*.{0,50}\b(?:manager|engineer|developer|lead|specialist|candidate|talent|product|sales|business development|bd)\b",
+]
+JOB_DESTINATION_TERMS = [
+    "/jobs/",
+    "/careers/",
+    "greenhouse.io",
+    "lever.co",
+    "ashbyhq.com",
+    "workable.com",
+    "recruitee.com",
+    "smartrecruiters.com",
+]
 DOMAIN_TERMS = [
     "crypto", "web3", "blockchain", "payment", "payments", "fintech", "igaming",
     "gaming", "casino", "sportsbook", "product", "business development", "wallet",
@@ -221,18 +244,30 @@ def _title_from_post(post: Dict[str, Any]) -> str:
 def _passes_filters(post: Dict[str, Any]) -> bool:
     if not _is_post_permalink(post.get("url", "")):
         return False
-    text = f"{post.get('query', '')} {post.get('text', '')}".lower()
-    if not any(term in text for term in HIRING_TERMS):
+    body = _post_body(post)
+    text = f"{body} {post.get('text', '')}".lower()
+    if not _has_job_post_signal(body, post.get("outbound_links") or []):
         return False
     country = post.get("country") or "UAE"
-    location_terms = LOCATION_TERMS_BY_COUNTRY.get(country, LOCATION_TERMS_BY_COUNTRY["UAE"])
+    location_terms = post.get("location_terms") or LOCATION_TERMS_BY_COUNTRY.get(country, LOCATION_TERMS_BY_COUNTRY["UAE"])
     if not any(term in text for term in location_terms):
         return False
     if not any(term in text for term in DOMAIN_TERMS):
         return False
-    if is_hard_excluded_job(post.get("text", "")[:160], "LinkedIn", "UAE", post.get("text", "")):
+    hard_exclusion_location = post.get("display_location") or post.get("country") or "UAE"
+    if is_hard_excluded_job(post.get("text", "")[:160], "LinkedIn", hard_exclusion_location, post.get("text", "")):
         return False
     return True
+
+
+def _has_job_post_signal(body: str, outbound_links: List[str]) -> bool:
+    lowered = body.lower()
+    if any(re.search(pattern, lowered, re.IGNORECASE) for pattern in JOB_POST_SIGNAL_PATTERNS):
+        return True
+    return any(
+        any(term in (url or "").lower() for term in JOB_DESTINATION_TERMS)
+        for url in outbound_links
+    )
 
 
 def _is_post_permalink(url: str) -> bool:
@@ -241,11 +276,16 @@ def _is_post_permalink(url: str) -> bool:
 
 def _to_job(post: Dict[str, Any]) -> JobPosting:
     outbound = post.get("outbound_links") or []
+    source = post.get("source") or "linkedin_post"
+    location = post.get("display_location") or post.get("country") or "UAE"
+    country = post.get("store_country") or post.get("country") or "UAE"
     metadata = [
         "[LinkedIn Post Lead]",
         f"Category: {post.get('category', '')}",
         f"Domain: {post.get('domain', '')}",
-        f"Country: {post.get('country') or 'UAE'}",
+        f"Country: {post.get('country') or country}",
+        f"Dashboard country: {country}",
+        f"Location: {location}",
         f"Query: {post.get('query', '')}",
         f"Author: {post.get('author', '')}",
     ]
@@ -255,15 +295,15 @@ def _to_job(post: Dict[str, Any]) -> JobPosting:
     metadata.extend(["", post.get("text", "")])
 
     return JobPosting(
-        source="linkedin_post",
+        source=source,
         source_job_id=post.get("source_job_id") or post.get("url", ""),
         title=_title_from_post(post),
         company=_infer_company(post),
-        location=post.get("country") or "UAE",
+        location=location,
         url=post.get("url", ""),
         description="\n".join(metadata).strip(),
         remote=False,
-        country=post.get("country") or "UAE",
+        country=country,
         collected_at=utc_now().isoformat(),
     )
 
@@ -316,7 +356,110 @@ def _send_linkedin_post_telegram(inserted_jobs: List[JobPosting], batch_index: i
     return len(jobs) if send_telegram_text("\n".join(lines)) else 0
 
 
+def _send_spot_telegram(inserted_jobs: List[JobPosting], location: str, keywords: List[str], limit: int) -> int:
+    jobs = [job for job in sorted(inserted_jobs, key=lambda job: job.match_score, reverse=True) if _is_post_permalink(job.url)][:limit]
+    keyword_text = ", ".join(keywords)
+    lines = [
+        f"<b>🔎 LinkedIn Spot · {html.escape(location)}</b>",
+        f"신규 {len(inserted_jobs)}개 · 기타 저장 · {html.escape(keyword_text)}",
+        "",
+    ]
+    if not jobs:
+        lines.append("새로 저장된 permalink 결과가 없습니다.")
+        return 0 if send_telegram_text("\n".join(lines)) else 0
+    for idx, job in enumerate(jobs, start=1):
+        title = html.escape(_clean_linkedin_post_title(job))
+        score = int(job.match_score or 0)
+        url = html.escape(job.url or "", quote=True)
+        lines.append(f"{idx}. <a href=\"{url}\">{title}</a> · {score}")
+    return len(jobs) if send_telegram_text("\n".join(lines)) else 0
+
+
+def _spot_terms(location: str) -> List[str]:
+    terms = {location.strip().lower()}
+    for part in re.split(r"[,/| ]+", location.lower()):
+        part = part.strip()
+        if len(part) >= 3:
+            terms.add(part)
+    aliases = {
+        "amsterdam": ["amsterdam", "netherlands", "nederland", "holland"],
+        "portugal": ["portugal", "lisbon", "lisboa", "porto"],
+    }
+    for key, values in aliases.items():
+        if key in terms:
+            terms.update(values)
+    return sorted(terms)
+
+
+def _spot_plans(location: str, keywords: List[str]) -> List[Dict[str, Any]]:
+    location_terms = _spot_terms(location)
+    leads = ["hiring", "job alert"]
+    return [
+        {
+            "category": "spot_post",
+            "domain": keyword.strip().lower().replace(" ", "_"),
+            "country": location,
+            "store_country": "Other",
+            "display_location": location,
+            "location_terms": location_terms,
+            "source": "linkedin_post_spot",
+            "query": f"{lead} {keyword.strip()} {location}",
+        }
+        for keyword in keywords
+        if keyword.strip()
+        for lead in leads
+    ]
+
+
+def main_spot(argv: List[str]) -> None:
+    if not argv:
+        print("Usage: linkedin_posts.py spot <location> [keyword1,keyword2] [limit]", file=sys.stderr)
+        raise SystemExit(2)
+    location = argv[0].strip()
+    keywords = [item.strip() for item in (argv[1] if len(argv) > 1 else "crypto,web3,payments,igaming,product").split(",") if item.strip()]
+    limit = int(argv[2]) if len(argv) > 2 and argv[2].isdigit() else 8
+    plans = _spot_plans(location, keywords)[:max(1, limit)]
+
+    os.environ.setdefault("LINKEDIN_POST_SCROLL_ROUNDS", "1")
+    os.environ.setdefault("LINKEDIN_POST_BATCH_SIZE", str(max(1, len(plans))))
+    os.environ.setdefault("LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS", "2")
+    os.environ.setdefault("LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS", "4")
+
+    resume_text = load_resume_text()
+    db = Database(OUTPUT_DIR / "jobs.sqlite3")
+
+    print(f"LinkedIn spot: location={location} keywords={','.join(keywords)} plans={len(plans)}")
+    try:
+        result = _run_probe(plans)
+    except RuntimeError as exc:
+        print(f"LinkedIn spot failed before collecting posts: {str(exc)[:300]}")
+        raise
+    if result.get("login_required"):
+        if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
+            _run_login_setup()
+            result = _run_probe(plans)
+        if result.get("login_required"):
+            print("LinkedIn login still required. Run ./setup_linkedin_posts_login.sh and try again.")
+            return
+
+    raw_posts = result.get("posts", [])
+    posts = [post for post in raw_posts if _passes_filters(post)]
+    jobs = [_to_job(post) for post in posts]
+    for job in jobs:
+        job.match_score = calculate_match_score(job, resume_text)
+
+    inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
+    if os.getenv("LINKEDIN_SPOT_REFRESH_DASHBOARD", "1").strip().lower() in {"1", "true", "yes", "on"}:
+        _refresh_dashboard_outputs(db, inserted, inserted_jobs, resume_text)
+    notified = _send_spot_telegram(inserted_jobs, location, keywords, limit)
+    print(f"LinkedIn spot: raw={len(raw_posts)} filtered={len(posts)} inserted={inserted} notified={notified}")
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "spot":
+        main_spot(sys.argv[2:])
+        return
+
     resume_text = load_resume_text()
     db = Database(OUTPUT_DIR / "jobs.sqlite3")
 

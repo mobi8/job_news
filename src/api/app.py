@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from services.career_bridge import run, route_command
+from services.linkedin_spot import parse_spot_command, spot_usage, start_spot_search
 from utils.config import OUTPUT_DIR
 from utils.scoring import source_label
 
@@ -413,6 +414,16 @@ async def telegram_webhook(data: Dict[str, Any]) -> Dict[str, Any]:
         chat_id = msg.get("chat", {}).get("id")
 
         if not text or not chat_id:
+            return {"ok": True}
+
+        spot_request = parse_spot_command(text)
+        if spot_request:
+            from utils.notifications import send_telegram_text
+
+            if not spot_request.location:
+                send_telegram_text(spot_usage())
+            else:
+                send_telegram_text(start_spot_search(spot_request))
             return {"ok": True}
 
         mode, query = route_command(text)

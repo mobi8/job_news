@@ -25,6 +25,7 @@ if env_path.exists():
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.career_bridge import analyze, route_command, run
+from services.linkedin_spot import parse_spot_command, spot_usage, start_spot_search
 from utils.config import OUTPUT_DIR
 from utils.notifications import send_telegram_text
 
@@ -827,6 +828,18 @@ def handle_reddit_request(text: str) -> None:
 def handle_message(text: str) -> None:
     """Process incoming message and send response"""
     if not text:
+        return
+
+    spot_request = parse_spot_command(text)
+    if spot_request:
+        if not spot_request.location:
+            send_telegram_text(spot_usage())
+            return
+        try:
+            send_telegram_text(start_spot_search(spot_request))
+        except Exception as e:
+            print(f"❌ LinkedIn spot request error: {e}")
+            send_telegram_text(f"❌ LinkedIn 스팟 실행 오류: {str(e)}")
         return
 
     # Check for Reddit request first (must be exact match with . separator)

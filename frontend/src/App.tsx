@@ -15,6 +15,8 @@ import "./App.css";
 const filterOptions = [
   { label: "전체", value: "" },
   { label: "LinkedIn Public", value: "linkedin_public" },
+  { label: "LinkedIn Spot", value: "linkedin_post_spot" },
+  { label: "LinkedIn Jobs Spot", value: "linkedin_job_spot" },
   { label: "LinkedIn EMEA", value: "linkedin_emea" },
   { label: "Glassdoor UAE", value: "glassdoor_uae" },
   { label: "GamblingCareers Remote", value: "gamblingcareers_remote" },
@@ -35,6 +37,7 @@ const countryOptions = [
   { label: "Remote", value: "Remote" },
   { label: "Georgia", value: "Georgia" },
   { label: "Malta", value: "Malta" },
+  { label: "Other", value: "Other" },
 ];
 
 
@@ -900,6 +903,12 @@ function App() {
             onClick={() => setFilters({ ...filters, source: "", country: "Malta" })}
           >
             Malta
+          </button>
+          <button
+            className={`bookmark Other ${filters.country === "Other" ? "active" : ""}`}
+            onClick={() => setFilters({ ...filters, source: "", country: "Other" })}
+          >
+            Other
           </button>
         </div>
       )}
