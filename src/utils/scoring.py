@@ -120,9 +120,9 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
     domain_tags = [term for term in FOCUS_DOMAIN_TERMS if _term_matches_text(term, text_blob)]
     strong_domain_tags = [term for term in STRONG_DOMAIN_TERMS if _term_matches_text(term, text_blob)]
     generic_payment_tags = [term for term in GENERIC_PAYMENT_TERMS if _term_matches_text(term, text_blob)]
-    if source in {"jobvite_pragmaticplay", "igamingrecruitment"} and "igaming" not in domain_tags:
+    if source in {"jobvite_pragmaticplay", "igamingrecruitment", "igaminghunt_bamboohr"} and "igaming" not in domain_tags:
         domain_tags.append("igaming")
-    if source in {"jobvite_pragmaticplay", "igamingrecruitment"} and "igaming" not in strong_domain_tags:
+    if source in {"jobvite_pragmaticplay", "igamingrecruitment", "igaminghunt_bamboohr"} and "igaming" not in strong_domain_tags:
         strong_domain_tags.append("igaming")
     role_tags = [term for term in FOCUS_ROLE_TERMS if _term_matches_text(term, title_lower)]
     commercial_role_tags = [term for term in COMMERCIAL_ROLE_TERMS if _term_matches_text(term, title_lower)]
@@ -209,7 +209,7 @@ def evaluate_fit(record: Dict[str, Any], resume_text: str) -> Dict[str, Any]:
     score += min(len(recruiter_company_tags) * 8, 16)
     score += min(len(resume_tags) * 5, 20)
 
-    if source == "igamingrecruitment":
+    if source in {"igamingrecruitment", "igaminghunt_bamboohr"}:
         score += 6
     if "manager" in title_lower:
         score += 4
@@ -400,6 +400,7 @@ def source_label(source: str) -> str:
         "jobvite_pragmaticplay": "Jobvite",
         "smartrecruitment": "SmartRecruitment",
         "igamingrecruitment": "iGaming Recruitment",
+        "igaminghunt_bamboohr": "IGAMINGHUNT",
         "indeed_uae": "Indeed UAE",
         "indeed_jobspy": "Indeed UAE",
         "indeed_georgia": "Indeed Georgia",

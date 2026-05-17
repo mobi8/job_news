@@ -65,6 +65,7 @@ from utils.config import (
     JOBSPY_MAX_LOOKBACK_HOURS,
     JOBSPY_MIN_LOOKBACK_HOURS,
     LINKEDIN_SEARCH_KEYWORDS,
+    IGAMINGHUNT_BAMBOOHR_URL,
     IGAMING_RECRUITMENT_URL,
     JOBRAPIDO_URL,
     JOBVITE_URL,
@@ -101,6 +102,7 @@ from utils.scrapers import (
     fetch_linkedin_jobs_via_browser,
     fetch_telegram_channel_jobs,
     parse_igaming_recruitment_jobs,
+    parse_igaminghunt_bamboohr_jobs,
     parse_jobrapido_jobs,
     parse_jobvite_jobs,
     parse_jobleads_jobs,
@@ -723,6 +725,13 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
             logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
             sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
+
+        if allowed_sources is None or "igaminghunt_bamboohr" in allowed_sources:
+            _console_step("Fetching IGAMINGHUNT BambooHR board")
+            logger.info("Fetching IGAMINGHUNT BambooHR board...")
+            igaminghunt_jobs = parse_igaminghunt_bamboohr_jobs(fetch_html(IGAMINGHUNT_BAMBOOHR_URL))
+            logger.info("Collected %s jobs from IGAMINGHUNT BambooHR.", len(igaminghunt_jobs))
+            sources.append((IGAMINGHUNT_BAMBOOHR_URL, igaminghunt_jobs))
 
         if allowed_sources is None or "jobrapido_uae" in allowed_sources:
             _console_step("Fetching Jobrapido board")

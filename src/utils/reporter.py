@@ -1029,6 +1029,7 @@ def save_dashboard(
             <option value="jobvite_pragmaticplay">Jobvite</option>
             <option value="smartrecruitment">SmartRecruitment</option>
             <option value="igamingrecruitment">iGaming Recruitment</option>
+            <option value="igaminghunt_bamboohr">IGAMINGHUNT</option>
             <option value="jobrapido_uae">Jobrapido</option>
             <option value="jobleads">JobLeads</option>
             <option value="telegram_job_crypto_uae">TG Jobs UAE</option>

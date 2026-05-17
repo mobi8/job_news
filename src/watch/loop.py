@@ -40,6 +40,7 @@ CONTINUOUS_WATCH_SOURCES = (
     "jobvite_pragmaticplay,"
     "smartrecruitment,"
     "igamingrecruitment,"
+    "igaminghunt_bamboohr,"
     "drjobs,"
     "jobrapido_uae,"
     "jobleads,"

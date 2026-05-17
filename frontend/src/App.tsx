@@ -28,6 +28,7 @@ const filterOptions = [
   { label: "JobLeads", value: "jobleads" },
   { label: "LinkedIn Georgia", value: "linkedin_georgia" },
   { label: "iGaming Recruitment", value: "igamingrecruitment" },
+  { label: "IGAMINGHUNT", value: "igaminghunt_bamboohr" },
   { label: "SmartRecruitment", value: "smartrecruitment" },
 ];
 

@@ -38,6 +38,7 @@ BROWSER_LOOKBACK_HOURS = _env_int("BROWSER_LOOKBACK_HOURS", BROWSER_LOOKBACK_HOU
 JOBVITE_URL = "https://jobs.jobvite.com/pragmaticplay/jobs"
 SMARTRECRUITMENT_URL = "https://jobs.smartrecruitment.com/jobs?department_id=20888"
 IGAMING_RECRUITMENT_URL = "https://igamingrecruitment.io/jobs/"
+IGAMINGHUNT_BAMBOOHR_URL = "https://igaminghunt.bamboohr.com/jobs/embed2.php"
 JOBRAPIDO_URL = "https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all"
 JOBLEADS_URL = "https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2"
 TELEGRAM_CHANNELS = [

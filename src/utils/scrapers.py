@@ -25,6 +25,7 @@ from .config import (
     GLASSDOOR_BROWSERLESS_PROBE_PATH,
     GLASSDOOR_BROWSERLESS_SEARCH_URLS,
     COMMERCIAL_ROLE_TERMS,
+    IGAMINGHUNT_BAMBOOHR_URL,
     IGAMING_RECRUITMENT_URL,
     INDEED_SEARCH_KEYWORDS,
     INDEED_SEARCH_URLS,
@@ -249,6 +250,63 @@ def parse_igaming_recruitment_jobs(raw_html: str) -> List[JobPosting]:
                 url=url,
             )
         )
+
+    return jobs
+
+
+def parse_igaminghunt_bamboohr_jobs(raw_html: str) -> List[JobPosting]:
+    department_pattern = re.compile(
+        r'<li[^>]+class="BambooHR-ATS-Department-Item"[^>]*>.*?'
+        r'<div[^>]+class="BambooHR-ATS-Department-Header"[^>]*>\s*(?P<department>.*?)\s*</div>'
+        r'(?P<body>.*?)</ul>\s*</li>',
+        re.DOTALL,
+    )
+    job_pattern = re.compile(
+        r'<li[^>]+id="bhrPositionID_(?P<id>[^"]+)"[^>]*>.*?'
+        r'<a[^>]+href="(?P<href>[^"]+)">(?P<title>.*?)</a>\s*'
+        r'<span[^>]+class="BambooHR-ATS-Location"[^>]*>(?P<location>.*?)</span>',
+        re.DOTALL,
+    )
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    for department_match in department_pattern.finditer(raw_html):
+        department = clean_text(department_match.group("department"))
+        for match in job_pattern.finditer(department_match.group("body")):
+            href = html.unescape(match.group("href")).strip()
+            url = urllib.parse.urljoin(IGAMINGHUNT_BAMBOOHR_URL, href)
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            title = clean_text(match.group("title"))
+            location = clean_text(match.group("location"))
+            source_job_id = clean_text(match.group("id")) or url.rstrip("/").split("/")[-1]
+            text_blob = f"{title} {location}".lower()
+            location_lower = location.lower()
+            country = "Other"
+            if any(term in location_lower for term in ["abu dhabi", "dubai", "uae", "united arab emirates"]):
+                country = "UAE"
+            elif any(term in location_lower for term in ["malta", "valletta", "sliema", "gzira"]):
+                country = "Malta"
+            elif any(term in location_lower for term in ["georgia", "tbilisi", "batumi"]):
+                country = "Georgia"
+            elif "remote" in text_blob:
+                country = "Remote"
+
+            jobs.append(
+                JobPosting(
+                    source="igaminghunt_bamboohr",
+                    source_job_id=source_job_id,
+                    title=title,
+                    company="IGAMINGHUNT",
+                    location=location,
+                    url=url,
+                    description=department,
+                    remote="remote" in text_blob,
+                    country=country,
+                )
+            )
 
     return jobs
 
