@@ -15,6 +15,14 @@ fi
 
 cd "${WORKDIR}"
 
+LOCK_DIR="${WORKDIR}/outputs/linkedin-spot-set.lock"
+mkdir -p "${WORKDIR}/outputs"
+while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+  echo "== Another LinkedIn spot set is running; waiting for lock..."
+  sleep 10
+done
+trap 'rmdir "${LOCK_DIR}" 2>/dev/null || true' EXIT
+
 echo "== LinkedIn spot set: ${LOCATION} | ${KEYWORDS} | limit=${LIMIT}"
 echo "== 1/2 LinkedIn posts"
 "${WORKDIR}/run_linkedin_posts.sh" spot "${LOCATION}" "${KEYWORDS}" "${LIMIT}"
