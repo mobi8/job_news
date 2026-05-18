@@ -17,7 +17,6 @@ if [[ -f "${WORKDIR}/.env" ]]; then
 fi
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
-RUN_ARGS=("$@")
 if [[ "${1:-}" == "spot" ]]; then
   export LINKEDIN_POST_MAX_PLANS="${LINKEDIN_POST_MAX_PLANS:-8}"
   export LINKEDIN_POST_SCROLL_ROUNDS="${LINKEDIN_POST_SCROLL_ROUNDS:-1}"
@@ -69,7 +68,7 @@ pkill -f -- "--user-data-dir=${LINKEDIN_POSTS_PROFILE_DIR}" 2>/dev/null || true
 sleep 1
 
 if command -v caffeinate >/dev/null 2>&1; then
-  exec caffeinate -s "${PYTHON_BIN}" src/watch/linkedin_posts.py "${RUN_ARGS[@]}"
+  exec caffeinate -s "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
 fi
 
-exec "${PYTHON_BIN}" src/watch/linkedin_posts.py "${RUN_ARGS[@]}"
+exec "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
