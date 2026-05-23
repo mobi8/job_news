@@ -33,11 +33,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List
 
-# JobSpy for Indeed scraping
+# JobSpy for Indeed scraping. Keep this on the active virtualenv only; mixing
+# another Python version's site-packages breaks pandas/numpy imports.
 try:
-    sys.path.insert(0, '/Users/lewis/Desktop/agent/jobspy_env/lib/python3.14/site-packages')
     from jobspy import scrape_jobs
-except ImportError:
+except Exception:
     scrape_jobs = None
 
 # Load .env file if it exists
@@ -722,9 +722,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if allowed_sources is None or "igamingrecruitment" in allowed_sources:
             _console_step("Fetching iGaming Recruitment board")
             logger.info("Fetching iGaming Recruitment board...")
-            igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
-            logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
-            sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
+            try:
+                igaming_recruitment_jobs = parse_igaming_recruitment_jobs(fetch_html(IGAMING_RECRUITMENT_URL))
+                logger.info("Collected %s jobs from iGaming Recruitment.", len(igaming_recruitment_jobs))
+                sources.append((IGAMING_RECRUITMENT_URL, igaming_recruitment_jobs))
+            except Exception as exc:
+                logger.warning("Skipping iGaming Recruitment for this run: %s", exc)
 
         if allowed_sources is None or "igaminghunt_bamboohr" in allowed_sources:
             _console_step("Fetching IGAMINGHUNT BambooHR board")

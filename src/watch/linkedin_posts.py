@@ -32,12 +32,6 @@ from utils.config import (  # noqa: E402
     LINKEDIN_POSTS_PROFILE_DIR,
     OUTPUT_DIR,
 )
-from utils.db import Database  # noqa: E402
-from utils.models import JobPosting  # noqa: E402
-from utils.notifications import send_telegram_text  # noqa: E402
-from utils.reporter import save_json  # noqa: E402
-from utils.scoring import annotate_records, calculate_match_score, is_hard_excluded_job  # noqa: E402
-from utils.utils import load_resume_text, utc_now  # noqa: E402
 
 HIRING_TERMS = [
     "hiring", "we are hiring", "we're hiring", "open role", "job alert", "looking for",
@@ -139,11 +133,13 @@ def _wait_profile_released() -> None:
 
 
 def _run_probe(plans: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
+    print("LinkedIn posts probe: launching Chrome/search worker...", flush=True)
     result = subprocess.run(
         ["node", str(LINKEDIN_POSTS_PROBE_PATH)],
         cwd=str(Path(__file__).resolve().parents[2]),
         env=_probe_env(plans),
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=None,
         text=True,
         timeout=int(os.getenv("LINKEDIN_POST_TIMEOUT", "900")),
     )
@@ -242,6 +238,8 @@ def _title_from_post(post: Dict[str, Any]) -> str:
 
 
 def _passes_filters(post: Dict[str, Any]) -> bool:
+    from utils.scoring import is_hard_excluded_job
+
     if not _is_post_permalink(post.get("url", "")):
         return False
     body = _post_body(post)
@@ -275,6 +273,9 @@ def _is_post_permalink(url: str) -> bool:
 
 
 def _to_job(post: Dict[str, Any]) -> JobPosting:
+    from utils.models import JobPosting
+    from utils.utils import utc_now
+
     outbound = post.get("outbound_links") or []
     source = post.get("source") or "linkedin_post"
     location = post.get("display_location") or post.get("country") or "UAE"
@@ -309,6 +310,9 @@ def _to_job(post: Dict[str, Any]) -> JobPosting:
 
 
 def _refresh_dashboard_outputs(db: Database, inserted: int, inserted_jobs: List[JobPosting], resume_text: str) -> None:
+    from utils.reporter import save_json
+    from utils.scoring import annotate_records
+
     jobs = annotate_records(db.fetch_all_jobs(), resume_text)
     payload_path = OUTPUT_DIR / "jobs_analysis.json"
     if payload_path.exists():
@@ -353,6 +357,7 @@ def _send_linkedin_post_telegram(inserted_jobs: List[JobPosting], batch_index: i
         score = int(job.match_score or 0)
         url = html.escape(job.url or "", quote=True)
         lines.append(f"{idx}. [{country}] <a href=\"{url}\">{title}</a> · {score}")
+    from utils.notifications import send_telegram_text
     return len(jobs) if send_telegram_text("\n".join(lines)) else 0
 
 
@@ -366,12 +371,14 @@ def _send_spot_telegram(inserted_jobs: List[JobPosting], location: str, keywords
     ]
     if not jobs:
         lines.append("새로 저장된 permalink 결과가 없습니다.")
+        from utils.notifications import send_telegram_text
         return 0 if send_telegram_text("\n".join(lines)) else 0
     for idx, job in enumerate(jobs, start=1):
         title = html.escape(_clean_linkedin_post_title(job))
         score = int(job.match_score or 0)
         url = html.escape(job.url or "", quote=True)
         lines.append(f"{idx}. <a href=\"{url}\">{title}</a> · {score}")
+    from utils.notifications import send_telegram_text
     return len(jobs) if send_telegram_text("\n".join(lines)) else 0
 
 
@@ -425,9 +432,6 @@ def main_spot(argv: List[str]) -> None:
     os.environ.setdefault("LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS", "2")
     os.environ.setdefault("LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS", "4")
 
-    resume_text = load_resume_text()
-    db = Database(OUTPUT_DIR / "jobs.sqlite3")
-
     print(f"LinkedIn spot: location={location} keywords={','.join(keywords)} plans={len(plans)}")
     try:
         result = _run_probe(plans)
@@ -445,6 +449,12 @@ def main_spot(argv: List[str]) -> None:
     raw_posts = result.get("posts", [])
     posts = [post for post in raw_posts if _passes_filters(post)]
     jobs = [_to_job(post) for post in posts]
+    from utils.db import Database
+    from utils.scoring import calculate_match_score
+    from utils.utils import load_resume_text
+
+    resume_text = load_resume_text()
+    db = Database(OUTPUT_DIR / "jobs.sqlite3")
     for job in jobs:
         job.match_score = calculate_match_score(job, resume_text)
 
@@ -460,9 +470,7 @@ def main() -> None:
         main_spot(sys.argv[2:])
         return
 
-    resume_text = load_resume_text()
-    db = Database(OUTPUT_DIR / "jobs.sqlite3")
-
+    print("LinkedIn posts runner starting...", flush=True)
     max_plans = _env_int("LINKEDIN_POST_MAX_PLANS", len(LINKEDIN_POST_SEARCH_PLANS))
     start_plan = max(1, _env_int("LINKEDIN_POST_START_PLAN", 1))
     batch_size = _env_int("LINKEDIN_POST_BATCH_SIZE", 5)
@@ -470,6 +478,11 @@ def main() -> None:
     pause_max = _env_int("LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS", 120)
     selected_plans = LINKEDIN_POST_SEARCH_PLANS[start_plan - 1:max_plans]
     plan_batches = _chunks(selected_plans, batch_size)
+    print(
+        f"LinkedIn posts config: start_plan={start_plan} max_plans={max_plans} "
+        f"batch_size={batch_size} batches={len(plan_batches)}",
+        flush=True,
+    )
 
     total_raw = 0
     total_filtered = 0
@@ -511,6 +524,12 @@ def main() -> None:
 
         posts = [post for post in raw_posts if _passes_filters(post)]
         jobs = [_to_job(post) for post in posts]
+        from utils.db import Database
+        from utils.scoring import calculate_match_score
+        from utils.utils import load_resume_text
+
+        resume_text = load_resume_text()
+        db = Database(OUTPUT_DIR / "jobs.sqlite3")
         for job in jobs:
             job.match_score = calculate_match_score(job, resume_text)
 

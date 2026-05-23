@@ -10,10 +10,12 @@ fi
 
 cd "${WORKDIR}"
 if [[ -f "${WORKDIR}/.env" ]]; then
+  echo "Loading .env..."
   set -a
   # shellcheck disable=SC1091
   source "${WORKDIR}/.env"
   set +a
+  export JOBHUNT_ENV_LOADED=1
 fi
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
@@ -68,7 +70,9 @@ pkill -f -- "--user-data-dir=${LINKEDIN_POSTS_PROFILE_DIR}" 2>/dev/null || true
 sleep 1
 
 if command -v caffeinate >/dev/null 2>&1; then
-  exec caffeinate -s "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+  echo "Starting LinkedIn posts runner..."
+  exec caffeinate -s env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
 fi
 
-exec "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+echo "Starting LinkedIn posts runner..."
+exec env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"

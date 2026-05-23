@@ -65,7 +65,10 @@ else
   if [[ -f "${VENV_PYTHON_VERSION_FILE}" ]]; then
     existing_python_version="$(cat "${VENV_PYTHON_VERSION_FILE}")"
   else
-    existing_python_version="$(basename "$(find "${VENV_DIR}/lib" -maxdepth 1 -type d -name 'python3.*' 2>/dev/null | head -n 1)" | sed 's/^python//' || echo "unknown")"
+    shopt -s nullglob
+    existing_python_dirs=("${VENV_DIR}"/lib/python3.*)
+    shopt -u nullglob
+    existing_python_version="$(basename "${existing_python_dirs[0]:-unknown}" | sed 's/^python//')"
   fi
   if [[ "${existing_python_version}" != "${SELECTED_PYTHON_VERSION}" ]]; then
     echo "  ⚠ venv uses Python ${existing_python_version}; rebuilding with ${SELECTED_PYTHON_VERSION}..."
@@ -92,7 +95,10 @@ source "${VENV_DIR}/bin/activate"
 
 install_requirements() {
   local site_packages
-  site_packages="$(find "${VENV_DIR}/lib" -path '*/site-packages' -type d 2>/dev/null | head -n 1)"
+  shopt -s nullglob
+  local site_package_dirs=("${VENV_DIR}"/lib/python*/site-packages)
+  shopt -u nullglob
+  site_packages="${site_package_dirs[0]:-}"
   if [[ -n "${site_packages}" \
     && -f "${site_packages}/bs4/__init__.py" \
     && -f "${site_packages}/fastapi/__init__.py" \
@@ -337,7 +343,10 @@ echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
 sleep 1
 
 # Test Telegram scraper availability without importing packages during boot.
-site_packages="$(find "${VENV_DIR}/lib" -path '*/site-packages' -type d 2>/dev/null | head -n 1)"
+shopt -s nullglob
+site_package_dirs=("${VENV_DIR}"/lib/python*/site-packages)
+shopt -u nullglob
+site_packages="${site_package_dirs[0]:-}"
 if [[ -n "${site_packages}" && -f "${site_packages}/requests/__init__.py" && -f "${site_packages}/urllib3/exceptions.py" && -f "${site_packages}/bs4/__init__.py" ]]; then
   echo "  Telegram scraper dependencies available ✓"
 else

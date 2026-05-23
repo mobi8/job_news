@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import json
 import fcntl
+import logging
 import subprocess
 import sys
 import time
@@ -25,28 +26,21 @@ if env_path.exists():
 # Add src/ to path so utils, config, etc. can be imported directly
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.db import Database
-from utils.config import WATCH_INTERVAL_MINUTES_DEFAULT
-from utils.logger import watch_logger
-from services.queue_exporter import export_high_scoring_jobs
-from services.telegram_scraper import scrape_and_save
-
 # Updated path: scraper.py is in src/watch/
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
 LOCK_PATH = "/Users/lewis/Desktop/agent/outputs/watch_loop.lock"
+WATCH_INTERVAL_MINUTES_DEFAULT = 120
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)-8s watch_loop           %(message)s")
+watch_logger = logging.getLogger("watch_loop")
 CONTINUOUS_WATCH_SOURCES = (
     "jobvite_pragmaticplay,"
     "smartrecruitment,"
     "igamingrecruitment,"
     "igaminghunt_bamboohr,"
-    "drjobs,"
     "jobrapido_uae,"
-    "jobleads,"
-    "linkedin_public,"
-    "linkedin_emea,"
-    "indeed_uae"
+    "jobleads"
 )
 
 
@@ -87,6 +81,8 @@ def run_once() -> int:
 
         # Scrape Telegram channels
         try:
+            from services.telegram_scraper import scrape_and_save
+
             watch_logger.info("Starting Telegram channel scraping...")
             tg_result = scrape_and_save(DB_PATH)
             watch_logger.info(f"Telegram scraping complete: {tg_result['total_saved']} jobs saved")
@@ -97,6 +93,8 @@ def run_once() -> int:
 
         # Export high-scoring jobs to career-ops queue
         try:
+            from services.queue_exporter import export_high_scoring_jobs
+
             export_result = export_high_scoring_jobs(DB_PATH, min_score=60)
             if export_result.get("count", 0) > 0:
                 watch_logger.info(f"Queue export: {export_result['count']} jobs added to career-ops")

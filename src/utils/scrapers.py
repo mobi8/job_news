@@ -18,7 +18,10 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import List
 
-from jobspy import scrape_jobs
+try:
+    from jobspy import scrape_jobs
+except Exception:
+    scrape_jobs = None
 
 from .config import (
     BROWSER_PROBE_PATH,
@@ -1068,6 +1071,10 @@ def fetch_glassdoor_jobs_via_browserless() -> List[JobPosting]:
 
 def fetch_indeed_jobs_via_jobspy() -> List[JobPosting]:
     """Fetch Indeed jobs using JobSpy library across UAE, Malta, Georgia."""
+    if scrape_jobs is None:
+        logger.warning("JobSpy not available, skipping utils JobSpy Indeed fetch")
+        return []
+
     jobs: List[JobPosting] = []
     seen_urls = set()
     collected_at = utc_now().isoformat()
