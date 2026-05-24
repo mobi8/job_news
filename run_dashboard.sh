@@ -17,6 +17,9 @@ TELEGRAM_POLLER_PID=""
 TELEGRAM_SCRAPER_PID=""
 CLEANUP_IN_PROGRESS=0
 
+export WS_NO_BUFFER_UTIL="${WS_NO_BUFFER_UTIL:-1}"
+export WS_NO_UTF_8_VALIDATE="${WS_NO_UTF_8_VALIDATE:-1}"
+
 startup_cleanup() {
   for pid in "$TELEGRAM_POLLER_PID" "$WATCH_LOOP_PID" "$WATCH_LOOP_LOG_TAIL_PID" "$VITE_PID" "$UVICORN_PID"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then

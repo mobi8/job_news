@@ -22,7 +22,7 @@ if env_path.exists():
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
 
-from utils.config import BROWSER_PROBE_PATH, OUTPUT_DIR  # noqa: E402
+from utils.config import OUTPUT_DIR  # noqa: E402
 from utils.db import Database  # noqa: E402
 from utils.models import JobPosting  # noqa: E402
 from utils.notifications import send_telegram_text  # noqa: E402
@@ -32,6 +32,7 @@ from utils.utils import load_resume_text, normalize_linkedin_identifier, normali
 
 
 DEFAULT_KEYWORDS = "crypto,web3,payments,igaming,product"
+CDP_PROBE_PATH = Path(__file__).resolve().parents[2] / "browser_probe_cdp.js"
 
 
 def _build_search_url(location: str, keyword: str) -> str:
@@ -48,13 +49,16 @@ def _build_search_url(location: str, keyword: str) -> str:
 def _run_probe(urls: List[str]) -> List[Dict[str, Any]]:
     env = os.environ.copy()
     env.setdefault("BROWSER_HEADLESS", "1")
+    env.setdefault("WS_NO_BUFFER_UTIL", "1")
+    env.setdefault("WS_NO_UTF_8_VALIDATE", "1")
+    probe_path = Path(os.getenv("LINKEDIN_JOB_SPOT_PROBE", str(CDP_PROBE_PATH)))
     result = subprocess.run(
-        ["node", str(BROWSER_PROBE_PATH), *urls],
+        ["node", str(probe_path), *urls],
         cwd=str(Path(__file__).resolve().parents[2]),
         env=env,
         capture_output=True,
         text=True,
-        timeout=int(os.getenv("LINKEDIN_JOB_SPOT_TIMEOUT", "300")),
+        timeout=int(os.getenv("LINKEDIN_JOB_SPOT_TIMEOUT", "180")),
     )
     if result.stderr:
         print(result.stderr, file=sys.stderr)

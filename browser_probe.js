@@ -1,4 +1,9 @@
+process.env.WS_NO_BUFFER_UTIL = process.env.WS_NO_BUFFER_UTIL || '1';
+process.env.WS_NO_UTF_8_VALIDATE = process.env.WS_NO_UTF_8_VALIDATE || '1';
+
+console.error('[browser_probe] loading Playwright');
 const { chromium } = require('playwright');
+console.error('[browser_probe] Playwright loaded');
 
 function textOrEmpty(node) {
   return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();

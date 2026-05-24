@@ -18,5 +18,7 @@ fi
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 export BROWSER_HEADLESS="${BROWSER_HEADLESS:-1}"
+export WS_NO_BUFFER_UTIL="${WS_NO_BUFFER_UTIL:-1}"
+export WS_NO_UTF_8_VALIDATE="${WS_NO_UTF_8_VALIDATE:-1}"
 
 exec "${PYTHON_BIN}" src/watch/linkedin_jobs_spot.py "$@"

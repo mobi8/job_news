@@ -67,10 +67,14 @@ def _emit_captured_stderr(prefix: str, stderr: str) -> None:
 def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[int, str, str]:
     # Capture stdout to a temp file so large browser JSON output cannot block the child process.
     stdout_file = tempfile.TemporaryFile(mode="w+")
+    env = os.environ.copy()
+    env.setdefault("WS_NO_BUFFER_UTIL", "1")
+    env.setdefault("WS_NO_UTF_8_VALIDATE", "1")
     proc = subprocess.Popen(
         command,
         stdout=stdout_file,
         stderr=subprocess.PIPE,
+        env=env,
         text=True,
         bufsize=1,
     )

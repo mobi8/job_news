@@ -28,10 +28,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Updated path: scraper.py is in src/watch/
 SCRIPT_PATH = str(Path(__file__).parent / "scraper.py")
+LINKEDIN_JOB_SPOT_PATH = str(Path(__file__).parent / "linkedin_jobs_spot.py")
 WATCH_SETTINGS_PATH = "/Users/lewis/Desktop/agent/outputs/watch_settings.json"
 DB_PATH = "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"
 LOCK_PATH = "/Users/lewis/Desktop/agent/outputs/watch_loop.lock"
 WATCH_INTERVAL_MINUTES_DEFAULT = 120
+LINKEDIN_JOB_SPOT_LOCATION_DEFAULT = "Dubai, United Arab Emirates"
+LINKEDIN_JOB_SPOT_KEYWORDS_DEFAULT = (
+    "crypto payment OR stablecoin payment,"
+    "web3 OR crypto product,"
+    "igaming OR gaming"
+)
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)-8s watch_loop           %(message)s")
 watch_logger = logging.getLogger("watch_loop")
 CONTINUOUS_WATCH_SOURCES = (
@@ -83,6 +90,35 @@ def run_once() -> int:
     if result.returncode == 0:
         watch_logger.info("✓ Scraper completed with detailed descriptions")
         _console_step("Watcher finished successfully")
+
+        if os.getenv("SKIP_LINKEDIN_JOB_SPOT", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+            try:
+                spot_location = os.getenv("LINKEDIN_JOB_SPOT_LOCATION", LINKEDIN_JOB_SPOT_LOCATION_DEFAULT)
+                spot_keywords = os.getenv("LINKEDIN_JOB_SPOT_KEYWORDS", LINKEDIN_JOB_SPOT_KEYWORDS_DEFAULT)
+                spot_limit = os.getenv("LINKEDIN_JOB_SPOT_LIMIT", "3")
+                spot_timeout = int(os.getenv("LINKEDIN_JOB_SPOT_LOOP_TIMEOUT", "360"))
+                spot_env = env.copy()
+                spot_env.setdefault("LINKEDIN_JOB_SPOT_TIMEOUT", str(max(60, spot_timeout - 30)))
+                watch_logger.info("Starting LinkedIn UAE spot scrape...")
+                _console_step("LinkedIn UAE spot scrape starting")
+                spot = subprocess.run(
+                    [sys.executable, LINKEDIN_JOB_SPOT_PATH, spot_location, spot_keywords, spot_limit],
+                    env=spot_env,
+                    check=False,
+                    timeout=spot_timeout,
+                )
+                if spot.returncode == 0:
+                    watch_logger.info("LinkedIn UAE spot scrape complete")
+                    _console_step("LinkedIn UAE spot scrape complete")
+                else:
+                    watch_logger.warning("LinkedIn UAE spot scrape exited with %s", spot.returncode)
+                    _console_step(f"LinkedIn UAE spot scrape exited with {spot.returncode}")
+            except subprocess.TimeoutExpired:
+                watch_logger.warning("LinkedIn UAE spot scrape timed out")
+                _console_step("LinkedIn UAE spot scrape timed out")
+            except Exception as e:
+                watch_logger.error(f"LinkedIn UAE spot scrape failed: {e}")
+                _console_step(f"LinkedIn UAE spot scrape failed: {e}")
 
         # Scrape Telegram channels
         try:
