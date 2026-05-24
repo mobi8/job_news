@@ -339,9 +339,9 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
 
     if not qualifying_jobs:
         message_text = (
-            "<b>🆕 New Jobs (0 new)</b>\n\n"
-            f"이번 배치에 신규 공고는 {max(inserted, len(prepared_jobs))}건 있었지만 "
-            f"알림 조건(min_score={min_score})을 넘은 항목이 없습니다."
+            "<b>Job Watch 완료</b>\n\n"
+            f"새로 저장된 추천 공고는 0건입니다. "
+            f"수집은 정상 완료됐고, 기존 공고와 중복이거나 알림 조건(min_score={min_score})을 넘지 않았습니다."
         )
         if send_telegram_text(message_text):
             logger.info(

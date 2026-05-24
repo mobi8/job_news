@@ -62,6 +62,11 @@ def load_watch_settings() -> dict:
 def run_once() -> int:
     env = os.environ.copy()
     env.setdefault("JOB_WATCH_SOURCES", CONTINUOUS_WATCH_SOURCES)
+    env.setdefault("SKIP_LINKEDIN_BROWSER", "1")
+    env.setdefault("SKIP_INDEED_BROWSER", "1")
+    env.setdefault("SKIP_DRJOBS_BROWSER", "1")
+    env.setdefault("SKIP_GLASSDOOR_BROWSER", "1")
+    env.setdefault("SKIP_JOBSPY", "1")
     settings = load_watch_settings()
     interval_seconds = int(settings["scrape_interval_minutes"] * 60)
     watch_mode = "collect"

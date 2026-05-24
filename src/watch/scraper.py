@@ -688,6 +688,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     skip_linkedin_browser = safe_bool(os.getenv("SKIP_LINKEDIN_BROWSER"))
     skip_indeed_browser = safe_bool(os.getenv("SKIP_INDEED_BROWSER"))
     skip_jobspy = safe_bool(os.getenv("SKIP_JOBSPY"))
+    skip_drjobs_browser = safe_bool(os.getenv("SKIP_DRJOBS_BROWSER"))
+    skip_glassdoor_browser = safe_bool(os.getenv("SKIP_GLASSDOOR_BROWSER"))
     skip_news = safe_bool(os.getenv("SKIP_NEWS"))
     sources = []
     jobs = []
@@ -753,7 +755,9 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             except Exception as exc:
                 logger.warning("Skipping JobLeads for this run: %s", exc)
 
-        if allowed_sources is None or "drjobs" in allowed_sources:
+        if skip_drjobs_browser:
+            logger.info("Skipping DrJobs browser phase.")
+        elif allowed_sources is None or "drjobs" in allowed_sources:
             _console_step("Fetching drjobs board")
             logger.info("Fetching drjobs browser pages...")
             drjobs_jobs = fetch_drjobs_jobs_via_browser()
@@ -785,7 +789,10 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         else:
             browser_indeed_jobs = scrape_indeed_via_browser()
 
-        if _source_allowed(allowed_sources, "glassdoor_uae"):
+        if skip_glassdoor_browser:
+            logger.info("Skipping Glassdoor browserless phase.")
+            browser_glassdoor_jobs = []
+        elif _source_allowed(allowed_sources, "glassdoor_uae"):
             browser_glassdoor_jobs = scrape_glassdoor_via_browserless()
         else:
             browser_glassdoor_jobs = []
