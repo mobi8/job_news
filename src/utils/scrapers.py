@@ -10,6 +10,7 @@ import re
 import subprocess
 import threading
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -54,6 +55,8 @@ BROWSER_INDEED_BATCH_SIZE = max(1, int(os.getenv("BROWSER_INDEED_BATCH_SIZE", "2
 BROWSER_LINKEDIN_BATCH_SIZE = max(1, int(os.getenv("BROWSER_LINKEDIN_BATCH_SIZE", "2")))
 BROWSER_GLASSDOOR_BATCH_SIZE = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_SIZE", "1")))
 BROWSER_GLASSDOOR_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_WORKERS", "1")))
+BROWSER_PROBE_HEARTBEAT_SECONDS = max(10, int(os.getenv("BROWSER_PROBE_HEARTBEAT_SECONDS", "30")))
+NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
 
 
 def _emit_captured_stderr(prefix: str, stderr: str) -> None:
@@ -64,7 +67,7 @@ def _emit_captured_stderr(prefix: str, stderr: str) -> None:
         logger.info("%s%s", prefix, line)
 
 
-def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[int, str, str]:
+def _run_browser_probe_with_progress(command: List[str], timeout: int, label: str = "browser probe") -> tuple[int, str, str]:
     # Capture stdout to a temp file so large browser JSON output cannot block the child process.
     stdout_file = tempfile.TemporaryFile(mode="w+")
     env = os.environ.copy()
@@ -80,6 +83,15 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
     )
 
     stderr_lines: list[str] = []
+    started_at = time.monotonic()
+    last_heartbeat_at = started_at
+
+    browser_logger.info(
+        "%s process start: pid=%s timeout=%ss",
+        label,
+        proc.pid,
+        timeout,
+    )
 
     def _pump_stderr() -> None:
         assert proc.stderr is not None
@@ -101,8 +113,28 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
     stderr_thread.start()
 
     try:
-        proc.wait(timeout=timeout)
+        while True:
+            try:
+                proc.wait(timeout=1)
+                break
+            except subprocess.TimeoutExpired:
+                now = time.monotonic()
+                if now - last_heartbeat_at >= BROWSER_PROBE_HEARTBEAT_SECONDS:
+                    last_heartbeat_at = now
+                    elapsed = int(now - started_at)
+                    last_line = stderr_lines[-1] if stderr_lines else "no probe stderr yet"
+                    browser_logger.info(
+                        "%s still running: pid=%s elapsed=%ss last=%s",
+                        label,
+                        proc.pid,
+                        elapsed,
+                        last_line,
+                    )
+                if now - started_at >= timeout:
+                    raise subprocess.TimeoutExpired(command, timeout)
     except subprocess.TimeoutExpired:
+        elapsed = int(time.monotonic() - started_at)
+        browser_logger.warning("%s timed out: pid=%s elapsed=%ss", label, proc.pid, elapsed)
         proc.kill()
         proc.wait(timeout=10)
         stderr_thread.join(timeout=1)
@@ -114,6 +146,13 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int) -> tuple[
     stdout_file.close()
 
     stderr_thread.join(timeout=1)
+    browser_logger.info(
+        "%s process done: pid=%s elapsed=%ss returncode=%s",
+        label,
+        proc.pid,
+        int(time.monotonic() - started_at),
+        proc.returncode,
+    )
     return proc.returncode, stdout, "\n".join(stderr_lines)
 
 
@@ -649,7 +688,7 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
         try:
             logger.info("Telegram browser probe start: %s", channel["url"])
             returncode, stdout, _stderr = _run_browser_probe_with_progress(
-                ["node", str(BROWSER_PROBE_PATH), channel["url"]],
+                [NODE_BIN, str(BROWSER_PROBE_PATH), channel["url"]],
                 timeout=240,
             )
             if returncode != 0:
@@ -692,11 +731,12 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
     ]
     ordered_results: list[dict | None] = [None] * len(urls)
 
-    def run_batch(batch: List[str]) -> List[dict]:
-        command = ["node", str(BROWSER_PROBE_PATH)] + batch
+    def run_batch(batch_index: int, batch: List[str]) -> List[dict]:
+        command = [NODE_BIN, str(BROWSER_PROBE_PATH)] + batch
+        label = f"Browser probe batch {batch_index}/{len(indexed_batches)} urls={len(batch)}"
         try:
-            browser_logger.info("Browser probe batch start: %d urls", len(batch))
-            returncode, stdout, _stderr = _run_browser_probe_with_progress(command, timeout=600)
+            browser_logger.info("%s start", label)
+            returncode, stdout, _stderr = _run_browser_probe_with_progress(command, timeout=180, label=label)
             if returncode != 0:
                 raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
             stdout = stdout.strip()
@@ -718,7 +758,10 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
         BROWSER_BATCH_WORKERS,
     )
     with ThreadPoolExecutor(max_workers=BROWSER_BATCH_WORKERS) as executor:
-        futures = {executor.submit(run_batch, batch): (start, len(batch)) for start, batch in indexed_batches}
+        futures = {
+            executor.submit(run_batch, index, batch): (start, len(batch))
+            for index, (start, batch) in enumerate(indexed_batches, start=1)
+        }
         for future in as_completed(futures):
             try:
                 results = future.result()
@@ -750,10 +793,10 @@ def _batch_browserless_fetch(
     ordered_results: list[dict | None] = [None] * len(urls)
 
     def run_batch(batch: List[str]) -> List[dict]:
-        command = ["node", str(script_path)] + batch
+        command = [NODE_BIN, str(script_path)] + batch
         try:
             browser_logger.info("Browserless batch start: %d urls", len(batch))
-            returncode, stdout, stderr = _run_browser_probe_with_progress(command, timeout=600)
+            returncode, stdout, stderr = _run_browser_probe_with_progress(command, timeout=180)
             if returncode != 0:
                 stderr_tail = " | ".join((stderr or "").splitlines()[-6:])
                 if stderr_tail:

@@ -3,7 +3,7 @@ set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
-SKIP_SCRAPE="${NO_SCRAPE:-0}"
+START_WORKERS="${DASHBOARD_WITH_WORKERS:-1}"
 JOBS_DIR="${WORKDIR}/outputs"
 VENV_DIR="${WORKDIR}/venv"
 VENV_PYTHON_VERSION_FILE="${VENV_DIR}/.python-version"
@@ -19,6 +19,23 @@ CLEANUP_IN_PROGRESS=0
 
 export WS_NO_BUFFER_UTIL="${WS_NO_BUFFER_UTIL:-1}"
 export WS_NO_UTF_8_VALIDATE="${WS_NO_UTF_8_VALIDATE:-1}"
+
+case "${1:-}" in
+  --with-workers|--full)
+    START_WORKERS=1
+    shift
+    ;;
+  --ui-only|--no-workers)
+    START_WORKERS=0
+    shift
+    ;;
+  --help|-h)
+    echo "Usage: ./run_dashboard.sh [--ui-only|--with-workers]"
+    echo "  --ui-only       Disable Telegram poller and watch loop."
+    echo "  --with-workers  Enable workers (default)."
+    exit 0
+    ;;
+esac
 
 startup_cleanup() {
   for pid in "$TELEGRAM_POLLER_PID" "$WATCH_LOOP_PID" "$WATCH_LOOP_LOG_TAIL_PID" "$VITE_PID" "$UVICORN_PID"; do
@@ -338,7 +355,7 @@ echo "  Frontend ready ✓"
 echo "✓ Dashboard ready at http://localhost:$VITE_PORT/"
 open "http://localhost:$VITE_PORT/" 2>/dev/null || xdg-open "http://localhost:$VITE_PORT/" 2>/dev/null || echo "  Please open http://localhost:$VITE_PORT/ in your browser"
 
-if [[ "${SKIP_SCRAPE}" != "1" ]]; then
+if [[ "${START_WORKERS}" == "1" ]]; then
 cd "${WORKDIR}"
 python3 src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
 TELEGRAM_POLLER_PID=$!
@@ -368,7 +385,8 @@ caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
 WATCH_LOOP_PID=$!
 echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
 else
-  echo "  Skipping Telegram poller and watch loop (NO_SCRAPE=1)"
+  echo "  UI-only mode: workers are not started."
+  echo "  Use ./run_watch_loop.sh for continuous collection or ./run_dashboard.sh --with-workers for the old combined mode."
 fi
 
 cleanup() {
