@@ -433,12 +433,25 @@ def main_spot(argv: List[str]) -> None:
     os.environ.setdefault("LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS", "4")
 
     print(f"LinkedIn spot: location={location} keywords={','.join(keywords)} plans={len(plans)}")
+
+    result = None
     try:
         result = _run_probe(plans)
     except RuntimeError as exc:
-        print(f"LinkedIn spot failed before collecting posts: {str(exc)[:300]}")
-        raise
-    if result.get("login_required"):
+        error_msg = str(exc)[:300]
+        print(f"LinkedIn probe failed: {error_msg}")
+        if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
+            print("Attempting automatic login setup...")
+            try:
+                _run_login_setup()
+                result = _run_probe(plans)
+            except Exception as setup_exc:
+                print(f"Login setup failed: {str(setup_exc)[:300]}")
+                raise
+        else:
+            raise
+
+    if result and result.get("login_required"):
         if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
             _run_login_setup()
             result = _run_probe(plans)
@@ -495,19 +508,38 @@ def main() -> None:
         end = start + len(plans) - 1
         print(f"LinkedIn posts batch {batch_index}/{len(plan_batches)}: plans {start}-{end}")
 
+        result = None
         try:
             result = _run_probe(plans)
         except RuntimeError as exc:
-            total_errors += 1
-            print(f"LinkedIn posts batch {batch_index} failed before collecting posts: {str(exc)[:300]}")
-            if batch_index < len(plan_batches):
-                _kill_profile_processes()
-                pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
-                print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
-                time.sleep(pause_seconds)
-                continue
-            break
-        if result.get("login_required"):
+            error_msg = str(exc)[:300]
+            print(f"LinkedIn posts batch {batch_index} failed: {error_msg}")
+            if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
+                print("Attempting automatic login setup...")
+                try:
+                    _run_login_setup()
+                    result = _run_probe(plans)
+                except Exception as setup_exc:
+                    total_errors += 1
+                    print(f"Login setup failed: {str(setup_exc)[:300]}")
+                    if batch_index < len(plan_batches):
+                        _kill_profile_processes()
+                        pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
+                        print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
+                        time.sleep(pause_seconds)
+                        continue
+                    break
+            else:
+                total_errors += 1
+                if batch_index < len(plan_batches):
+                    _kill_profile_processes()
+                    pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
+                    print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
+                    time.sleep(pause_seconds)
+                    continue
+                break
+
+        if result and result.get("login_required"):
             if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
                 _run_login_setup()
                 result = _run_probe(plans)
