@@ -915,9 +915,19 @@ def handle_message(text: str) -> None:
         if cmd in ("help", "commands"):
             help_text = (
                 "📋 사용 가능한 명령어:\n\n"
-                "/run — 전체 수집 실행 (./run_collect_once.sh)\n"
-                "/glass — Glassdoor 수집 (./run_glassdoor.sh)\n"
-                "/posts — LinkedIn 포스트 수집 (./run_linkedin_posts.sh)\n\n"
+                "/run — 전체 수집 실행\n"
+                "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"
+                "  ⏱️ 소요시간: 약 2-3분 | 결과: 새 공고 개수\n\n"
+                "/glass — Glassdoor 수집\n"
+                "  🔍 Glassdoor 전용 공고 수집\n"
+                "  ⏱️ 소요시간: 약 1-2분\n\n"
+                "/posts — LinkedIn 포스트 분석\n"
+                "  🔍 LinkedIn 최신 포스트 및 인사이트\n"
+                "  ⏱️ 소요시간: 약 1분\n\n"
+                "spot. [위치] | [키워드] | [개수] — LinkedIn 스팟 검색\n"
+                "  📍 예: spot. Copenhagen, Denmark | crypto,web3 | 5\n"
+                "  🔍 키워드: crypto, payments, fintech, web3 등\n"
+                "  ⏱️ 소요시간: 약 1-2분\n\n"
                 "/help 또는 /commands — 이 도움말 표시"
             )
             send_telegram_text(help_text)
