@@ -48,7 +48,7 @@ if env_path.exists():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip()
+                os.environ.setdefault(key.strip(), value.strip())
 
 # Add src/ to path so utils, config, etc. can be imported directly
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -233,6 +233,7 @@ def save_scrape_state(
     scraped_at = completed_at or utc_now().isoformat()
 
     # 이전 상태 로드 (이전 DB 카운트 알기 위함)
+    prev_data = {}
     previous_counts = {}
     previous_completed_at = None
     if SCRAPE_STATE_PATH.exists():
@@ -292,21 +293,18 @@ def save_scrape_state(
             "last_scraped_at": scraped_at
         }
 
-    # 뉴스 소스 개수 계산
+    # 뉴스 소스 개수 계산. While a run is only being marked as started, avoid
+    # reading the large dashboard JSON because it may be cloud-evicted on macOS.
     news_state = {}
-    # 이전 뉴스 소스 상태 로드
     previous_news_counts = {}
-    if SCRAPE_STATE_PATH.exists():
-        try:
-            prev_data = json.loads(SCRAPE_STATE_PATH.read_text(encoding="utf-8"))
-            if "news_sources" in prev_data:
-                for src_key, src_info in prev_data["news_sources"].items():
-                    previous_news_counts[src_key] = src_info.get("count", 0)
-        except Exception:
-            pass
+    if "news_sources" in prev_data:
+        for src_key, src_info in prev_data["news_sources"].items():
+            previous_news_counts[src_key] = src_info.get("count", 0)
 
     dashboard_data_path = Path("/Users/lewis/Desktop/agent/outputs/job_stats_data.json")
-    if dashboard_data_path.exists():
+    if run_status == "running":
+        news_state = prev_data.get("news_sources", {}) if isinstance(prev_data.get("news_sources"), dict) else {}
+    elif dashboard_data_path.exists():
         try:
             dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
             news_items = dashboard_data.get("news_items", [])

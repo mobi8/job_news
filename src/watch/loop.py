@@ -47,7 +47,10 @@ CONTINUOUS_WATCH_SOURCES = (
     "igamingrecruitment,"
     "igaminghunt_bamboohr,"
     "jobrapido_uae,"
-    "jobleads"
+    "jobleads,"
+    "linkedin_public,"
+    "linkedin_emea,"
+    "indeed_uae"
 )
 
 
@@ -69,11 +72,11 @@ def load_watch_settings() -> dict:
 def run_once() -> int:
     env = os.environ.copy()
     env.setdefault("JOB_WATCH_SOURCES", CONTINUOUS_WATCH_SOURCES)
-    env.setdefault("SKIP_LINKEDIN_BROWSER", "1")
-    env.setdefault("SKIP_INDEED_BROWSER", "1")
+    env.setdefault("SKIP_LINKEDIN_BROWSER", "0")
+    env.setdefault("SKIP_INDEED_BROWSER", "0")
     env.setdefault("SKIP_DRJOBS_BROWSER", "1")
     env.setdefault("SKIP_GLASSDOOR_BROWSER", "1")
-    env.setdefault("SKIP_JOBSPY", "1")
+    env.setdefault("SKIP_JOBSPY", "0")
     settings = load_watch_settings()
     interval_seconds = int(settings["scrape_interval_minutes"] * 60)
     watch_mode = "collect"
@@ -121,16 +124,20 @@ def run_once() -> int:
                 _console_step(f"LinkedIn UAE spot scrape failed: {e}")
 
         # Scrape Telegram channels
-        try:
-            from services.telegram_scraper import scrape_and_save
+        if os.getenv("SKIP_TELEGRAM_SCRAPER", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+            try:
+                from services.telegram_scraper import scrape_and_save
 
-            watch_logger.info("Starting Telegram channel scraping...")
-            tg_result = scrape_and_save(DB_PATH)
-            watch_logger.info(f"Telegram scraping complete: {tg_result['total_saved']} jobs saved")
-            _console_step(f"Telegram: {tg_result['total_saved']} jobs scraped")
-        except Exception as e:
-            watch_logger.error(f"Failed to scrape Telegram channels: {e}")
-            _console_step(f"Telegram scraping failed: {e}")
+                watch_logger.info("Starting Telegram channel scraping...")
+                tg_result = scrape_and_save(DB_PATH)
+                watch_logger.info(f"Telegram scraping complete: {tg_result['total_saved']} jobs saved")
+                _console_step(f"Telegram: {tg_result['total_saved']} jobs scraped")
+            except Exception as e:
+                watch_logger.error(f"Failed to scrape Telegram channels: {e}")
+                _console_step(f"Telegram scraping failed: {e}")
+        else:
+            watch_logger.info("Skipping Telegram channel scraping.")
+            _console_step("Telegram scraping skipped")
 
         # Export high-scoring jobs to career-ops queue
         try:

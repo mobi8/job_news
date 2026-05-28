@@ -687,11 +687,17 @@ def fetch_telegram_channel_jobs() -> List[JobPosting]:
     for channel in TELEGRAM_CHANNELS:
         try:
             logger.info("Telegram browser probe start: %s", channel["url"])
-            returncode, stdout, _stderr = _run_browser_probe_with_progress(
+            returncode, stdout, stderr = _run_browser_probe_with_progress(
                 [NODE_BIN, str(BROWSER_PROBE_PATH), channel["url"]],
                 timeout=240,
             )
             if returncode != 0:
+                stderr_tail = " | ".join((stderr or "").splitlines()[-6:])
+                if stderr_tail:
+                    logger.warning("Telegram probe stderr: %s", stderr_tail)
+                stdout_tail = " | ".join((stdout or "").splitlines()[-3:])
+                if stdout_tail:
+                    logger.warning("Telegram probe stdout: %s", stdout_tail)
                 raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
         except (subprocess.SubprocessError, FileNotFoundError) as exc:
             logger.warning("Skipping Telegram channel %s: %s", channel["url"], exc)
@@ -736,8 +742,14 @@ def _batch_browser_fetch(urls: List[str], batch_size: int) -> List[dict]:
         label = f"Browser probe batch {batch_index}/{len(indexed_batches)} urls={len(batch)}"
         try:
             browser_logger.info("%s start", label)
-            returncode, stdout, _stderr = _run_browser_probe_with_progress(command, timeout=180, label=label)
+            returncode, stdout, stderr = _run_browser_probe_with_progress(command, timeout=180, label=label)
             if returncode != 0:
+                stderr_tail = " | ".join((stderr or "").splitlines()[-6:])
+                if stderr_tail:
+                    browser_logger.warning("Browser probe stderr: %s", stderr_tail)
+                stdout_tail = " | ".join((stdout or "").splitlines()[-3:])
+                if stdout_tail:
+                    browser_logger.warning("Browser probe stdout: %s", stdout_tail)
                 raise subprocess.SubprocessError(f"browser probe exited with {returncode}")
             stdout = stdout.strip()
             if not stdout:

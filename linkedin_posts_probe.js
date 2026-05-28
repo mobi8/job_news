@@ -208,7 +208,7 @@ async function sleepSeconds(seconds) {
 
 async function main() {
   console.error('LinkedIn posts probe: loading Playwright...');
-  ({ chromium } = require('playwright'));
+  ({ chromium } = require('./playwright_fast_loader').loadPlaywright());
   console.error('LinkedIn posts probe: Playwright loaded');
 
   const profileDir = path.resolve(process.env.LINKEDIN_POSTS_PROFILE_DIR || 'outputs/linkedin-post-profile');

@@ -33,6 +33,7 @@ from utils.utils import load_resume_text, normalize_linkedin_identifier, normali
 
 DEFAULT_KEYWORDS = "crypto,web3,payments,igaming,product"
 CDP_PROBE_PATH = Path(__file__).resolve().parents[2] / "browser_probe_cdp.js"
+NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
 
 
 def _build_search_url(location: str, keyword: str) -> str:
@@ -53,17 +54,16 @@ def _run_probe(urls: List[str]) -> List[Dict[str, Any]]:
     env.setdefault("WS_NO_UTF_8_VALIDATE", "1")
     probe_path = Path(os.getenv("LINKEDIN_JOB_SPOT_PROBE", str(CDP_PROBE_PATH)))
     result = subprocess.run(
-        ["node", str(probe_path), *urls],
+        [NODE_BIN, str(probe_path), *urls],
         cwd=str(Path(__file__).resolve().parents[2]),
         env=env,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=None,
         text=True,
         timeout=int(os.getenv("LINKEDIN_JOB_SPOT_TIMEOUT", "180")),
     )
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"browser_probe exited with {result.returncode}")
+        raise RuntimeError(f"browser_probe exited with {result.returncode}")
     payload = json.loads(result.stdout or "[]")
     if isinstance(payload, dict):
         return [payload]
@@ -136,8 +136,8 @@ def _send_telegram(inserted_jobs: List[JobPosting], location: str, keywords: Lis
         "",
     ]
     if not jobs:
-        lines.append("새로 저장된 잡보드 결과가 없습니다.")
-        return 0 if send_telegram_text("\n".join(lines)) else 0
+        print("LinkedIn jobs spot: no new jobs; Telegram notification skipped.", flush=True)
+        return 0
     for idx, job in enumerate(jobs, start=1):
         title = html.escape((job.title or "")[:95])
         company = html.escape(job.company or "LinkedIn")
@@ -157,7 +157,7 @@ def main(argv: List[str]) -> None:
     limit = int(argv[2]) if len(argv) > 2 and argv[2].isdigit() else 8
     urls = [_build_search_url(location, keyword) for keyword in keywords[:max(1, limit)]]
 
-    print(f"LinkedIn jobs spot: location={location} keywords={','.join(keywords)} urls={len(urls)}")
+    print(f"LinkedIn jobs spot: location={location} keywords={','.join(keywords)} urls={len(urls)}", flush=True)
     pages = _run_probe(urls)
     resume_text = load_resume_text()
     db = Database(OUTPUT_DIR / "jobs.sqlite3")
@@ -169,7 +169,7 @@ def main(argv: List[str]) -> None:
     if os.getenv("LINKEDIN_JOB_SPOT_REFRESH_DASHBOARD", "1").strip().lower() in {"1", "true", "yes", "on"}:
         _refresh_dashboard_outputs(db, inserted, inserted_jobs, resume_text)
     notified = _send_telegram(inserted_jobs, location, keywords, limit)
-    print(f"LinkedIn jobs spot: raw={sum(len(page.get('jobs', []) or []) for page in pages)} inserted={inserted} notified={notified}")
+    print(f"LinkedIn jobs spot: raw={sum(len(page.get('jobs', []) or []) for page in pages)} inserted={inserted} notified={notified}", flush=True)
 
 
 if __name__ == "__main__":

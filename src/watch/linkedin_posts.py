@@ -33,6 +33,8 @@ from utils.config import (  # noqa: E402
     OUTPUT_DIR,
 )
 
+NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
+
 HIRING_TERMS = [
     "hiring", "we are hiring", "we're hiring", "open role", "job alert", "looking for",
     "vacancy", "join our team", "apply", "referral", "recruiting",
@@ -135,7 +137,7 @@ def _wait_profile_released() -> None:
 def _run_probe(plans: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
     print("LinkedIn posts probe: launching Chrome/search worker...", flush=True)
     result = subprocess.run(
-        ["node", str(LINKEDIN_POSTS_PROBE_PATH)],
+        [NODE_BIN, str(LINKEDIN_POSTS_PROBE_PATH)],
         cwd=str(Path(__file__).resolve().parents[2]),
         env=_probe_env(plans),
         stdout=subprocess.PIPE,
@@ -163,7 +165,7 @@ def _run_probe(plans: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
 def _run_login_setup() -> None:
     print("LinkedIn 세션이 없거나 만료되었습니다. 일반 Chrome 로그인 창을 띄웁니다.")
     subprocess.run(
-        ["node", "linkedin_posts_login_setup.js"],
+        [NODE_BIN, "linkedin_posts_login_setup.js"],
         cwd=str(Path(__file__).resolve().parents[2]),
         env=_probe_env(),
         check=True,

@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { chromium } = require('playwright');
+console.error('[browserless_glassdoor_probe] loading Playwright');
+const { chromium } = require('./playwright_fast_loader').loadPlaywright();
+console.error('[browserless_glassdoor_probe] Playwright loaded');
 
 function progress(message) {
   console.error(message);

@@ -52,6 +52,7 @@ export LINKEDIN_POST_HEADLESS="${LINKEDIN_POST_HEADLESS:-1}"
 export LINKEDIN_POST_AUTO_LOGIN_SETUP="${LINKEDIN_POST_AUTO_LOGIN_SETUP:-1}"
 export LINKEDIN_USE_SYSTEM_CHROME="${LINKEDIN_USE_SYSTEM_CHROME:-1}"
 export LINKEDIN_CDP_PORT="${LINKEDIN_CDP_PORT:-9223}"
+export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
 # Each Python-managed batch disconnects/restarts the scraper Chrome profile.
 # Keep Chrome open by default; only close it when explicitly requested.
 export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-0}"
