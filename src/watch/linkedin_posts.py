@@ -312,6 +312,7 @@ def _to_job(post: Dict[str, Any]) -> JobPosting:
 def _refresh_dashboard_outputs(db: Database, inserted: int, inserted_jobs: List[JobPosting], resume_text: str) -> None:
     from utils.reporter import save_json
     from utils.scoring import annotate_records
+    from utils.utils import utc_now
 
     jobs = annotate_records(db.fetch_all_jobs(), resume_text)
     payload_path = OUTPUT_DIR / "jobs_analysis.json"
