@@ -61,7 +61,7 @@ function chromeExecutable() {
   return 'google-chrome';
 }
 
-function openChromeCdp(profileDir, port, initialUrl = 'https://www.linkedin.com/feed/') {
+function openChromeCdp(profileDir, port, initialUrl = 'https://www.linkedin.com/') {
   const chrome = chromeExecutable();
   spawn(chrome, [
     `--remote-debugging-port=${port}`,
@@ -289,7 +289,7 @@ async function main() {
     let feedReady = false;
     for (let attempt = 1; attempt <= 2 && !feedReady; attempt += 1) {
       try {
-        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.goto('https://www.linkedin.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(2500);
         feedReady = true;
       } catch (error) {

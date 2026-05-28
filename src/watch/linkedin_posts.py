@@ -145,10 +145,8 @@ def _run_probe(plans: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
         text=True,
         timeout=int(os.getenv("LINKEDIN_POST_TIMEOUT", "900")),
     )
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
     if result.returncode != 0:
-        stderr = result.stderr.strip()
+        stderr = (result.stderr or "").strip()
         # If the probe managed to print a partial JSON payload before failing,
         # keep the collected posts instead of dropping the whole run.
         try:
