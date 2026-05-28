@@ -20,13 +20,10 @@ fi
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
 # Check if telegram_poller is already running
-if POLLER_PID=$(pgrep -f "src/api/telegram_poller.py"); then
-  echo "✓ Telegram poller is already running"
-  echo "  PID: $POLLER_PID"
-  echo ""
-  echo "Check logs with:"
-  echo "  tail -f /tmp/telegram_poller.log"
-  exit 0
+if OLD_PID=$(pgrep -f "src/api/telegram_poller.py"); then
+  echo "Stopping existing poller (PID: $OLD_PID)..."
+  kill "$OLD_PID" 2>/dev/null || true
+  sleep 1
 fi
 
 echo "Starting Telegram poller..."
@@ -38,7 +35,11 @@ sleep 0.5
 # Verify it started successfully
 if kill -0 "$POLLER_PID" 2>/dev/null; then
   echo "✓ Telegram poller started successfully"
-  echo "  PID: $POLLER_PID"
+  if [[ -n "${OLD_PID:-}" ]]; then
+    echo "  Old PID: $OLD_PID → New PID: $POLLER_PID"
+  else
+    echo "  PID: $POLLER_PID"
+  fi
   echo ""
   echo "Check logs with:"
   echo "  tail -f /tmp/telegram_poller.log"
