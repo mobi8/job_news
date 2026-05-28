@@ -508,6 +508,8 @@ def main() -> None:
         start = start_plan + (batch_index - 1) * batch_size if batch_size > 0 else start_plan
         end = start + len(plans) - 1
         print(f"LinkedIn posts batch {batch_index}/{len(plan_batches)}: plans {start}-{end}")
+        for i, plan in enumerate(plans, start=start):
+            print(f"  [{i}] {plan.get('query', 'N/A')}")
 
         result = None
         try:

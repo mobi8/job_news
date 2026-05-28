@@ -92,7 +92,7 @@ GLASSDOOR_BROWSERLESS_SEARCH_URLS = [
 ]
 
 LINKEDIN_POST_LEAD_KEYWORDS = ["hire", "hiring", "job", "job alert"]
-LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset", "backlog"]
+LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset", "backlog", "game"]
 LINKEDIN_POST_LOCATION_GROUPS = [
     {"country": "UAE", "label": "UAE", "query": "in UAE"},
     {"country": "Remote", "label": "MENA Remote", "query": "remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman"},
@@ -105,6 +105,7 @@ LINKEDIN_POST_DOMAIN_BY_ROLE = {
     "web3": "web3",
     "digital asset": "digital_asset",
     "backlog": "backlog",
+    "game": "game",
 }
 
 
