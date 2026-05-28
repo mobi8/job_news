@@ -691,6 +691,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     skip_drjobs_browser = safe_bool(os.getenv("SKIP_DRJOBS_BROWSER"))
     skip_glassdoor_browser = safe_bool(os.getenv("SKIP_GLASSDOOR_BROWSER"))
     skip_news = safe_bool(os.getenv("SKIP_NEWS"))
+    glassdoor_only = safe_bool(os.getenv("GLASSDOOR_ONLY"))
     sources = []
     jobs = []
     inserted_jobs = []
@@ -847,9 +848,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
 
-        if skip_news:
-            logger.info("Skipping RSS news phase because SKIP_NEWS=1.")
-        else:
+        if not glassdoor_only and not skip_news:
             # Collect and store news from RSS feeds
             news_items = fetch_all_rss_news()
             player_news_items = fetch_all_player_rss_news()
@@ -857,6 +856,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
             logger.info("Collected %d news items (%d industry + %d player), %d new.",
                         len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+        else:
+            logger.info("Skipping RSS news phase (glassdoor_only=%s, skip_news=%s).", glassdoor_only, skip_news)
 
         all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
 
@@ -1027,9 +1028,10 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         _console_step("Saving outputs")
         if mode == "collect":
             batch_jobs = [job.to_dict() for job in inserted_jobs]
-            maybe_send_telegram(inserted, batch_jobs)
-            if not skip_news:
-                send_news_summary(inserted_news_items, db=db)
+            if not glassdoor_only:
+                maybe_send_telegram(inserted, batch_jobs)
+                if not skip_news:
+                    send_news_summary(inserted_news_items, db=db)
         elif mode == "incremental":
             send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 
