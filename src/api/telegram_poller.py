@@ -9,6 +9,8 @@ import sqlite3
 import urllib.request
 import urllib.error
 import urllib.parse
+import subprocess
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -34,6 +36,82 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 JOBS_DB_PATH = OUTPUT_DIR / "jobs.sqlite3"
 MAX_DESCRIPTION_CHARS = 12000
+
+# Script execution tracking
+RUNNING_SCRIPTS = set()  # Set of currently running script names
+SCRIPT_NAMES = {
+    "run": "./run_collect_once.sh",
+    "glass": "./run_glassdoor.sh",
+    "posts": "./run_linkedin_posts.sh",
+}
+
+def _execute_script(script_name: str) -> None:
+    """Run script in background and send summary when done"""
+    script_path = SCRIPT_NAMES.get(script_name)
+    if not script_path:
+        send_telegram_text(f"❌ 알 수 없는 명령어: {script_name}")
+        return
+
+    workdir = Path(__file__).parent.parent.parent
+    script_full_path = workdir / script_path
+
+    if not script_full_path.exists():
+        send_telegram_text(f"❌ 스크립트를 찾을 수 없음: {script_path}")
+        return
+
+    # Prevent duplicate execution
+    if script_name in RUNNING_SCRIPTS:
+        send_telegram_text(f"⚠️ '{script_name}' 스크립트가 이미 실행 중입니다.")
+        return
+
+    # Send immediate confirmation
+    script_label = {
+        "run": "전체 수집",
+        "glass": "Glassdoor 수집",
+        "posts": "LinkedIn 포스트",
+    }.get(script_name, script_name)
+    send_telegram_text(f"▶️ {script_label} 시작됨... ⏳")
+
+    # Run script in background thread
+    def run_and_report():
+        RUNNING_SCRIPTS.add(script_name)
+        try:
+            result = subprocess.run(
+                ["/bin/bash", str(script_full_path)],
+                cwd=str(workdir),
+                capture_output=True,
+                text=True,
+                timeout=3600,  # 1 hour timeout
+            )
+
+            # Extract key log lines (last 10 non-empty lines)
+            output = result.stdout + result.stderr
+            log_lines = [
+                line.strip()
+                for line in output.split("\n")
+                if line.strip() and not line.startswith(" ")
+            ][-10:]
+
+            if result.returncode == 0:
+                summary = f"✅ {script_label} 완료\n\n마지막 로그:\n" + "\n".join(log_lines[-3:])
+            else:
+                summary = (
+                    f"❌ {script_label} 실패 (종료코드: {result.returncode})\n\n"
+                    + "에러:\n"
+                    + "\n".join(log_lines[-5:])
+                )
+
+            send_telegram_text(summary)
+        except subprocess.TimeoutExpired:
+            send_telegram_text(f"❌ {script_label} 타임아웃 (1시간 초과)")
+        except Exception as e:
+            send_telegram_text(f"❌ {script_label} 오류: {str(e)}")
+        finally:
+            RUNNING_SCRIPTS.discard(script_name)
+
+    # Start background thread
+    thread = threading.Thread(target=run_and_report, daemon=True)
+    thread.start()
 
 def _resolve_url(key: str) -> str:
     """Look up full URL from url_map.json by short key."""
@@ -828,6 +906,28 @@ def handle_reddit_request(text: str) -> None:
 def handle_message(text: str) -> None:
     """Process incoming message and send response"""
     if not text:
+        return
+
+    # Handle slash commands for script execution
+    if text.startswith("/"):
+        cmd = text.lstrip("/").lower().split()[0]
+
+        if cmd in ("help", "commands"):
+            help_text = (
+                "📋 사용 가능한 명령어:\n\n"
+                "/run — 전체 수집 실행 (./run_collect_once.sh)\n"
+                "/glass — Glassdoor 수집 (./run_glassdoor.sh)\n"
+                "/posts — LinkedIn 포스트 수집 (./run_linkedin_posts.sh)\n\n"
+                "/help 또는 /commands — 이 도움말 표시"
+            )
+            send_telegram_text(help_text)
+            return
+
+        if cmd in SCRIPT_NAMES:
+            _execute_script(cmd)
+            return
+
+        send_telegram_text(f"❌ 알 수 없는 명령어: /{cmd}\n\n/help 를 입력하세요.")
         return
 
     spot_request = parse_spot_command(text)

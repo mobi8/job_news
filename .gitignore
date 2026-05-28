@@ -49,3 +49,4 @@ outputs/
 *.pdf
 *.db
 cmux-macos.dmg
+venv/
