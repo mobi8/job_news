@@ -64,6 +64,9 @@ def _execute_script(script_name: str) -> None:
         send_telegram_text(f"⚠️ '{script_name}' 스크립트가 이미 실행 중입니다.")
         return
 
+    # Add to RUNNING_SCRIPTS IMMEDIATELY before starting thread
+    RUNNING_SCRIPTS.add(script_name)
+
     # Send immediate confirmation
     script_label = {
         "run": "전체 수집",
@@ -74,15 +77,37 @@ def _execute_script(script_name: str) -> None:
 
     # Run script in background thread
     def run_and_report():
-        RUNNING_SCRIPTS.add(script_name)
+        # (RUNNING_SCRIPTS.add already called above)
         try:
+            # Diagnostic logging for subprocess execution
+            import os as _os
+            env = _os.environ.copy()
+            print(f"[DIAGNOSTIC] Executing: {script_name}")
+            print(f"  Command: /bin/bash {script_full_path}")
+            print(f"  CWD: {workdir}")
+            print(f"  Script path exists: {script_full_path.exists()}")
+            print(f"  PATH: {env.get('PATH', 'NOT SET')}")
+            print(f"  DISPLAY: {env.get('DISPLAY', 'NOT SET')}")
+            print(f"  HOME: {env.get('HOME', 'NOT SET')}")
+            print(f"  XDG_RUNTIME_DIR: {env.get('XDG_RUNTIME_DIR', 'NOT SET')}")
+            print(f"  SHELL: {env.get('SHELL', 'NOT SET')}")
+
             result = subprocess.run(
                 ["/bin/bash", str(script_full_path)],
                 cwd=str(workdir),
+                env=env,  # Explicitly pass environment (inherits from parent)
                 capture_output=True,
                 text=True,
                 timeout=3600,  # 1 hour timeout
             )
+
+            # Diagnostic: capture first 20 lines
+            all_output = result.stdout + result.stderr
+            first_lines = all_output.split("\n")[:20]
+            print(f"[DIAGNOSTIC] First 20 output lines (returncode={result.returncode}):")
+            for line in first_lines:
+                if line.strip():
+                    print(f"  {line}")
 
             # Extract key log lines (last 10 non-empty lines)
             output = result.stdout + result.stderr
@@ -940,17 +965,20 @@ def handle_message(text: str) -> None:
         send_telegram_text(f"❌ 알 수 없는 명령어: /{cmd}\n\n/help 를 입력하세요.")
         return
 
-    spot_request = parse_spot_command(text)
-    if spot_request:
-        if not spot_request.location:
-            send_telegram_text(spot_usage())
+    # SAFETY: Never parse text starting with "/" as a spot command
+    # (Slash commands are handled above and should always return)
+    if not text.startswith("/"):
+        spot_request = parse_spot_command(text)
+        if spot_request:
+            if not spot_request.location:
+                send_telegram_text(spot_usage())
+                return
+            try:
+                send_telegram_text(start_spot_search(spot_request))
+            except Exception as e:
+                print(f"❌ LinkedIn spot request error: {e}")
+                send_telegram_text(f"❌ LinkedIn 스팟 실행 오류: {str(e)}")
             return
-        try:
-            send_telegram_text(start_spot_search(spot_request))
-        except Exception as e:
-            print(f"❌ LinkedIn spot request error: {e}")
-            send_telegram_text(f"❌ LinkedIn 스팟 실행 오류: {str(e)}")
-        return
 
     # Check for Reddit request first (must be exact match with . separator)
     if "." in text:
