@@ -59,10 +59,26 @@ export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-0}"
 
 mkdir -p "${LINKEDIN_POSTS_PROFILE_DIR}"
 
+# Cleanup function for EXIT/INT/TERM
+cleanup_processes() {
+  echo "Cleaning up LinkedIn posts runner..."
+  pkill -f "linkedin_posts_probe" 2>/dev/null || true
+  pkill -f -- "--remote-debugging-port=9223" 2>/dev/null || true
+  sleep 0.5
+}
+
+trap cleanup_processes EXIT INT TERM
+
 if ! lsof -ti:"${LINKEDIN_CDP_PORT}" >/dev/null 2>&1; then
   echo "  ⚠ LinkedIn Chrome CDP port ${LINKEDIN_CDP_PORT} is not listening."
   echo "  → If this is the first run, use ./setup_linkedin_posts_login.sh and log in once."
 fi
+
+# Kill stale processes before starting
+echo "Clearing stale LinkedIn posts processes..."
+pkill -f "linkedin_posts_probe" 2>/dev/null || true
+pkill -f -- "--remote-debugging-port=9223" 2>/dev/null || true
+sleep 1
 
 # Chrome must be launched with --remote-debugging-port for the scraper to attach.
 # If the same profile is already open without CDP, close it and let the probe
@@ -72,8 +88,8 @@ sleep 1
 
 if command -v caffeinate >/dev/null 2>&1; then
   echo "Starting LinkedIn posts runner..."
-  exec caffeinate -s env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+  caffeinate -s env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+else
+  echo "Starting LinkedIn posts runner..."
+  env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
 fi
-
-echo "Starting LinkedIn posts runner..."
-exec env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"

@@ -3,6 +3,20 @@ const http = require('http');
 const path = require('path');
 
 let chromium;
+let probeProfileDir;
+
+// Cleanup on process exit
+const onExit = () => {
+  if (probeProfileDir) {
+    try {
+      execFileSync('pkill', ['-f', `--user-data-dir=${probeProfileDir}`], { stdio: 'ignore' });
+    } catch {}
+  }
+};
+
+process.on('SIGINT', onExit);
+process.on('SIGTERM', onExit);
+process.on('EXIT', onExit);
 
 function clean(value) {
   return (value || '').replace(/\s+/g, ' ').trim();
@@ -33,16 +47,23 @@ function cdpJson(port, route = '/json/version') {
 async function waitForCdp(port, timeoutMs = 20000) {
   const started = Date.now();
   let lastError;
+  let attempts = 0;
   while (Date.now() - started < timeoutMs) {
+    attempts += 1;
     try {
       const data = await cdpJson(port);
-      if (data.webSocketDebuggerUrl) return data;
+      if (data.webSocketDebuggerUrl) {
+        console.error(`LinkedIn Chrome CDP: port ${port} ready after ${attempts} attempts (${Date.now() - started}ms)`);
+        return data;
+      }
     } catch (error) {
       lastError = error;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw lastError || new Error('Chrome CDP did not become ready');
+  const elapsed = Date.now() - started;
+  const lastErrorMsg = lastError?.message || String(lastError) || 'unknown';
+  throw new Error(`Chrome CDP port ${port} did not become ready after ${elapsed}ms (${attempts} attempts). Last error: ${lastErrorMsg}`);
 }
 
 function killProfileChrome(profileDir) {
@@ -75,7 +96,7 @@ function openChromeCdp(profileDir, port, initialUrl = 'https://www.linkedin.com/
 async function ensureChromeCdp(profileDir, port) {
   try {
     console.error(`LinkedIn Chrome CDP: checking port ${port}`);
-    return await waitForCdp(port, 1500);
+    return await waitForCdp(port, 3000);
   } catch {
     // If the same profile is already open without remote debugging, Chrome will
     // ignore the new CDP flags. Close that profile process and relaunch it with CDP.
@@ -83,7 +104,8 @@ async function ensureChromeCdp(profileDir, port) {
     killProfileChrome(profileDir);
     await new Promise((resolve) => setTimeout(resolve, 1200));
     openChromeCdp(profileDir, port);
-    return await waitForCdp(port, 30000);
+    console.error(`LinkedIn Chrome CDP: waiting for Chrome CDP port ${port} to become ready (up to 20s)...`);
+    return await waitForCdp(port, 20000);
   }
 }
 
@@ -208,10 +230,12 @@ async function sleepSeconds(seconds) {
 
 async function main() {
   console.error('LinkedIn posts probe: loading Playwright...');
-  ({ chromium } = require('./playwright_fast_loader').loadPlaywright());
+  const pw = require('playwright');
+  ({ chromium } = pw);
   console.error('LinkedIn posts probe: Playwright loaded');
 
   const profileDir = path.resolve(process.env.LINKEDIN_POSTS_PROFILE_DIR || 'outputs/linkedin-post-profile');
+  probeProfileDir = profileDir;
   const port = Number(process.env.LINKEDIN_CDP_PORT || 9223);
   const plans = JSON.parse(process.env.LINKEDIN_POST_SEARCH_PLANS || '[]');
   const maxPlans = Number(process.env.LINKEDIN_POST_MAX_PLANS || plans.length || 8);
@@ -259,7 +283,20 @@ async function main() {
     }
     await ensureChromeCdp(profileDir, port);
     console.error(`LinkedIn Chrome CDP: connecting to http://127.0.0.1:${port}`);
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+    let connectError;
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+    } catch (error) {
+      connectError = error;
+      const isConnRefused = /ECONNREFUSED|connect ECONNREFUSED|EPERM|EACCES/.test(String(error));
+      if (isConnRefused) {
+        console.error(`LinkedIn Chrome CDP: immediate connection failed after CDP check: ${error.message}. Chrome may have exited. Retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+      } else {
+        throw error;
+      }
+    }
     context = browser.contexts()[0] || await browser.newContext();
     page = context.pages().find((p) => !p.isClosed() && /linkedin\.com/.test(p.url()))
       || context.pages().find((p) => !p.isClosed())
