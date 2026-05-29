@@ -41,6 +41,7 @@ export SKIP_DRJOBS_BROWSER="${SKIP_DRJOBS_BROWSER:-1}"
 export SKIP_GLASSDOOR_BROWSER="${SKIP_GLASSDOOR_BROWSER:-1}"
 export SKIP_JOBSPY="${SKIP_JOBSPY:-0}"
 export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
+export PYDANTIC_DISABLE_PLUGINS="${PYDANTIC_DISABLE_PLUGINS:-1}"
 
 echo "Running one full collection pass."
 echo "  Sources: ${JOB_WATCH_SOURCES}"
@@ -49,6 +50,7 @@ echo "  Indeed browser: $([[ "${SKIP_INDEED_BROWSER}" == "1" ]] && echo off || e
 echo "  Indeed JobSpy: $([[ "${SKIP_JOBSPY}" == "1" ]] && echo off || echo on)"
 echo "  Telegram channels: $([[ "${SKIP_TELEGRAM_SCRAPER:-0}" == "1" ]] && echo off || echo on)"
 echo "  Browser heartbeat: every ${BROWSER_PROBE_HEARTBEAT_SECONDS}s"
+echo "  Pydantic plugins: $([[ "${PYDANTIC_DISABLE_PLUGINS}" == "1" ]] && echo disabled || echo enabled)"
 
 env PYTHONUNBUFFERED=1 BROWSER_BATCH_WORKERS="${PRESET_BROWSER_BATCH_WORKERS:-${BROWSER_BATCH_WORKERS:-1}}" BROWSER_LINKEDIN_BATCH_SIZE="${PRESET_BROWSER_LINKEDIN_BATCH_SIZE:-${BROWSER_LINKEDIN_BATCH_SIZE:-3}}" BROWSER_INDEED_BATCH_SIZE="${PRESET_BROWSER_INDEED_BATCH_SIZE:-${BROWSER_INDEED_BATCH_SIZE:-2}}" "${PYTHON_BIN}" src/watch/scraper.py collect
 

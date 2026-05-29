@@ -1,6 +1,8 @@
 process.env.WS_NO_BUFFER_UTIL = process.env.WS_NO_BUFFER_UTIL || '1';
 process.env.WS_NO_UTF_8_VALIDATE = process.env.WS_NO_UTF_8_VALIDATE || '1';
 
+const fs = require('fs');
+
 console.error('[browser_probe] loading Playwright');
 const { chromium } = require('playwright');
 console.error('[browser_probe] Playwright loaded');
@@ -11,6 +13,13 @@ function textOrEmpty(node) {
 
 function progress(message) {
   console.error(`[browser_probe] ${message}`);
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(resolve, ms)),
+  ]);
 }
 
 function shorten(text, maxLen = 72) {
@@ -433,7 +442,11 @@ async function main() {
   const results = [];
   const bundledExecutablePath = chromium.executablePath();
   const systemChromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const executablePath = bundledExecutablePath || systemChromePath;
+  const executablePath = fs.existsSync(bundledExecutablePath)
+    ? bundledExecutablePath
+    : fs.existsSync(systemChromePath)
+      ? systemChromePath
+      : bundledExecutablePath;
 
   try {
     browserContext = await chromium.launchPersistentContext(
@@ -602,14 +615,14 @@ async function main() {
   } finally {
     if (browserContext) {
       try {
-        await browserContext.close();
+        await withTimeout(browserContext.close(), 3000);
       } catch {
         // Ignore cleanup errors.
       }
     }
     if (browser) {
       try {
-        await browser.close();
+        await withTimeout(browser.close(), 3000);
       } catch {
         // Ignore cleanup errors.
       }
@@ -623,7 +636,9 @@ async function main() {
     }
   }
 
-  console.log(JSON.stringify(results.length === 1 ? results[0] : results, null, 2));
+  process.stdout.write(`${JSON.stringify(results.length === 1 ? results[0] : results, null, 2)}\n`, () => {
+    process.exit(0);
+  });
 }
 
 main().catch((error) => {

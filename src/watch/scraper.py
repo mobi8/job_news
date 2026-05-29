@@ -27,18 +27,12 @@ import sys
 import time
 import urllib.error
 import signal
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List
-
-# JobSpy for Indeed scraping. Keep this on the active virtualenv only; mixing
-# another Python version's site-packages breaks pandas/numpy imports.
-try:
-    from jobspy import scrape_jobs
-except Exception:
-    scrape_jobs = None
 
 # Load .env file if it exists
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -49,6 +43,11 @@ if env_path.exists():
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
+
+# Pydantic plugin discovery can block on local package metadata in this project
+# environment. JobSpy uses Pydantic models, so keep plugin loading disabled by
+# default for collection runs unless explicitly overridden.
+os.environ.setdefault("PYDANTIC_DISABLE_PLUGINS", "1")
 
 # Add src/ to path so utils, config, etc. can be imported directly
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -183,6 +182,14 @@ def _any_source_allowed(allowed_sources: set[str] | None, *sources: str) -> bool
     return any(source in allowed_sources for source in sources)
 
 
+def _is_indeed_source(source: str) -> bool:
+    return source.startswith("indeed_")
+
+
+def _source_counts(items: list) -> dict[str, int]:
+    return dict(Counter(getattr(item, "source", "") for item in items))
+
+
 @contextmanager
 def _time_limit(seconds: int):
     if seconds <= 0 or not hasattr(signal, "SIGALRM"):
@@ -204,9 +211,7 @@ def _time_limit(seconds: int):
 def _jobspy_query_worker(payload_queue: multiprocessing.Queue, kwargs: Dict[str, Any]) -> None:
     """Run a JobSpy query in a child process so hung network calls can be terminated."""
     try:
-        if scrape_jobs is None:
-            payload_queue.put({"ok": False, "error": "JobSpy not available"})
-            return
+        from jobspy import scrape_jobs
 
         rows = scrape_jobs(**kwargs)
         if rows is None:
@@ -297,7 +302,7 @@ def _run_jobspy_keyword_bucket(
             google_search_term=google_search_term,
         )
         if rows is not None:
-            _append_jobspy_rows(
+            added = _append_jobspy_rows(
                 jobs=jobs,
                 rows=rows,
                 source=source,
@@ -307,12 +312,13 @@ def _run_jobspy_keyword_bucket(
                 existing_fingerprints=existing_fingerprints,
             )
             jobspy_logger.info(
-                "JobSpy %s %s keyword=%r done in %.1fs rows=%d",
+                "JobSpy %s %s keyword=%r done in %.1fs rows=%d added=%d",
                 site_name,
                 country,
                 keyword,
                 time.monotonic() - started_at,
                 len(rows),
+                added,
             )
         else:
             jobspy_logger.warning(
@@ -563,10 +569,6 @@ def _process_jobspy_country(
 
 def scrape_indeed_via_jobspy(db: Database) -> list:
     """Scrape Indeed jobs using JobSpy."""
-    if not scrape_jobs:
-        logger.warning("JobSpy not available, skipping Indeed scraping")
-        return []
-
     try:
         indeed_jobs: list = []
         now_iso = utc_now().isoformat()
@@ -750,7 +752,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             _console_step("Fetching JobLeads board")
             logger.info("Fetching JobLeads board...")
             try:
-                jobleads_jobs = parse_jobleads_jobs(fetch_html(JOBLEADS_URL))
+                with _time_limit(int(os.getenv("JOBLEADS_TIMEOUT_SECONDS", "30"))):
+                    jobleads_jobs = parse_jobleads_jobs(fetch_html(JOBLEADS_URL))
                 logger.info("Collected %s jobs from JobLeads.", len(jobleads_jobs))
                 sources.append((JOBLEADS_URL, jobleads_jobs))
             except Exception as exc:
@@ -789,6 +792,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             logger.info("Skipping Indeed browser phase.")
         else:
             browser_indeed_jobs = scrape_indeed_via_browser()
+        _console_step(f"Indeed browser raw: {len(browser_indeed_jobs)} jobs {_source_counts(browser_indeed_jobs)}")
 
         if skip_glassdoor_browser:
             logger.info("Skipping Glassdoor browserless phase.")
@@ -805,6 +809,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         else:
             _console_step("Starting JobSpy scrape pass")
             jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
+        _console_step(f"Indeed JobSpy raw: {len(jobspy_indeed_jobs)} jobs {_source_counts(jobspy_indeed_jobs)}")
 
         linkedin_jobs = browser_linkedin_jobs
         glassdoor_jobs = browser_glassdoor_jobs
@@ -816,6 +821,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
+        _console_step(
+            "Indeed after source filter: "
+            f"browser={len(browser_indeed_jobs_filtered)} {_source_counts(browser_indeed_jobs_filtered)} "
+            f"jobspy={len(jobspy_indeed_jobs_filtered)} {_source_counts(jobspy_indeed_jobs_filtered)}"
+        )
 
         if linkedin_jobs:
             sources.append(("LinkedIn browser", linkedin_jobs))
@@ -842,11 +852,15 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             )
         ]
         jobs = dedupe_job_postings(jobs)
+        indeed_jobs_after_cleanup = [job for job in jobs if _is_indeed_source(job.source)]
+        _console_step(f"Indeed after content filters/dedupe: {len(indeed_jobs_after_cleanup)} jobs {_source_counts(indeed_jobs_after_cleanup)}")
 
         for job in jobs:
             job.match_score = calculate_match_score(job, resume_text)
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
+        inserted_indeed_jobs = [job for job in inserted_jobs if _is_indeed_source(job.source)]
+        _console_step(f"Indeed inserted: {len(inserted_indeed_jobs)} jobs {_source_counts(inserted_indeed_jobs)}")
 
         if not glassdoor_only and not skip_news:
             # Collect and store news from RSS feeds
