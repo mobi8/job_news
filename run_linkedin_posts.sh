@@ -57,6 +57,18 @@ export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
 # Keep Chrome open by default; only close it when explicitly requested.
 export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-0}"
 
+if [[ "${LINKEDIN_POST_ONCE:-0}" == "1" ]]; then
+  export LINKEDIN_POST_START_PLAN=1
+  export LINKEDIN_POST_MAX_PLANS=1
+  export LINKEDIN_POST_BATCH_SIZE=1
+  export LINKEDIN_POST_BATCH_PAUSE_MIN_SECONDS=0
+  export LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS=0
+  export LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS=0
+  export LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS=0
+  export LINKEDIN_CLOSE_CHROME_AFTER=1
+  echo "[linkedin-posts] one-shot mode enabled: max_plans=1 batch_size=1 close_chrome=1"
+fi
+
 mkdir -p "${LINKEDIN_POSTS_PROFILE_DIR}"
 
 # Cleanup function for EXIT/INT/TERM

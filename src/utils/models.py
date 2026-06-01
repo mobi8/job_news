@@ -7,6 +7,9 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 
 
+LINKEDIN_POST_SOURCES = {"linkedin_post", "linkedin_post_spot"}
+
+
 @dataclass
 class JobPosting:
     source: str
@@ -25,6 +28,14 @@ class JobPosting:
 
     @property
     def fingerprint(self) -> str:
+        if self.source in LINKEDIN_POST_SOURCES:
+            stable_id = (self.source_job_id or "").strip().lower()
+            stable_url = (self.url or "").strip().lower()
+            if stable_id:
+                return f"{self.source}|{stable_id}"
+            if stable_url:
+                return f"{self.source}|{stable_url}"
+
         company_key = self.company.strip().lower() or self.source_job_id.strip().lower()
         raw = "|".join(
             [
