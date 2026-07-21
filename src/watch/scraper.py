@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 import urllib.error
 import signal
 from collections import Counter
@@ -78,6 +79,7 @@ from utils.notifications import (
     maybe_send_telegram,
     send_incremental_summary,
     send_news_summary,
+    send_telegram_text,
     source_daily_counts,
     source_total_counts,
 )
@@ -139,6 +141,45 @@ JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS = float(
 JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS = float(
     os.getenv("JOBSPY_GOOGLE_INTER_KEYWORD_DELAY_SECONDS", "2.0")
 )
+GLASSDOOR_STAGE_TIMEOUT_SECONDS = int(os.getenv("GLASSDOOR_STAGE_TIMEOUT_SECONDS", "210"))
+NEWS_STAGE_TIMEOUT_SECONDS = int(os.getenv("NEWS_STAGE_TIMEOUT_SECONDS", "120"))
+
+
+def _stage(status: str = "skipped", count: int = 0, detail: str = "") -> dict[str, Any]:
+    return {"status": status, "count": count, "detail": detail}
+
+
+def _stage_line(label: str, stage: dict[str, Any]) -> str:
+    status_label = {
+        "success": "성공",
+        "partial": "부분 성공",
+        "timeout": "timeout",
+        "failed": "실패",
+        "skipped": "skipped",
+    }.get(stage.get("status", ""), stage.get("status", "unknown"))
+    detail = f" ({stage.get('detail')})" if stage.get("detail") else ""
+    return f"- {label}: {status_label}, {stage.get('count', 0)}건{detail}"
+
+
+def _send_run_stage_summary(
+    stage_results: dict[str, dict[str, Any]],
+    inserted: int,
+    news_inserted: int,
+    final_status: str,
+) -> None:
+    title = "✅ /run 완료" if final_status == "success" else "⚠️ /run 부분 성공"
+    lines = [
+        title,
+        _stage_line("Indeed", stage_results.get("indeed", _stage())),
+        _stage_line("Glassdoor", stage_results.get("glassdoor", _stage())),
+        _stage_line("News", stage_results.get("news", _stage())),
+        _stage_line("Telegram channels", stage_results.get("telegram_channels", _stage())),
+        f"- 최종 저장: jobs {inserted}건 / news {news_inserted}건",
+    ]
+    try:
+        send_telegram_text("\n".join(lines))
+    except Exception:
+        logger.exception("Failed to send /run stage summary")
 
 
 def _console_step(message: str) -> None:
@@ -186,6 +227,10 @@ def _is_indeed_source(source: str) -> bool:
     return source.startswith("indeed_")
 
 
+def _is_linkedin_source(source: str) -> bool:
+    return source.startswith("linkedin_")
+
+
 def _source_counts(items: list) -> dict[str, int]:
     return dict(Counter(getattr(item, "source", "") for item in items))
 
@@ -225,7 +270,13 @@ def _jobspy_query_worker(payload_queue: multiprocessing.Queue, kwargs: Dict[str,
 
         payload_queue.put({"ok": True, "rows": rows})
     except Exception as exc:  # pragma: no cover - child-process failure path
-        payload_queue.put({"ok": False, "error": repr(exc)})
+        payload_queue.put(
+            {
+                "ok": False,
+                "error": repr(exc),
+                "traceback": traceback.format_exc(),
+            }
+        )
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -279,7 +330,8 @@ def _run_jobspy_keyword_bucket(
     country_indeed: str | None = None,
     use_google_search_term: bool = False,
     inter_keyword_delay_seconds: float = 0.0,
-) -> None:
+) -> int:
+    failures = 0
     for keyword in keywords:
         google_search_term = _build_google_search_term(keyword, location) if use_google_search_term else None
         started_at = time.monotonic()
@@ -321,6 +373,7 @@ def _run_jobspy_keyword_bucket(
                 added,
             )
         else:
+            failures += 1
             jobspy_logger.warning(
                 "JobSpy %s %s keyword=%r returned no rows after %.1fs",
                 site_name,
@@ -330,6 +383,7 @@ def _run_jobspy_keyword_bucket(
             )
         if inter_keyword_delay_seconds > 0:
             time.sleep(inter_keyword_delay_seconds)
+    return failures
 
 
 def _compute_jobspy_lookback_hours() -> int:
@@ -416,8 +470,10 @@ def _run_jobspy_query(
                 return payload.get("rows")
 
             error_message = None
+            error_traceback = None
             if payload:
                 error_message = payload.get("error")
+                error_traceback = payload.get("traceback")
 
             if error_message:
                 last_error = RuntimeError(error_message)
@@ -430,6 +486,15 @@ def _run_jobspy_query(
                         JOBSPY_MAX_RETRIES,
                         last_error,
                     )
+                    if error_traceback:
+                        logger.warning(
+                            "JobSpy traceback for %s keyword %r on attempt %d/%d:\n%s",
+                            site_name[0],
+                            search_term,
+                            attempt,
+                            JOBSPY_MAX_RETRIES,
+                            error_traceback,
+                        )
                 else:
                     logger.warning(
                         "JobSpy error for %s keyword %r on attempt %d/%d: %s",
@@ -439,6 +504,15 @@ def _run_jobspy_query(
                         JOBSPY_MAX_RETRIES,
                         last_error,
                     )
+                    if error_traceback:
+                        logger.warning(
+                            "JobSpy traceback for %s keyword %r on attempt %d/%d:\n%s",
+                            site_name[0],
+                            search_term,
+                            attempt,
+                            JOBSPY_MAX_RETRIES,
+                            error_traceback,
+                        )
             else:
                 last_error = RuntimeError(
                     f"JobSpy worker exited without results for {site_name[0]} keyword {search_term!r}"
@@ -547,7 +621,7 @@ def _process_jobspy_country(
     indeed_jobs: list = []
     jobspy_logger.info("Scraping JobSpy country bucket: %s", country)
 
-    _run_jobspy_keyword_bucket(
+    failures = _run_jobspy_keyword_bucket(
         jobs=indeed_jobs,
         existing_fingerprints=existing_fingerprints,
         now_iso=now_iso,
@@ -564,13 +638,14 @@ def _process_jobspy_country(
 
     jobspy_logger.info("Finished JobSpy country bucket: %s jobs=%d", country, len(indeed_jobs))
 
-    return indeed_jobs
+    return {"jobs": indeed_jobs, "failures": failures}
 
 
 def scrape_indeed_via_jobspy(db: Database) -> list:
     """Scrape Indeed jobs using JobSpy."""
     try:
         indeed_jobs: list = []
+        failures = 0
         now_iso = utc_now().isoformat()
         last_completed_at = load_last_scrape_completed_at()
         jobspy_lookback_hours = _compute_jobspy_lookback_hours()
@@ -598,7 +673,16 @@ def scrape_indeed_via_jobspy(db: Database) -> list:
                 for plan in JOBSPY_COUNTRY_PLANS
             ]
             for future in futures:
-                indeed_jobs.extend(future.result())
+                try:
+                    result = future.result()
+                    if isinstance(result, dict):
+                        indeed_jobs.extend(result.get("jobs", []))
+                        failures += int(result.get("failures", 0))
+                    else:
+                        indeed_jobs.extend(result)
+                except Exception:
+                    failures += 1
+                    logger.exception("JobSpy country bucket worker failed")
 
         _console_step(
             f"JobSpy phase finished: Indeed={len(indeed_jobs)}"
@@ -607,10 +691,12 @@ def scrape_indeed_via_jobspy(db: Database) -> list:
             "Collected %s Indeed jobs",
             len(indeed_jobs),
         )
+        scrape_indeed_via_jobspy.last_failures = failures
         return indeed_jobs
 
-    except Exception as e:
-        logger.error(f"Error scraping via JobSpy: {e}")
+    except Exception:
+        logger.exception("Error scraping via JobSpy")
+        scrape_indeed_via_jobspy.last_failures = 1
         return []
 
 
@@ -657,8 +743,8 @@ def scrape_glassdoor_via_browserless() -> list:
         )
         _console_step(f"Browser phase finished: Glassdoor={len(glassdoor_jobs)}")
         return glassdoor_jobs
-    except Exception as e:
-        logger.error(f"Error scraping Glassdoor via browserless probe: {e}")
+    except Exception:
+        logger.exception("Error scraping Glassdoor via browserless probe")
         return []
 
 
@@ -703,6 +789,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     all_news_items = []
     inserted_news_items = []
     news_inserted = 0
+    stage_results: dict[str, dict[str, Any]] = {
+        "indeed": _stage(),
+        "glassdoor": _stage(),
+        "news": _stage(),
+        "telegram_channels": _stage(),
+    }
     try:
         # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
         if reject_feedback:
@@ -713,16 +805,22 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if allowed_sources is None or "jobvite_pragmaticplay" in allowed_sources:
             _console_step("Fetching Jobvite board")
             logger.info("Fetching Jobvite board...")
-            jobvite_jobs = parse_jobvite_jobs(fetch_html(JOBVITE_URL))
-            logger.info("Collected %s jobs from Jobvite.", len(jobvite_jobs))
-            sources.append((JOBVITE_URL, jobvite_jobs))
+            try:
+                jobvite_jobs = parse_jobvite_jobs(fetch_html(JOBVITE_URL))
+                logger.info("Collected %s jobs from Jobvite.", len(jobvite_jobs))
+                sources.append((JOBVITE_URL, jobvite_jobs))
+            except Exception as exc:
+                logger.warning("Skipping Jobvite for this run: %s", exc, exc_info=True)
 
         if allowed_sources is None or "smartrecruitment" in allowed_sources:
             _console_step("Fetching SmartRecruitment board")
             logger.info("Fetching SmartRecruitment board...")
-            smartrecruitment_jobs = parse_smartrecruitment_jobs(fetch_html(SMARTRECRUITMENT_URL))
-            logger.info("Collected %s jobs from SmartRecruitment.", len(smartrecruitment_jobs))
-            sources.append((SMARTRECRUITMENT_URL, smartrecruitment_jobs))
+            try:
+                smartrecruitment_jobs = parse_smartrecruitment_jobs(fetch_html(SMARTRECRUITMENT_URL))
+                logger.info("Collected %s jobs from SmartRecruitment.", len(smartrecruitment_jobs))
+                sources.append((SMARTRECRUITMENT_URL, smartrecruitment_jobs))
+            except Exception as exc:
+                logger.warning("Skipping SmartRecruitment for this run: %s", exc, exc_info=True)
 
         if allowed_sources is None or "igamingrecruitment" in allowed_sources:
             _console_step("Fetching iGaming Recruitment board")
@@ -737,16 +835,22 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if allowed_sources is None or "igaminghunt_bamboohr" in allowed_sources:
             _console_step("Fetching IGAMINGHUNT BambooHR board")
             logger.info("Fetching IGAMINGHUNT BambooHR board...")
-            igaminghunt_jobs = parse_igaminghunt_bamboohr_jobs(fetch_html(IGAMINGHUNT_BAMBOOHR_URL))
-            logger.info("Collected %s jobs from IGAMINGHUNT BambooHR.", len(igaminghunt_jobs))
-            sources.append((IGAMINGHUNT_BAMBOOHR_URL, igaminghunt_jobs))
+            try:
+                igaminghunt_jobs = parse_igaminghunt_bamboohr_jobs(fetch_html(IGAMINGHUNT_BAMBOOHR_URL))
+                logger.info("Collected %s jobs from IGAMINGHUNT BambooHR.", len(igaminghunt_jobs))
+                sources.append((IGAMINGHUNT_BAMBOOHR_URL, igaminghunt_jobs))
+            except Exception as exc:
+                logger.warning("Skipping IGAMINGHUNT BambooHR for this run: %s", exc, exc_info=True)
 
         if allowed_sources is None or "jobrapido_uae" in allowed_sources:
             _console_step("Fetching Jobrapido board")
             logger.info("Fetching Jobrapido board...")
-            jobrapido_jobs = parse_jobrapido_jobs(fetch_html(JOBRAPIDO_URL))
-            logger.info("Collected %s jobs from Jobrapido.", len(jobrapido_jobs))
-            sources.append((JOBRAPIDO_URL, jobrapido_jobs))
+            try:
+                jobrapido_jobs = parse_jobrapido_jobs(fetch_html(JOBRAPIDO_URL))
+                logger.info("Collected %s jobs from Jobrapido.", len(jobrapido_jobs))
+                sources.append((JOBRAPIDO_URL, jobrapido_jobs))
+            except Exception as exc:
+                logger.warning("Skipping Jobrapido for this run: %s", exc)
 
         if allowed_sources is None or "jobleads" in allowed_sources:
             _console_step("Fetching JobLeads board")
@@ -786,30 +890,68 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if skip_linkedin_browser or not _any_source_allowed(allowed_sources, "linkedin_public", "linkedin_emea", "linkedin_georgia", "linkedin_malta"):
             logger.info("Skipping LinkedIn browser phase.")
         else:
-            browser_linkedin_jobs = scrape_linkedin_via_browser()
+            try:
+                browser_linkedin_jobs = scrape_linkedin_via_browser()
+            except Exception as exc:
+                logger.warning("Skipping LinkedIn browser phase after error: %s", exc, exc_info=True)
         browser_indeed_jobs = []
         if skip_indeed_browser or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
             logger.info("Skipping Indeed browser phase.")
         else:
-            browser_indeed_jobs = scrape_indeed_via_browser()
+            try:
+                browser_indeed_jobs = scrape_indeed_via_browser()
+            except Exception as exc:
+                logger.warning("Skipping Indeed browser phase after error: %s", exc, exc_info=True)
         _console_step(f"Indeed browser raw: {len(browser_indeed_jobs)} jobs {_source_counts(browser_indeed_jobs)}")
 
         if skip_glassdoor_browser:
             logger.info("Skipping Glassdoor browserless phase.")
             browser_glassdoor_jobs = []
+            stage_results["glassdoor"] = _stage("skipped", 0)
         elif _source_allowed(allowed_sources, "glassdoor_uae"):
-            browser_glassdoor_jobs = scrape_glassdoor_via_browserless()
+            try:
+                with _time_limit(GLASSDOOR_STAGE_TIMEOUT_SECONDS):
+                    browser_glassdoor_jobs = scrape_glassdoor_via_browserless()
+                stage_results["glassdoor"] = _stage("success", len(browser_glassdoor_jobs))
+            except TimeoutError as exc:
+                browser_glassdoor_jobs = []
+                stage_results["glassdoor"] = _stage("timeout", 0, str(exc))
+                logger.warning("Skipping Glassdoor browserless phase after timeout: %s", exc, exc_info=True)
+            except (OSError, subprocess.SubprocessError) as exc:
+                browser_glassdoor_jobs = []
+                stage_results["glassdoor"] = _stage("failed", 0, repr(exc))
+                logger.warning("Skipping Glassdoor browserless phase after error: %s", exc, exc_info=True)
+            except Exception as exc:
+                browser_glassdoor_jobs = []
+                stage_results["glassdoor"] = _stage("failed", 0, repr(exc))
+                logger.warning("Skipping Glassdoor browserless phase after unexpected error: %s", exc, exc_info=True)
         else:
             browser_glassdoor_jobs = []
+            stage_results["glassdoor"] = _stage("skipped", 0)
 
         # Keep JobSpy as a second pass for Indeed coverage unless an explicit browser-only mode is requested.
         jobspy_indeed_jobs = []
+        jobspy_failures = 0
         if skip_jobspy or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
             logger.info("Skipping JobSpy phase.")
         else:
             _console_step("Starting JobSpy scrape pass")
-            jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
+            try:
+                scrape_indeed_via_jobspy.last_failures = 0
+                jobspy_indeed_jobs = scrape_indeed_via_jobspy(db)
+                jobspy_failures = int(getattr(scrape_indeed_via_jobspy, "last_failures", 0))
+            except Exception as exc:
+                jobspy_indeed_jobs = []
+                jobspy_failures = 1
+                logger.warning("Skipping JobSpy phase after error: %s", exc, exc_info=True)
         _console_step(f"Indeed JobSpy raw: {len(jobspy_indeed_jobs)} jobs {_source_counts(jobspy_indeed_jobs)}")
+        indeed_total = len(browser_indeed_jobs) + len(jobspy_indeed_jobs)
+        if skip_indeed_browser and skip_jobspy:
+            stage_results["indeed"] = _stage("skipped", 0)
+        elif jobspy_failures:
+            stage_results["indeed"] = _stage("partial" if indeed_total else "timeout", indeed_total, f"jobspy_failures={jobspy_failures}")
+        else:
+            stage_results["indeed"] = _stage("success", indeed_total)
 
         linkedin_jobs = browser_linkedin_jobs
         glassdoor_jobs = browser_glassdoor_jobs
@@ -821,6 +963,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
+        _console_step(f"LinkedIn after source filter: {len(linkedin_jobs)} jobs {_source_counts(linkedin_jobs)}")
         _console_step(
             "Indeed after source filter: "
             f"browser={len(browser_indeed_jobs_filtered)} {_source_counts(browser_indeed_jobs_filtered)} "
@@ -851,7 +994,17 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 or telegram_job_relevant(job, resume_text)
             )
         ]
+        linkedin_jobs_after_content_filters = [job for job in jobs if _is_linkedin_source(job.source)]
+        _console_step(
+            f"LinkedIn after content filters before dedupe: {len(linkedin_jobs_after_content_filters)} jobs "
+            f"{_source_counts(linkedin_jobs_after_content_filters)}"
+        )
         jobs = dedupe_job_postings(jobs)
+        linkedin_jobs_after_cleanup = [job for job in jobs if _is_linkedin_source(job.source)]
+        _console_step(
+            f"LinkedIn after dedupe: {len(linkedin_jobs_after_cleanup)} jobs "
+            f"{_source_counts(linkedin_jobs_after_cleanup)}"
+        )
         indeed_jobs_after_cleanup = [job for job in jobs if _is_indeed_source(job.source)]
         _console_step(f"Indeed after content filters/dedupe: {len(indeed_jobs_after_cleanup)} jobs {_source_counts(indeed_jobs_after_cleanup)}")
 
@@ -859,19 +1012,34 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             job.match_score = calculate_match_score(job, resume_text)
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
+        inserted_linkedin_jobs = [job for job in inserted_jobs if _is_linkedin_source(job.source)]
+        _console_step(f"LinkedIn inserted: {len(inserted_linkedin_jobs)} jobs {_source_counts(inserted_linkedin_jobs)}")
         inserted_indeed_jobs = [job for job in inserted_jobs if _is_indeed_source(job.source)]
         _console_step(f"Indeed inserted: {len(inserted_indeed_jobs)} jobs {_source_counts(inserted_indeed_jobs)}")
 
         if not glassdoor_only and not skip_news:
-            # Collect and store news from RSS feeds
-            news_items = fetch_all_rss_news()
-            player_news_items = fetch_all_player_rss_news()
-            all_news_items = news_items + player_news_items
-            news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
-            logger.info("Collected %d news items (%d industry + %d player), %d new.",
-                        len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+            try:
+                with _time_limit(NEWS_STAGE_TIMEOUT_SECONDS):
+                    # Collect and store news from RSS feeds
+                    news_items = fetch_all_rss_news()
+                    player_news_items = fetch_all_player_rss_news()
+                    all_news_items = news_items + player_news_items
+                    news_inserted, inserted_news_items = db.upsert_news(all_news_items, return_items=True)
+                stage_results["news"] = _stage("success", len(all_news_items))
+                logger.info("Collected %d news items (%d industry + %d player), %d new.",
+                            len(all_news_items), len(news_items), len(player_news_items), news_inserted)
+            except TimeoutError as exc:
+                stage_results["news"] = _stage("timeout", len(all_news_items), str(exc))
+                logger.warning("Skipping RSS/news phase after timeout: %s", exc, exc_info=True)
+            except (OSError, subprocess.SubprocessError) as exc:
+                stage_results["news"] = _stage("failed", len(all_news_items), repr(exc))
+                logger.warning("Skipping RSS/news phase after error: %s", exc, exc_info=True)
+            except Exception as exc:
+                stage_results["news"] = _stage("failed", len(all_news_items), repr(exc))
+                logger.warning("Skipping RSS/news phase after unexpected error: %s", exc, exc_info=True)
         else:
             logger.info("Skipping RSS news phase (glassdoor_only=%s, skip_news=%s).", glassdoor_only, skip_news)
+            stage_results["news"] = _stage("skipped", 0)
 
         all_jobs_annotated = annotate_records(db.fetch_all_jobs(), resume_text)
 
@@ -936,6 +1104,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         source_total = source_total_counts(tracked_jobs)
         source_daily = source_daily_counts(tracked_jobs)
         recommendations = top_recommendations(jobs, resume_text)
+        stage_statuses = [
+            stage.get("status")
+            for stage in stage_results.values()
+            if stage.get("status") != "skipped"
+        ]
+        failed_stage_count = sum(status in {"failed", "timeout", "partial"} for status in stage_statuses)
+        saved_anything = bool(jobs or all_news_items or tracked_jobs)
+        final_run_status = "success" if failed_stage_count == 0 else ("partial" if saved_anything else "failed")
 
         run_completed_at = utc_now()
         save_scrape_state(
@@ -946,7 +1122,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             completed_at=run_completed_at.isoformat(),
             next_scrape_at=next_batch_at,
             new_news_this_run=news_inserted,
-            run_status="completed",
+            run_status="completed" if final_run_status != "failed" else "failed",
         )
         payload = {
             "collection_metadata": {
@@ -960,6 +1136,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 "news_collected_this_run": len(all_news_items),
                 "new_news_this_run": news_inserted,
                 "resume_loaded": bool(resume_text),
+                "stage_results": stage_results,
+                "run_status": final_run_status,
             },
             "statistics": stats,
             "top_recommendations": [job.to_dict() for job in recommendations],
@@ -967,31 +1145,52 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             "all_tracked_jobs": all_jobs_annotated,
         }
 
-        save_json(OUTPUT_DIR / "jobs_analysis.json", payload)
-        save_csv(OUTPUT_DIR / "jobs_recommendations.csv", recommendations)
-        save_markdown(
-            OUTPUT_DIR / "jobs_analysis.md",
-            stats,
-            recommendations,
-            inserted,
-            [source for source, _ in sources],
-        )
+        saved_output_count = 0
+        try:
+            save_json(OUTPUT_DIR / "jobs_analysis.json", payload)
+            saved_output_count += 1
+        except Exception as exc:
+            logger.warning("Failed to save jobs_analysis.json: %s", exc, exc_info=True)
+        try:
+            save_csv(OUTPUT_DIR / "jobs_recommendations.csv", recommendations)
+            saved_output_count += 1
+        except Exception as exc:
+            logger.warning("Failed to save jobs_recommendations.csv: %s", exc, exc_info=True)
+        try:
+            save_markdown(
+                OUTPUT_DIR / "jobs_analysis.md",
+                stats,
+                recommendations,
+                inserted,
+                [source for source, _ in sources],
+            )
+            saved_output_count += 1
+        except Exception as exc:
+            logger.warning("Failed to save jobs_analysis.md: %s", exc, exc_info=True)
         # Generate news dashboard HTML only if it doesn't exist
         news_dashboard_path = OUTPUT_DIR / "all_news.html"
         if not news_dashboard_path.exists():
-            logger.info("Generating news dashboard HTML template...")
-            save_news_dashboard(news_dashboard_path)
+            try:
+                logger.info("Generating news dashboard HTML template...")
+                save_news_dashboard(news_dashboard_path)
+                saved_output_count += 1
+            except Exception as exc:
+                logger.warning("Failed to save all_news.html: %s", exc, exc_info=True)
 
         # Update dashboard data (JSON) on every run
-        save_dashboard_data(
-            OUTPUT_DIR / "job_stats_data.json",
-            stats,
-            source_total,
-            source_daily,
-            tracked_jobs,
-            all_jobs_annotated,
-            collection_metadata=payload["collection_metadata"],
-        )
+        try:
+            save_dashboard_data(
+                OUTPUT_DIR / "job_stats_data.json",
+                stats,
+                source_total,
+                source_daily,
+                tracked_jobs,
+                all_jobs_annotated,
+                collection_metadata=payload["collection_metadata"],
+            )
+            saved_output_count += 1
+        except Exception as exc:
+            logger.warning("Failed to save job_stats_data.json: %s", exc, exc_info=True)
 
         # Add recent news data to dashboard JSON with source labels
         import json
@@ -1034,10 +1233,18 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             player_mentions = db.track_player_mentions(168)
             dashboard_data["player_mentions"] = player_mentions
 
-            dashboard_data_path.write_text(
-                json.dumps(dashboard_data, ensure_ascii=False, indent=2),
-                encoding="utf-8"
-            )
+            try:
+                dashboard_data_path.write_text(
+                    json.dumps(dashboard_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8"
+                )
+                saved_output_count += 1
+            except Exception as exc:
+                logger.warning("Failed to update dashboard news data: %s", exc, exc_info=True)
+
+        if saved_output_count == 0 and not (inserted or news_inserted):
+            final_run_status = "failed"
+            payload["collection_metadata"]["run_status"] = final_run_status
 
         _console_step("Saving outputs")
         if mode == "collect":
@@ -1046,11 +1253,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 maybe_send_telegram(inserted, batch_jobs)
                 if not skip_news:
                     send_news_summary(inserted_news_items, db=db)
+                _send_run_stage_summary(stage_results, inserted, news_inserted, final_run_status)
         elif mode == "incremental":
             send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 
         logger.info("Saved outputs to %s", OUTPUT_DIR)
-        _console_step(f"Scrape run complete: {inserted} new jobs, {news_inserted} new news")
+        _console_step(f"Scrape run complete: status={final_run_status} {inserted} new jobs, {news_inserted} new news")
         return payload
     except Exception:
         logger.exception("Scrape run failed")
@@ -1072,9 +1280,9 @@ def main() -> int:
         mode = "collect"
         if len(sys.argv) > 1:
             mode = sys.argv[1].strip().lower()
-        run(mode=mode)
-
-        return 0
+        payload = run(mode=mode)
+        run_status = (payload.get("collection_metadata", {}) if isinstance(payload, dict) else {}).get("run_status")
+        return 1 if run_status == "failed" else 0
     except urllib.error.URLError as exc:
         logger.error("Network error: %s", exc)
         return 1

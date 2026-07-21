@@ -2,7 +2,7 @@
 set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-${WORKDIR}/venv/bin/python3}"
+PYTHON_BIN="${WORKDIR}/venv/bin/python3"
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="python3"
@@ -17,6 +17,11 @@ if [[ -f "${WORKDIR}/.env" ]]; then
   # shellcheck disable=SC1091
   source "${WORKDIR}/.env"
   set +a
+fi
+
+PYTHON_BIN="${WORKDIR}/venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
 fi
 
 JOB_WATCH_SOURCES="${JOB_WATCH_SOURCES:-glassdoor_uae}"

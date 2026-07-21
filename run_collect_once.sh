@@ -2,7 +2,7 @@
 set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-${WORKDIR}/venv/bin/python3}"
+PYTHON_BIN="${WORKDIR}/venv/bin/python3"
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="python3"
@@ -20,6 +20,11 @@ if [[ -f "${WORKDIR}/.env" ]]; then
   # shellcheck disable=SC1091
   source "${WORKDIR}/.env"
   set +a
+fi
+
+PYTHON_BIN="${WORKDIR}/venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
 fi
 
 # Restore external environment variables (override .env values)
@@ -57,7 +62,32 @@ env PYTHONUNBUFFERED=1 BROWSER_BATCH_WORKERS="${PRESET_BROWSER_BATCH_WORKERS:-${
 if [[ "${SKIP_TELEGRAM_SCRAPER:-0}" != "1" ]]; then
   echo ""
   echo "Running Telegram channel scrape..."
-  env PYTHONUNBUFFERED=1 BROWSER_BATCH_WORKERS="${PRESET_BROWSER_BATCH_WORKERS:-${BROWSER_BATCH_WORKERS:-1}}" BROWSER_LINKEDIN_BATCH_SIZE="${PRESET_BROWSER_LINKEDIN_BATCH_SIZE:-${BROWSER_LINKEDIN_BATCH_SIZE:-3}}" BROWSER_INDEED_BATCH_SIZE="${PRESET_BROWSER_INDEED_BATCH_SIZE:-${BROWSER_INDEED_BATCH_SIZE:-2}}" DB_PATH="${WORKDIR}/outputs/jobs.sqlite3" "${PYTHON_BIN}" src/services/telegram_scraper.py
+  TELEGRAM_TIMEOUT_SECONDS="${TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS:-180}"
+  env PYTHONUNBUFFERED=1 BROWSER_BATCH_WORKERS="${PRESET_BROWSER_BATCH_WORKERS:-${BROWSER_BATCH_WORKERS:-1}}" BROWSER_LINKEDIN_BATCH_SIZE="${PRESET_BROWSER_LINKEDIN_BATCH_SIZE:-${BROWSER_LINKEDIN_BATCH_SIZE:-3}}" BROWSER_INDEED_BATCH_SIZE="${PRESET_BROWSER_INDEED_BATCH_SIZE:-${BROWSER_INDEED_BATCH_SIZE:-2}}" DB_PATH="${WORKDIR}/outputs/jobs.sqlite3" "${PYTHON_BIN}" src/services/telegram_scraper.py &
+  telegram_pid="$!"
+  telegram_started_at="$(date +%s)"
+  telegram_timed_out=0
+  while kill -0 "${telegram_pid}" 2>/dev/null; do
+    now="$(date +%s)"
+    if (( now - telegram_started_at >= TELEGRAM_TIMEOUT_SECONDS )); then
+      telegram_timed_out=1
+      echo "WARNING: Telegram channel scrape timed out after ${TELEGRAM_TIMEOUT_SECONDS}s; collection outputs were already saved."
+      kill "${telegram_pid}" 2>/dev/null || true
+      sleep 2
+      kill -9 "${telegram_pid}" 2>/dev/null || true
+      "${PYTHON_BIN}" -c "import sys; from pathlib import Path; sys.path.insert(0, str(Path('src').resolve())); from utils.notifications import send_telegram_text; send_telegram_text('⚠️ Telegram channels: timeout, 수집 0건 / 저장 0건 (shell timeout)')" || true
+      break
+    fi
+    sleep 2
+  done
+  if [[ "${telegram_timed_out}" == "1" ]]; then
+    wait "${telegram_pid}" 2>/dev/null || true
+    echo "Telegram channel scrape stage timed out."
+  elif wait "${telegram_pid}"; then
+    echo "Telegram channel scrape stage finished."
+  else
+    echo "WARNING: Telegram channel scrape stage failed; collection outputs were already saved."
+  fi
 else
   echo "Skipping Telegram channel scrape (SKIP_TELEGRAM_SCRAPER=1)."
 fi

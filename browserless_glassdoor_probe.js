@@ -473,11 +473,14 @@ async function main() {
         try {
           await page.setViewportSize({ width: 1440, height: 1024 }).catch(() => {});
           page.setDefaultTimeout(selectorTimeoutMs);
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: pageTimeoutMs });
+          const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: pageTimeoutMs });
           await page.locator('a[href*="/job-listing/"]').first().waitFor({ timeout: selectorTimeoutMs }).catch(() => {});
           await expandGlassdoorMoreControls(page);
           await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
           const result = await extractGlassdoorJobs(page);
+          result.status = response ? response.status() : null;
+          result.responseUrl = response ? response.url() : page.url();
+          result.bodyTextLength = await page.locator('body').innerText({ timeout: 1000 }).then((text) => text.length).catch(() => 0);
           progress(`Glassdoor | jobs=${result.jobs.length} | ${url}`);
           if (!result.jobs.length && result.debug) {
             progress(`Glassdoor | debug body_lines=${result.debug.bodyLinesSample.length} anchors=${result.debug.anchorSamples.length}`);

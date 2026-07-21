@@ -148,13 +148,13 @@ def start_spot_search(request: SpotRequest) -> str:
     }[request.mode]
 
     if request.mode == "posts":
-        args = [str(ROOT / script), "spot", request.location, request.keywords, request.limit]
+        args = ["/bin/bash", str(ROOT / script), "spot", request.location, request.keywords, request.limit]
         label = "LinkedIn posts"
     elif request.mode == "jobs":
-        args = [str(ROOT / script), request.location, request.keywords, request.limit]
+        args = ["/bin/bash", str(ROOT / script), request.location, request.keywords, request.limit]
         label = "LinkedIn jobs board"
     else:
-        args = [str(ROOT / script), request.location, request.keywords, request.limit]
+        args = ["/bin/bash", str(ROOT / script), request.location, request.keywords, request.limit]
         label = "LinkedIn posts + jobs board"
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)

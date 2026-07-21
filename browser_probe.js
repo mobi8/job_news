@@ -3,9 +3,12 @@ process.env.WS_NO_UTF_8_VALIDATE = process.env.WS_NO_UTF_8_VALIDATE || '1';
 
 const fs = require('fs');
 
-console.error('[browser_probe] loading Playwright');
+const processStartedAt = Date.now();
+console.error(`[browser_probe] step=1 node process start pid=${process.pid}`);
+console.error('[browser_probe] step=2 Playwright require start');
+const playwrightRequireStartedAt = Date.now();
 const { chromium } = require('playwright');
-console.error('[browser_probe] Playwright loaded');
+console.error(`[browser_probe] step=2 Playwright require complete elapsed=${Date.now() - playwrightRequireStartedAt}ms`);
 
 function textOrEmpty(node) {
   return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
@@ -13,6 +16,15 @@ function textOrEmpty(node) {
 
 function progress(message) {
   console.error(`[browser_probe] ${message}`);
+}
+
+function probeElapsed() {
+  return `${Date.now() - processStartedAt}ms`;
+}
+
+function stepProgress(step, message, startedAt = null) {
+  const suffix = startedAt ? ` elapsed=${Date.now() - startedAt}ms` : ` elapsed_total=${probeElapsed()}`;
+  progress(`step=${step} ${message}${suffix}`);
 }
 
 function withTimeout(promise, ms) {
@@ -230,6 +242,22 @@ async function evaluateIndeedPage(page) {
 async function evaluateLinkedInPage(page) {
   return page.evaluate(() => {
     const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
+    const bodyText = clean(document.body ? document.body.innerText : '');
+    const href = location.href;
+    const joined = `${href} ${document.title} ${bodyText}`;
+    const blockSignals = {
+      authwall: /authwall|checkpoint|security verification|verify you are human/i.test(joined),
+      loginPrompt: /login|sign in|로그인/i.test(joined) || Boolean(document.querySelector('input[name="session_key"], form[action*="login"]')),
+      captcha: /captcha/i.test(joined) || Boolean(document.querySelector('iframe[src*="captcha"], iframe[src*="challenge"], [class*="captcha"]')),
+      rateLimit: /rate limit|too many requests|unusual activity|temporarily restricted/i.test(joined),
+    };
+    const selectorCounts = {
+      baseCardFullLink: document.querySelectorAll('a.base-card__full-link').length,
+      dataJobId: document.querySelectorAll('a[data-job-id]').length,
+      jobCardTitle: document.querySelectorAll('a.job-card-title').length,
+      baseSearchCard: document.querySelectorAll('.base-search-card').length,
+      jobsSearchResults: document.querySelectorAll('.jobs-search-results-list, .jobs-search__results-list').length,
+    };
     const jobAnchors = Array.from(document.querySelectorAll(
       'a.base-card__full-link, ' +
       'a[data-job-id], ' +
@@ -310,7 +338,12 @@ async function evaluateLinkedInPage(page) {
 
     return {
       pageTitle: document.title,
-      href: location.href,
+      href,
+      diagnostics: {
+        blockSignals,
+        selectorCounts,
+        bodyTextSample: bodyText.slice(0, 240),
+      },
       links,
       jobs,
     };
@@ -449,6 +482,8 @@ async function main() {
       : bundledExecutablePath;
 
   try {
+    const launchStartedAt = Date.now();
+    stepProgress(3, `Chromium launch start executable=${executablePath}`);
     browserContext = await chromium.launchPersistentContext(
       profileDir,
       {
@@ -468,6 +503,7 @@ async function main() {
         ],
       }
     );
+    stepProgress(3, 'Chromium launch complete', launchStartedAt);
 
     browser = browserContext.browser();
 
@@ -481,6 +517,8 @@ async function main() {
           await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
         }
 
+        const pageStartedAt = Date.now();
+        stepProgress(4, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | context/page create start`);
         try {
           page = await browserContext.newPage();
         } catch (err) {
@@ -488,6 +526,7 @@ async function main() {
           results.push(errorResult(url, 'Browser context unavailable'));
           continue;
         }
+        stepProgress(4, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | context/page create complete`, pageStartedAt);
         await page.addInitScript(() => {
           Object.defineProperty(navigator, 'webdriver', { get: () => false });
           Object.defineProperty(navigator, 'plugins', {
@@ -520,13 +559,44 @@ async function main() {
         const isLinkedIn = url.includes('linkedin.com/jobs/search');
         const isIndeed = url.includes('indeed.com');
         const navigationTimeout = isTelegram ? 180000 : (isLinkedIn || isIndeed ? 45000 : 60000);
-        await page.goto(url, { waitUntil: waitUntilOption, timeout: navigationTimeout });
+        const gotoStartedAt = Date.now();
+        stepProgress(5, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | page.goto start waitUntil=${waitUntilOption} timeout=${navigationTimeout}`);
+        const response = await page.goto(url, { waitUntil: waitUntilOption, timeout: navigationTimeout });
+        stepProgress(5, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | page.goto complete`, gotoStartedAt);
 
         if (isLinkedIn) {
+          const status = response ? response.status() : 'n/a';
+          stepProgress(6, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | response status=${status} final_url=${page.url()}`);
+          const titleStartedAt = Date.now();
+          const pageTitle = await page.title().catch(() => '');
+          stepProgress(7, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | title=${shorten(pageTitle, 120)}`, titleStartedAt);
+          const authStartedAt = Date.now();
+          const blockSignals = await page.evaluate(() => {
+            const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
+            const bodyText = clean(document.body ? document.body.innerText : '');
+            const joined = `${location.href} ${document.title} ${bodyText}`;
+            return {
+              authwall: /authwall|login|checkpoint|captcha|security verification|verify you are human|unusual activity|sign in/i.test(joined),
+              loginForm: Boolean(document.querySelector('input[name="session_key"], form[action*="login"]')),
+              captcha: Boolean(document.querySelector('iframe[src*="captcha"], iframe[src*="challenge"], [class*="captcha"]')),
+              rateLimit: /rate limit|too many requests|unusual activity|temporarily restricted/i.test(joined),
+            };
+          }).catch((error) => ({ error: error.message }));
+          stepProgress(8, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | block_signals=${JSON.stringify(blockSignals)}`, authStartedAt);
+
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
           await page.waitForLoadState('domcontentloaded').catch(() => {});
-          await page.waitForLoadState('networkidle').catch(() => {});
-          await page.waitForSelector('a.base-card__full-link', { timeout: 15000 }).catch(() => {});
+          const selectorStartedAt = Date.now();
+          const linkedInSelector = 'a.base-card__full-link, a[data-job-id], a.job-card-title, .base-search-card, .jobs-search-results-list, .jobs-search__results-list';
+          const selectorTimeout = Number(process.env.LINKEDIN_SELECTOR_TIMEOUT_MS || 15000);
+          let selectorFound = true;
+          try {
+            await page.waitForSelector(linkedInSelector, { timeout: selectorTimeout });
+          } catch (error) {
+            selectorFound = false;
+            progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | selector wait error ${error.message}`);
+          }
+          stepProgress(9, `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | selector_wait found=${selectorFound} timeout=${selectorTimeout}`, selectorStartedAt);
           await page.waitForTimeout(1200 + Math.random() * 800);
 
           let previousHeight = 0;
@@ -547,8 +617,15 @@ async function main() {
           await expandLinkedInMoreButtons(page);
           await page.waitForTimeout(1200 + Math.random() * 800);
 
+          const parseStartedAt = Date.now();
           const result = await evaluateLinkedInPage(page);
-          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
+          const rawJobs = result.jobs?.length || 0;
+          stepProgress(
+            10,
+            `${searchContext.platform} ${searchContext.country} | ${searchContext.label} | raw_jobs=${rawJobs} selectors=${JSON.stringify(result.diagnostics?.selectorCounts || {})}`,
+            parseStartedAt,
+          );
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${rawJobs}`);
           results.push(result);
           await page.close().catch(() => {});
           continue;

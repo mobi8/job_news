@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import sys
 import hashlib
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -19,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.logger import watch_logger
 from utils.models import JobPosting
 from utils.db import Database
+from utils.notifications import send_telegram_text
 
 TELEGRAM_CHANNELS = {
     "uaejobsdaily2025": "UAE Jobs Daily",
@@ -28,6 +32,7 @@ TELEGRAM_CHANNELS = {
 }
 
 REQUEST_TIMEOUT = 15
+TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS = int(os.getenv("TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS", "180"))
 REQUEST_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 }
@@ -294,7 +299,37 @@ def scrape_and_save(db_path: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    import os
+    def _timeout_handler(signum, frame):  # pragma: no cover - signal handler
+        raise TimeoutError(f"Telegram channel scrape timed out after {TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS}s")
+
     db_path = os.getenv("DB_PATH", "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3")
-    result = scrape_and_save(db_path)
-    print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    if TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS > 0 and hasattr(signal, "SIGALRM"):
+        signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.setitimer(signal.ITIMER_REAL, TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS)
+    try:
+        result = scrape_and_save(db_path)
+        result["stage_status"] = "success"
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        send_telegram_text(
+            "✅ Telegram channels: 성공, "
+            f"수집 {result.get('total_jobs', 0)}건 / 저장 {result.get('total_saved', 0)}건"
+        )
+    except TimeoutError as exc:
+        watch_logger.warning("Telegram channel scrape timeout: %s", exc, exc_info=True)
+        result = {"stage_status": "timeout", "total_jobs": 0, "total_saved": 0, "error": str(exc)}
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        send_telegram_text(f"⚠️ Telegram channels: timeout, 수집 0건 / 저장 0건 ({exc})")
+    except (OSError, Exception) as exc:
+        watch_logger.warning("Telegram channel scrape failed: %s", exc, exc_info=True)
+        result = {
+            "stage_status": "failed",
+            "total_jobs": 0,
+            "total_saved": 0,
+            "error": repr(exc),
+            "traceback": traceback.format_exc(),
+        }
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        send_telegram_text(f"⚠️ Telegram channels: 실패, 수집 0건 / 저장 0건 ({repr(exc)})")
+    finally:
+        if TELEGRAM_CHANNEL_STAGE_TIMEOUT_SECONDS > 0 and hasattr(signal, "SIGALRM"):
+            signal.setitimer(signal.ITIMER_REAL, 0)
