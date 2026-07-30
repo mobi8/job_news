@@ -21,6 +21,7 @@ from .utils import (
 )
 from .config import OUTPUT_DIR
 from .logger import notifications_logger
+from .reporter import read_text_safely, write_text_safely
 from .template_renderer import render_template
 
 logger = notifications_logger
@@ -281,7 +282,11 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
 
     # Load/update URL map (short numeric key → full URL)
     url_map_path = OUTPUT_DIR / "url_map.json"
-    url_map = _json.loads(url_map_path.read_text()) if url_map_path.exists() else {}
+    try:
+        url_map = _json.loads(read_text_safely(url_map_path)) if url_map_path.exists() else {}
+    except Exception as exc:
+        logger.warning("Failed to load Telegram URL map; starting fresh for this run: %s", exc)
+        url_map = {}
     next_id = max((int(k) for k in url_map), default=0) + 1
 
     country_emoji = {"UAE": "🇦🇪", "Georgia": "🇬🇪", "Malta": "🇲🇹", "Bahrain": "🇧🇭", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦", "Remote": "🌍"}
@@ -330,7 +335,10 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
         except Exception as e:
             logger.warning("Failed to send analysis card: %s", e)
 
-    url_map_path.write_text(_json.dumps(url_map))
+    try:
+        write_text_safely(url_map_path, _json.dumps(url_map))
+    except Exception as exc:
+        logger.warning("Failed to save Telegram URL map: %s", exc)
 
 
 def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
@@ -376,7 +384,10 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
         if not send_telegram_messages_chunked(message_text.splitlines()):
             return
 
-    send_job_analysis_cards(qualifying_jobs, min_score=30)
+    try:
+        send_job_analysis_cards(qualifying_jobs, min_score=30)
+    except Exception as exc:
+        logger.warning("Telegram analysis cards failed; main job alert was already sent: %s", exc, exc_info=True)
 
 
 def send_incremental_summary(

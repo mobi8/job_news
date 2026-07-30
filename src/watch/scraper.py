@@ -1196,48 +1196,45 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         import json
         dashboard_data_path = OUTPUT_DIR / "job_stats_data.json"
         if dashboard_data_path.exists():
-            dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
-            recent_news = db.fetch_recent_news(336)  # 2 weeks of news
-
-            # Add source labels and descriptions
-            source_info = {
-                "rss_igaming_business": {
-                    "label": "iGaming Business",
-                    "emoji": "🎮",
-                    "description": "글로벌 iGaming 업계 뉴스, 규제, 채용 동향",
-                    "color": "#FF6B6B"
-                },
-                "rss_fintech_uae": {
-                    "label": "Fintech News UAE",
-                    "emoji": "💰",
-                    "description": "UAE/GCC 핀테크 시장, 규제, 라이선스, 채용 정보",
-                    "color": "#4ECDC4"
-                }
-            }
-
-            for item in recent_news:
-                source = item.get("source", "")
-                if source in source_info:
-                    item["source_label"] = source_info[source]["label"]
-                    item["source_emoji"] = source_info[source]["emoji"]
-                    item["source_description"] = source_info[source]["description"]
-                    item["source_color"] = source_info[source]["color"]
-
-            dashboard_data["news_items"] = recent_news
-
-            # Add topics to dashboard data
-            topics = db.compute_news_topics(168)
-            dashboard_data["topics"] = topics
-
-            # Add player mentions to dashboard data
-            player_mentions = db.track_player_mentions(168)
-            dashboard_data["player_mentions"] = player_mentions
-
             try:
-                dashboard_data_path.write_text(
-                    json.dumps(dashboard_data, ensure_ascii=False, indent=2),
-                    encoding="utf-8"
-                )
+                dashboard_data = json.loads(dashboard_data_path.read_text(encoding="utf-8"))
+                recent_news = db.fetch_recent_news(336)  # 2 weeks of news
+
+                # Add source labels and descriptions
+                source_info = {
+                    "rss_igaming_business": {
+                        "label": "iGaming Business",
+                        "emoji": "🎮",
+                        "description": "글로벌 iGaming 업계 뉴스, 규제, 채용 동향",
+                        "color": "#FF6B6B"
+                    },
+                    "rss_fintech_uae": {
+                        "label": "Fintech News UAE",
+                        "emoji": "💰",
+                        "description": "UAE/GCC 핀테크 시장, 규제, 라이선스, 채용 정보",
+                        "color": "#4ECDC4"
+                    }
+                }
+
+                for item in recent_news:
+                    source = item.get("source", "")
+                    if source in source_info:
+                        item["source_label"] = source_info[source]["label"]
+                        item["source_emoji"] = source_info[source]["emoji"]
+                        item["source_description"] = source_info[source]["description"]
+                        item["source_color"] = source_info[source]["color"]
+
+                dashboard_data["news_items"] = recent_news
+
+                # Add topics to dashboard data
+                topics = db.compute_news_topics(168)
+                dashboard_data["topics"] = topics
+
+                # Add player mentions to dashboard data
+                player_mentions = db.track_player_mentions(168)
+                dashboard_data["player_mentions"] = player_mentions
+
+                save_json(dashboard_data_path, dashboard_data)
                 saved_output_count += 1
             except Exception as exc:
                 logger.warning("Failed to update dashboard news data: %s", exc, exc_info=True)

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import csv
 import html
+import io
 import json
+import os
+import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -14,41 +18,95 @@ from .scoring import source_label
 from .utils import dedupe_records_for_display, format_seen_timestamp, utc_now
 
 
-def save_json(path: Path, payload: Dict[str, Any]) -> None:
+def _is_retryable_io_error(exc: OSError) -> bool:
+    return exc.errno in {11, 35}
+
+
+def write_text_safely(path: Path, text: str, encoding: str = "utf-8", retries: int = 5) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    last_exc: OSError | None = None
+    for attempt in range(retries):
+        tmp_name = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding=encoding,
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                tmp_name = handle.name
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_name, path)
+            return
+        except OSError as exc:
+            last_exc = exc
+            if tmp_name:
+                try:
+                    os.unlink(tmp_name)
+                except FileNotFoundError:
+                    pass
+                except OSError:
+                    pass
+            if not _is_retryable_io_error(exc) or attempt == retries - 1:
+                raise
+            time.sleep(0.2 * (attempt + 1))
+    if last_exc is not None:
+        raise last_exc
+
+
+def read_text_safely(path: Path, encoding: str = "utf-8", retries: int = 5) -> str:
+    last_exc: OSError | None = None
+    for attempt in range(retries):
+        try:
+            return path.read_text(encoding=encoding)
+        except OSError as exc:
+            last_exc = exc
+            if not _is_retryable_io_error(exc) or attempt == retries - 1:
+                raise
+            time.sleep(0.2 * (attempt + 1))
+    if last_exc is not None:
+        raise last_exc
+    return ""
+
+
+def save_json(path: Path, payload: Dict[str, Any]) -> None:
+    write_text_safely(path, json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def save_csv(path: Path, jobs: List[JobPosting]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=[
-                "source",
-                "title",
-                "company",
-                "location",
-                "remote",
-                "match_score",
-                "first_seen_at",
-                "url",
-            ],
+    handle = io.StringIO()
+    writer = csv.DictWriter(
+        handle,
+        fieldnames=[
+            "source",
+            "title",
+            "company",
+            "location",
+            "remote",
+            "match_score",
+            "first_seen_at",
+            "url",
+        ],
+    )
+    writer.writeheader()
+    for job in jobs:
+        writer.writerow(
+            {
+                "source": job.source,
+                "title": job.title,
+                "company": job.company,
+                "location": job.location,
+                "remote": job.remote,
+                "match_score": job.match_score,
+                "first_seen_at": job.first_seen_at,
+                "url": job.url,
+            }
         )
-        writer.writeheader()
-        for job in jobs:
-            writer.writerow(
-                {
-                    "source": job.source,
-                    "title": job.title,
-                    "company": job.company,
-                    "location": job.location,
-                    "remote": job.remote,
-                    "match_score": job.match_score,
-                    "first_seen_at": job.first_seen_at,
-                    "url": job.url,
-                }
-            )
+    write_text_safely(path, handle.getvalue())
 
 
 def save_markdown(path: Path, stats: Dict[str, Any], jobs: List[JobPosting], inserted: int, sources: List[str]) -> None:
@@ -83,8 +141,7 @@ def save_markdown(path: Path, stats: Dict[str, Any], jobs: List[JobPosting], ins
     for location, count in stats["top_locations"]:
         lines.append(f"- {location}: {count}")
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
+    write_text_safely(path, "\n".join(lines))
 
 
 def save_dashboard(
@@ -1602,8 +1659,7 @@ def save_dashboard(
 </body>
 </html>
 """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(html_text, encoding="utf-8")
+    write_text_safely(path, html_text)
 
 
 def save_news_dashboard(path: Path) -> None:
@@ -2063,8 +2119,7 @@ def save_news_dashboard(path: Path) -> None:
 </body>
 </html>
 """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(html_text, encoding="utf-8")
+    write_text_safely(path, html_text)
 
 
 def save_dashboard_data(
@@ -2094,6 +2149,4 @@ def save_dashboard_data(
     if collection_metadata is not None:
         dashboard_data["collection_metadata"] = collection_metadata
 
-    data_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(data_path, "w", encoding="utf-8") as f:
-        json.dump(dashboard_data, f, ensure_ascii=False, indent=2)
+    write_text_safely(data_path, json.dumps(dashboard_data, ensure_ascii=False, indent=2))
