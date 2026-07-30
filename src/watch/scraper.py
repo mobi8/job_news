@@ -145,8 +145,10 @@ GLASSDOOR_STAGE_TIMEOUT_SECONDS = int(os.getenv("GLASSDOOR_STAGE_TIMEOUT_SECONDS
 NEWS_STAGE_TIMEOUT_SECONDS = int(os.getenv("NEWS_STAGE_TIMEOUT_SECONDS", "120"))
 
 
-def _stage(status: str = "skipped", count: int = 0, detail: str = "") -> dict[str, Any]:
-    return {"status": status, "count": count, "detail": detail}
+def _stage(status: str = "skipped", count: int = 0, detail: str = "", **extra: Any) -> dict[str, Any]:
+    stage = {"status": status, "count": count, "detail": detail}
+    stage.update(extra)
+    return stage
 
 
 def _stage_line(label: str, stage: dict[str, Any]) -> str:
@@ -157,7 +159,17 @@ def _stage_line(label: str, stage: dict[str, Any]) -> str:
         "failed": "실패",
         "skipped": "skipped",
     }.get(stage.get("status", ""), stage.get("status", "unknown"))
-    detail = f" ({stage.get('detail')})" if stage.get("detail") else ""
+    detail_parts = []
+    for key, label_text in (
+        ("raw_count", "raw"),
+        ("parsed_count", "parsed"),
+        ("new_count", "new"),
+    ):
+        if key in stage:
+            detail_parts.append(f"{label_text}={stage.get(key, 0)}")
+    if stage.get("detail"):
+        detail_parts.append(str(stage.get("detail")))
+    detail = f" ({', '.join(detail_parts)})" if detail_parts else ""
     return f"- {label}: {status_label}, {stage.get('count', 0)}건{detail}"
 
 
@@ -170,11 +182,13 @@ def _send_run_stage_summary(
     title = "✅ /run 완료" if final_status == "success" else "⚠️ /run 부분 성공"
     lines = [
         title,
+        _stage_line("LinkedIn", stage_results.get("linkedin", _stage())),
         _stage_line("Indeed", stage_results.get("indeed", _stage())),
         _stage_line("Glassdoor", stage_results.get("glassdoor", _stage())),
         _stage_line("News", stage_results.get("news", _stage())),
         _stage_line("Telegram channels", stage_results.get("telegram_channels", _stage())),
-        f"- 최종 저장: jobs {inserted}건 / news {news_inserted}건",
+        _stage_line("Final save", stage_results.get("final_save", _stage())),
+        f"- 최종 결과: jobs {inserted}건 / news {news_inserted}건",
     ]
     try:
         send_telegram_text("\n".join(lines))
@@ -713,6 +727,9 @@ def scrape_linkedin_via_browser() -> list:
         return linkedin_jobs
     except Exception as e:
         logger.error(f"Error scraping via browser probe: {e}")
+        fetch_linkedin_jobs_via_browser.last_errors = [repr(e)]
+        fetch_linkedin_jobs_via_browser.last_raw_count = 0
+        fetch_linkedin_jobs_via_browser.last_parsed_count = 0
         return []
 
 
@@ -790,10 +807,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
     inserted_news_items = []
     news_inserted = 0
     stage_results: dict[str, dict[str, Any]] = {
+        "linkedin": _stage(),
         "indeed": _stage(),
         "glassdoor": _stage(),
         "news": _stage(),
         "telegram_channels": _stage(),
+        "final_save": _stage(),
     }
     try:
         # Apply reject_feedback patterns to existing jobs (retroactive cleanup)
@@ -887,13 +906,60 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
         _console_step("Starting browser scrape pass")
         browser_linkedin_jobs = []
-        if skip_linkedin_browser or not _any_source_allowed(allowed_sources, "linkedin_public", "linkedin_emea", "linkedin_georgia", "linkedin_malta"):
+        linkedin_stage_allowed = _any_source_allowed(
+            allowed_sources,
+            "linkedin_public",
+            "linkedin_emea",
+            "linkedin_georgia",
+            "linkedin_malta",
+        )
+        if skip_linkedin_browser or not linkedin_stage_allowed:
             logger.info("Skipping LinkedIn browser phase.")
+            stage_results["linkedin"] = _stage("skipped", 0)
         else:
             try:
                 browser_linkedin_jobs = scrape_linkedin_via_browser()
+                linkedin_raw_count = int(getattr(fetch_linkedin_jobs_via_browser, "last_raw_count", 0))
+                linkedin_parsed_count = int(getattr(fetch_linkedin_jobs_via_browser, "last_parsed_count", len(browser_linkedin_jobs)))
+                linkedin_errors = list(getattr(fetch_linkedin_jobs_via_browser, "last_errors", []) or [])
+                linkedin_detail = "; ".join(linkedin_errors[:2])
+                if linkedin_raw_count == 0 and linkedin_parsed_count == 0:
+                    stage_results["linkedin"] = _stage(
+                        "failed",
+                        0,
+                        linkedin_detail or "no LinkedIn jobs parsed from browser pages",
+                        raw_count=linkedin_raw_count,
+                        parsed_count=linkedin_parsed_count,
+                        new_count=0,
+                    )
+                elif linkedin_errors:
+                    stage_results["linkedin"] = _stage(
+                        "partial",
+                        linkedin_parsed_count,
+                        linkedin_detail,
+                        raw_count=linkedin_raw_count,
+                        parsed_count=linkedin_parsed_count,
+                        new_count=0,
+                    )
+                else:
+                    stage_results["linkedin"] = _stage(
+                        "success",
+                        linkedin_parsed_count,
+                        "",
+                        raw_count=linkedin_raw_count,
+                        parsed_count=linkedin_parsed_count,
+                        new_count=0,
+                    )
             except Exception as exc:
                 logger.warning("Skipping LinkedIn browser phase after error: %s", exc, exc_info=True)
+                stage_results["linkedin"] = _stage(
+                    "failed",
+                    0,
+                    repr(exc),
+                    raw_count=0,
+                    parsed_count=0,
+                    new_count=0,
+                )
         browser_indeed_jobs = []
         if skip_indeed_browser or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
             logger.info("Skipping Indeed browser phase.")
@@ -964,6 +1030,12 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
         _console_step(f"LinkedIn after source filter: {len(linkedin_jobs)} jobs {_source_counts(linkedin_jobs)}")
+        if linkedin_stage_allowed and stage_results["linkedin"].get("status") in {"success", "partial"}:
+            stage_results["linkedin"]["count"] = len(linkedin_jobs)
+            stage_results["linkedin"]["parsed_count"] = len(linkedin_jobs)
+            if not linkedin_jobs:
+                stage_results["linkedin"]["status"] = "failed"
+                stage_results["linkedin"]["detail"] = "LinkedIn jobs were parsed before source filtering, but 0 remained after source filter"
         _console_step(
             "Indeed after source filter: "
             f"browser={len(browser_indeed_jobs_filtered)} {_source_counts(browser_indeed_jobs_filtered)} "
@@ -1013,6 +1085,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
 
         inserted, inserted_jobs = db.upsert_jobs(jobs, return_jobs=True)
         inserted_linkedin_jobs = [job for job in inserted_jobs if _is_linkedin_source(job.source)]
+        stage_results["linkedin"]["new_count"] = len(inserted_linkedin_jobs)
         _console_step(f"LinkedIn inserted: {len(inserted_linkedin_jobs)} jobs {_source_counts(inserted_linkedin_jobs)}")
         inserted_indeed_jobs = [job for job in inserted_jobs if _is_indeed_source(job.source)]
         _console_step(f"Indeed inserted: {len(inserted_indeed_jobs)} jobs {_source_counts(inserted_indeed_jobs)}")
@@ -1242,6 +1315,18 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         if saved_output_count == 0 and not (inserted or news_inserted):
             final_run_status = "failed"
             payload["collection_metadata"]["run_status"] = final_run_status
+            stage_results["final_save"] = _stage("failed", saved_output_count, "no output files saved")
+        elif saved_output_count == 0:
+            stage_results["final_save"] = _stage("failed", saved_output_count, "no output files saved")
+        else:
+            stage_results["final_save"] = _stage("success", saved_output_count)
+        payload["collection_metadata"]["stage_results"] = stage_results
+        payload["collection_metadata"]["run_status"] = final_run_status
+        if saved_output_count:
+            try:
+                save_json(OUTPUT_DIR / "jobs_analysis.json", payload)
+            except Exception as exc:
+                logger.warning("Failed to refresh jobs_analysis.json metadata: %s", exc, exc_info=True)
 
         _console_step("Saving outputs")
         if mode == "collect":

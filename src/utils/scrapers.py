@@ -1248,6 +1248,10 @@ def fetch_indeed_jobs_via_jobspy() -> List[JobPosting]:
 
 
 def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
+    fetch_linkedin_jobs_via_browser.last_raw_count = 0
+    fetch_linkedin_jobs_via_browser.last_parsed_count = 0
+    fetch_linkedin_jobs_via_browser.last_errors = []
+    fetch_linkedin_jobs_via_browser.last_page_count = 0
     all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
     if not all_urls:
         return []
@@ -1262,11 +1266,27 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
         BROWSER_LINKEDIN_BATCH_SIZE,
     )
     pages = _batch_browser_fetch(all_urls, batch_size=BROWSER_LINKEDIN_BATCH_SIZE)
+    fetch_linkedin_jobs_via_browser.last_page_count = len(pages)
     if not pages:
         logger.warning("LinkedIn: no results from browser fetch")
+        fetch_linkedin_jobs_via_browser.last_errors = ["browser fetch returned no pages"]
         return []
 
     raw_parsed_count = sum(len(page.get("jobs", []) or []) for page in pages)
+    page_errors = [
+        clean_text(str(page.get("error", "")))[:240]
+        for page in pages
+        if page.get("error")
+    ]
+    fetch_linkedin_jobs_via_browser.last_raw_count = raw_parsed_count
+    fetch_linkedin_jobs_via_browser.last_errors = page_errors
+    if page_errors:
+        logger.warning(
+            "LinkedIn browser page errors: %d/%d; first=%s",
+            len(page_errors),
+            len(pages),
+            page_errors[0],
+        )
     skipped_missing_count = 0
     skipped_duplicate_count = 0
     skipped_location_count = 0
@@ -1363,6 +1383,12 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
         skipped_location_count,
         skipped_excluded_region_count,
     )
+    fetch_linkedin_jobs_via_browser.last_parsed_count = len(jobs)
+    if raw_parsed_count == 0 and not page_errors:
+        logger.warning(
+            "LinkedIn browser parsed 0 raw jobs from %d pages without page errors; possible login wall, rate limit, empty DOM, or selector mismatch.",
+            len(pages),
+        )
     return jobs
 
 
