@@ -192,7 +192,8 @@ DOMAIN_TERMS = [
 LOCATION_TERMS_BY_COUNTRY = {
     "UAE": ["uae", "dubai", "abu dhabi", "united arab emirates", "emirates"],
     "Remote": ["remote", "mena", "middle east", "gcc", "uae", "dubai", "saudi", "qatar", "bahrain", "kuwait", "oman"],
-    "Georgia": ["georgia", "tbilisi", "tbilisi", "tbilisi", "tbilisi", "tbilishi", "tbilisi"],
+    "Amsterdam": ["amsterdam", "netherlands", "nederland", "holland"],
+    "Australia": ["australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra"],
     "Malta": ["malta", "sliema", "valletta", "st julian", "st. julian"],
 }
 

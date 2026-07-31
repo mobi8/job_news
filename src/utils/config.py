@@ -96,7 +96,8 @@ LINKEDIN_POST_ROLE_KEYWORDS = ["crypto", "igaming", "web3", "digital asset", "ba
 LINKEDIN_POST_LOCATION_GROUPS = [
     {"country": "UAE", "label": "UAE", "query": "in UAE"},
     {"country": "Remote", "label": "MENA Remote", "query": "remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman"},
-    {"country": "Georgia", "label": "Georgia Tbilisi", "query": "in Georgia Tbilisi"},
+    {"country": "Amsterdam", "label": "Amsterdam", "query": "in Amsterdam Netherlands"},
+    {"country": "Australia", "label": "Australia", "query": "in Australia"},
     {"country": "Malta", "label": "Malta", "query": "in Malta"},
 ]
 LINKEDIN_POST_DOMAIN_BY_ROLE = {
