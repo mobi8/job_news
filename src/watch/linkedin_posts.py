@@ -7,6 +7,7 @@ import json
 import os
 import random
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -34,6 +35,127 @@ from utils.config import (  # noqa: E402
 )
 
 NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
+ACTIVE_LINKEDIN_POSTS_PROFILE_DIR = Path(
+    os.getenv("LINKEDIN_POSTS_PROFILE_DIR") or str(LINKEDIN_POSTS_PROFILE_DIR)
+).resolve()
+LOCK_PATH = OUTPUT_DIR / "linkedin_posts.lock"
+CURRENT_STAGE = "startup"
+LOCK_ACQUIRED = False
+
+
+class LoginRequiredError(RuntimeError):
+    pass
+
+
+class CheckpointRequiredError(RuntimeError):
+    pass
+
+
+class StageTimeoutError(TimeoutError):
+    def __init__(self, stage: str, seconds: int):
+        super().__init__(f"{stage} timed out after {seconds}s")
+        self.stage = stage
+        self.seconds = seconds
+
+
+def _set_stage(stage: str) -> None:
+    global CURRENT_STAGE
+    CURRENT_STAGE = stage
+    print(f"LinkedIn posts stage: {stage}", flush=True)
+
+
+def _send_telegram(message: str) -> None:
+    try:
+        from utils.notifications import send_telegram_text
+        send_telegram_text(message)
+    except Exception as exc:
+        print(f"Telegram notification failed: {exc}", flush=True)
+
+
+def _pid_exists(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _read_lock() -> Dict[str, Any] | None:
+    if not LOCK_PATH.exists():
+        return None
+    try:
+        text = LOCK_PATH.read_text(encoding="utf-8").strip()
+        if not text:
+            return None
+        return json.loads(text)
+    except Exception:
+        return None
+
+
+def _format_runtime(started_at: float | int | str | None) -> str:
+    try:
+        elapsed = max(0, int(time.time() - float(started_at)))
+    except Exception:
+        return "unknown"
+    hours, rem = divmod(elapsed, 3600)
+    minutes, seconds = divmod(rem, 60)
+    if hours:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
+
+
+def acquire_lock() -> None:
+    global LOCK_ACQUIRED
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    info = _read_lock()
+    if info:
+        pid = int(info.get("pid") or 0)
+        if _pid_exists(pid):
+            runtime = _format_runtime(info.get("started_at_epoch"))
+            message = f"LinkedIn posts already running: PID={pid}, runtime={runtime}"
+            print(message, flush=True)
+            _send_telegram(f"⚠️ LinkedIn 포스트가 이미 실행 중입니다. PID={pid}, 실행시간={runtime}")
+            raise SystemExit(75)
+        print(f"Removing stale LinkedIn posts lock: {LOCK_PATH}", flush=True)
+        LOCK_PATH.unlink(missing_ok=True)
+
+    payload = {
+        "pid": os.getpid(),
+        "started_at_epoch": time.time(),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "command": " ".join([sys.executable, *sys.argv]),
+    }
+    LOCK_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    LOCK_ACQUIRED = True
+    print(f"LinkedIn posts lock acquired: {LOCK_PATH} PID={os.getpid()}", flush=True)
+
+
+def release_lock() -> None:
+    global LOCK_ACQUIRED
+    if not LOCK_ACQUIRED:
+        return
+    info = _read_lock()
+    if not info or int(info.get("pid") or 0) == os.getpid():
+        LOCK_PATH.unlink(missing_ok=True)
+        print(f"LinkedIn posts lock released: {LOCK_PATH}", flush=True)
+    LOCK_ACQUIRED = False
+
+
+def _signal_handler(signum, frame):  # pragma: no cover - signal path
+    print(f"LinkedIn posts received signal {signum}; stage={CURRENT_STAGE}", flush=True)
+    _kill_profile_processes()
+    release_lock()
+    raise SystemExit(128 + int(signum))
+
+
+for _sig in (signal.SIGTERM, signal.SIGINT):
+    signal.signal(_sig, _signal_handler)
 
 HIRING_TERMS = [
     "hiring", "we are hiring", "we're hiring", "open role", "job alert", "looking for",
@@ -77,7 +199,7 @@ LOCATION_TERMS_BY_COUNTRY = {
 
 def _probe_env(plans: List[Dict[str, Any]] | None = None) -> Dict[str, str]:
     env = os.environ.copy()
-    env["LINKEDIN_POSTS_PROFILE_DIR"] = str(LINKEDIN_POSTS_PROFILE_DIR)
+    env["LINKEDIN_POSTS_PROFILE_DIR"] = str(ACTIVE_LINKEDIN_POSTS_PROFILE_DIR)
     env["LINKEDIN_POST_SEARCH_PLANS"] = json.dumps(plans or LINKEDIN_POST_SEARCH_PLANS, ensure_ascii=False)
     return env
 
@@ -85,7 +207,7 @@ def _probe_env(plans: List[Dict[str, Any]] | None = None) -> Dict[str, str]:
 def _profile_processes() -> List[int]:
     try:
         result = subprocess.run(["ps", "axo", "pid=,command="], capture_output=True, text=True, timeout=5)
-        needle = f"--user-data-dir={LINKEDIN_POSTS_PROFILE_DIR}"
+        needle = f"--user-data-dir={ACTIVE_LINKEDIN_POSTS_PROFILE_DIR}"
         pids: List[int] = []
         for line in result.stdout.splitlines():
             if needle not in line:
@@ -135,29 +257,95 @@ def _wait_profile_released() -> None:
 
 
 def _run_probe(plans: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
-    print("LinkedIn posts probe: launching Chrome/search worker...", flush=True)
-    result = subprocess.run(
-        [NODE_BIN, str(LINKEDIN_POSTS_PROBE_PATH)],
-        cwd=str(Path(__file__).resolve().parents[2]),
-        env=_probe_env(plans),
-        stdout=subprocess.PIPE,
-        stderr=None,
-        text=True,
-        timeout=int(os.getenv("LINKEDIN_POST_TIMEOUT", "900")),
+    timeout_seconds = int(os.getenv("LINKEDIN_POST_TIMEOUT", "900"))
+    _set_stage("probe subprocess")
+    print(
+        f"LinkedIn posts probe: launching Chrome/search worker with {NODE_BIN} timeout={timeout_seconds}s...",
+        flush=True,
     )
+    try:
+        result = subprocess.run(
+            [NODE_BIN, str(LINKEDIN_POSTS_PROBE_PATH)],
+            cwd=str(Path(__file__).resolve().parents[2]),
+            env=_probe_env(plans),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr_value = exc.stderr or ""
+        if isinstance(stderr_value, bytes):
+            stderr_text = stderr_value.decode("utf-8", errors="replace").strip()
+        else:
+            stderr_text = str(stderr_value).strip()
+        if stderr_text:
+            for line in stderr_text.splitlines()[-80:]:
+                print(line, file=sys.stderr, flush=True)
+        _kill_profile_processes()
+        raise StageTimeoutError(CURRENT_STAGE, timeout_seconds) from exc
+
+    stderr_text = (result.stderr or "").strip()
+    if stderr_text:
+        for line in stderr_text.splitlines()[-80:]:
+            print(line, file=sys.stderr, flush=True)
+
     if result.returncode != 0:
-        stderr = (result.stderr or "").strip()
         # If the probe managed to print a partial JSON payload before failing,
         # keep the collected posts instead of dropping the whole run.
         try:
             partial = json.loads(result.stdout or "{}")
             if partial.get("posts") is not None:
-                partial.setdefault("errors", []).append({"query": "probe", "error": stderr or f"exit {result.returncode}"})
+                partial.setdefault("errors", []).append({"query": "probe", "error": stderr_text or f"exit {result.returncode}"})
                 return partial
         except Exception:
             pass
-        raise RuntimeError(stderr or f"probe exited with {result.returncode}")
-    return json.loads(result.stdout or "{}")
+        raise RuntimeError(stderr_text or f"probe exited with {result.returncode}")
+
+    data = json.loads(result.stdout or "{}")
+    if data.get("checkpoint_required"):
+        raise CheckpointRequiredError(data.get("reason") or "LinkedIn checkpoint/additional verification required")
+    if data.get("login_required"):
+        raise LoginRequiredError(data.get("reason") or "LinkedIn login required")
+    return data
+
+
+def _check_playwright_ready() -> None:
+    timeout_seconds = _env_int("LINKEDIN_POST_REQUIRE_TIMEOUT", 20)
+    _set_stage("Playwright require")
+    probe_script = (
+        "console.error(`node=${process.execPath} version=${process.version}`);"
+        "require('playwright');"
+        "console.error('playwright=require-ok');"
+    )
+    try:
+        result = subprocess.run(
+            [NODE_BIN, "-e", probe_script],
+            cwd=str(Path(__file__).resolve().parents[2]),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr_value = exc.stderr or ""
+        if isinstance(stderr_value, bytes):
+            stderr_text = stderr_value.decode("utf-8", errors="replace").strip()
+        else:
+            stderr_text = str(stderr_value).strip()
+        if stderr_text:
+            print(stderr_text, file=sys.stderr, flush=True)
+        hint = (
+            f"Playwright require timed out after {timeout_seconds}s. "
+            "The local Node/Playwright install may be corrupt; try `npm install`."
+        )
+        raise StageTimeoutError(hint, timeout_seconds) from exc
+    if result.returncode != 0:
+        stderr_text = (result.stderr or "").strip()
+        raise RuntimeError(
+            f"{stderr_text or f'Playwright require exited with {result.returncode}'}\n"
+            "Dependency preflight failed; try `npm install` from /Users/lewis/Desktop/agent."
+        )
 
 
 def _run_login_setup() -> None:
@@ -175,6 +363,13 @@ def _env_int(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except ValueError:
         return default
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _chunks(items: List[Dict[str, Any]], size: int) -> List[List[Dict[str, Any]]]:
@@ -435,30 +630,7 @@ def main_spot(argv: List[str]) -> None:
 
     print(f"LinkedIn spot: location={location} keywords={','.join(keywords)} plans={len(plans)}")
 
-    result = None
-    try:
-        result = _run_probe(plans)
-    except RuntimeError as exc:
-        error_msg = str(exc)[:300]
-        print(f"LinkedIn probe failed: {error_msg}")
-        if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
-            print("Attempting automatic login setup...")
-            try:
-                _run_login_setup()
-                result = _run_probe(plans)
-            except Exception as setup_exc:
-                print(f"Login setup failed: {str(setup_exc)[:300]}")
-                raise
-        else:
-            raise
-
-    if result and result.get("login_required"):
-        if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
-            _run_login_setup()
-            result = _run_probe(plans)
-        if result.get("login_required"):
-            print("LinkedIn login still required. Run ./setup_linkedin_posts_login.sh and try again.")
-            return
+    result = _run_probe(plans)
 
     raw_posts = result.get("posts", [])
     posts = [post for post in raw_posts if _passes_filters(post)]
@@ -511,44 +683,25 @@ def main() -> None:
         for i, plan in enumerate(plans, start=start):
             print(f"  [{i}] {plan.get('query', 'N/A')}")
 
-        result = None
         try:
             result = _run_probe(plans)
+        except LoginRequiredError:
+            raise
+        except CheckpointRequiredError:
+            raise
         except RuntimeError as exc:
             error_msg = str(exc)[:300]
             print(f"LinkedIn posts batch {batch_index} failed: {error_msg}")
             if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
-                print("Attempting automatic login setup...")
-                try:
-                    _run_login_setup()
-                    result = _run_probe(plans)
-                except Exception as setup_exc:
-                    total_errors += 1
-                    print(f"Login setup failed: {str(setup_exc)[:300]}")
-                    if batch_index < len(plan_batches):
-                        _kill_profile_processes()
-                        pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
-                        print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
-                        time.sleep(pause_seconds)
-                        continue
-                    break
-            else:
-                total_errors += 1
-                if batch_index < len(plan_batches):
-                    _kill_profile_processes()
-                    pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
-                    print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
-                    time.sleep(pause_seconds)
-                    continue
-                break
-
-        if result and result.get("login_required"):
-            if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
-                _run_login_setup()
-                result = _run_probe(plans)
-            if result.get("login_required"):
-                print("LinkedIn login still required. Run ./setup_linkedin_posts_login.sh and try again.")
-                return
+                print("Automatic login setup is disabled for /posts; login must be completed manually.")
+            total_errors += 1
+            if batch_index < len(plan_batches):
+                _kill_profile_processes()
+                pause_seconds = random.randint(min(pause_min, pause_max), max(pause_min, pause_max))
+                print(f"LinkedIn posts cooldown: sleeping {pause_seconds}s before next batch")
+                time.sleep(pause_seconds)
+                continue
+            break
 
         raw_posts = result.get("posts", [])
         probe_errors = result.get("errors", []) or []
@@ -596,4 +749,30 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        acquire_lock()
+        _set_stage("main")
+        _check_playwright_ready()
+        main()
+    except LoginRequiredError as exc:
+        print(f"LINKEDIN_LOGIN_REQUIRED: {exc}", flush=True)
+        _send_telegram("⚠️ LinkedIn 로그인이 필요합니다. 브라우저에서 로그인한 뒤 /posts를 다시 실행해주세요.")
+        raise SystemExit(2)
+    except CheckpointRequiredError as exc:
+        print(f"LINKEDIN_CHECKPOINT_REQUIRED: {exc}", flush=True)
+        _send_telegram("⚠️ LinkedIn 추가 인증이 필요합니다. 로그인 Chrome에서 checkpoint/captcha를 완료한 뒤 /posts를 다시 실행해주세요.")
+        raise SystemExit(3)
+    except StageTimeoutError as exc:
+        print(f"LINKEDIN_POST_TIMEOUT: stage={exc.stage} seconds={exc.seconds}", flush=True)
+        _send_telegram(f"⚠️ LinkedIn posts timeout: {exc.stage} 단계에서 {exc.seconds}s 초과")
+        raise SystemExit(124)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(f"LINKEDIN_POST_FAILED: stage={CURRENT_STAGE} error={repr(exc)}", flush=True)
+        _send_telegram(f"⚠️ LinkedIn posts 실패: {CURRENT_STAGE} 단계 ({repr(exc)})")
+        raise
+    finally:
+        if _env_bool("LINKEDIN_CLOSE_CHROME_AFTER", False):
+            _kill_profile_processes()
+        release_lock()

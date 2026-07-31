@@ -4,10 +4,11 @@ const path = require('path');
 
 let chromium;
 let probeProfileDir;
+let closeChromeOnExit = false;
 
 // Cleanup on process exit
 const onExit = () => {
-  if (probeProfileDir) {
+  if (probeProfileDir && closeChromeOnExit) {
     try {
       execFileSync('pkill', ['-f', `--user-data-dir=${probeProfileDir}`], { stdio: 'ignore' });
     } catch {}
@@ -20,6 +21,11 @@ process.on('EXIT', onExit);
 
 function clean(value) {
   return (value || '').replace(/\s+/g, ' ').trim();
+}
+
+function envMs(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function searchUrl(query) {
@@ -74,6 +80,26 @@ function killProfileChrome(profileDir) {
   }
 }
 
+function psLines() {
+  try {
+    return execFileSync('ps', ['axo', 'pid=,command='], { encoding: 'utf8' }).split('\n');
+  } catch {
+    return [];
+  }
+}
+
+function chromeProcessesForPort(port) {
+  const portNeedle = `--remote-debugging-port=${port}`;
+  return psLines()
+    .map((line) => line.trim())
+    .filter((line) => line.includes(portNeedle));
+}
+
+function cdpUsesProfile(port, profileDir) {
+  const profileNeedle = `--user-data-dir=${profileDir}`;
+  return chromeProcessesForPort(port).some((line) => line.includes(profileNeedle));
+}
+
 function chromeExecutable() {
   if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
   if (process.platform === 'darwin') {
@@ -94,19 +120,65 @@ function openChromeCdp(profileDir, port, initialUrl = 'https://www.linkedin.com/
 }
 
 async function ensureChromeCdp(profileDir, port) {
+  let existingCdp;
   try {
     console.error(`LinkedIn Chrome CDP: checking port ${port}`);
-    return await waitForCdp(port, 3000);
+    existingCdp = await waitForCdp(port, 3000);
   } catch {
-    // If the same profile is already open without remote debugging, Chrome will
-    // ignore the new CDP flags. Close that profile process and relaunch it with CDP.
-    console.error(`LinkedIn Chrome CDP: launching Chrome on port ${port}`);
-    killProfileChrome(profileDir);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    openChromeCdp(profileDir, port);
-    console.error(`LinkedIn Chrome CDP: waiting for Chrome CDP port ${port} to become ready (up to 20s)...`);
-    return await waitForCdp(port, 20000);
+    existingCdp = null;
   }
+
+  if (existingCdp) {
+    if (cdpUsesProfile(port, profileDir)) {
+      console.error(`LinkedIn Chrome CDP: attaching to existing Chrome profile ${profileDir}`);
+      return existingCdp;
+    }
+    const portProcesses = chromeProcessesForPort(port).join('\n') || 'no matching Chrome process found in ps';
+    throw new Error(
+      `Chrome CDP port ${port} is active but is not using LinkedIn posts profile ${profileDir}. ` +
+      `Close the process using port ${port} or change LINKEDIN_CDP_PORT.\n${portProcesses}`
+    );
+  }
+
+  // If the same profile is already open without remote debugging, Chrome will
+  // ignore the new CDP flags. Close that profile process and relaunch it with CDP.
+  console.error(`LinkedIn Chrome CDP: launching Chrome on port ${port}`);
+  killProfileChrome(profileDir);
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  openChromeCdp(profileDir, port);
+  console.error(`LinkedIn Chrome CDP: waiting for Chrome CDP port ${port} to become ready (up to 10s)...`);
+  const cdp = await waitForCdp(port, 10000);
+  if (!cdpUsesProfile(port, profileDir)) {
+    throw new Error(`Chrome CDP port ${port} became ready, but it is not using LinkedIn posts profile ${profileDir}`);
+  }
+  return cdp;
+}
+
+async function detectLoginState(page) {
+  return page.evaluate(() => {
+    const cleanText = (value) => (value || '').replace(/\s+/g, ' ').trim();
+    const href = location.href;
+    const body = cleanText(document.body ? document.body.innerText : '');
+    const joined = `${href} ${document.title} ${body}`;
+    const signals = {
+      loginForm: Boolean(document.querySelector('input[name="session_key"], input#username, form[action*="login"], a[href*="/login"]')),
+      authwall: /authwall|로그인하여|sign in to view|join linkedin/i.test(joined),
+      checkpoint: /checkpoint|challenge|security verification|verify your identity/i.test(joined),
+      captcha: /captcha|verify you are human/i.test(joined) || Boolean(document.querySelector('iframe[src*="captcha"], iframe[src*="challenge"], [class*="captcha"]')),
+      finalLoginUrl: /\/login|\/authwall/i.test(href),
+      finalCheckpointUrl: /\/checkpoint|\/challenge/i.test(href),
+    };
+    const checkpointRequired = signals.checkpoint || signals.captcha || signals.finalCheckpointUrl;
+    const loginRequired = signals.loginForm || signals.authwall || signals.finalLoginUrl;
+    return {
+      href,
+      title: document.title,
+      signals,
+      loginRequired,
+      checkpointRequired,
+      bodySample: body.slice(0, 220),
+    };
+  });
 }
 
 async function autoScroll(page, rounds = 3) {
@@ -246,6 +318,7 @@ async function main() {
   const queryPauseMin = envNumber('LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS', 5);
   const queryPauseMax = envNumber('LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS', 8);
   const closeChrome = ['1', 'true', 'yes', 'on'].includes(String(process.env.LINKEDIN_CLOSE_CHROME_AFTER || '0').toLowerCase());
+  closeChromeOnExit = closeChrome;
 
   if (!plans.length) {
     throw new Error('LINKEDIN_POST_SEARCH_PLANS is empty');
@@ -326,8 +399,27 @@ async function main() {
     let feedReady = false;
     for (let attempt = 1; attempt <= 2 && !feedReady; attempt += 1) {
       try {
-        await page.goto('https://www.linkedin.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.goto('https://www.linkedin.com/', {
+          waitUntil: 'domcontentloaded',
+          timeout: envMs('LINKEDIN_POST_LOGIN_CHECK_TIMEOUT_MS', 10000),
+        });
         await page.waitForTimeout(2500);
+        const loginState = await detectLoginState(page);
+        console.error(`LinkedIn login state: ${JSON.stringify(loginState.signals)} url=${loginState.href} title=${loginState.title}`);
+        if (loginState.checkpointRequired) {
+          console.error('LinkedIn checkpoint/captcha/additional verification required before post scraping.');
+          console.log(JSON.stringify({ posts: [], checkpoint_required: true, reason: 'checkpoint_state_failed', login_state: loginState }, null, 2));
+          return;
+        }
+        if (loginState.loginRequired) {
+          console.error('LinkedIn login/authwall required before post scraping.');
+          console.log(JSON.stringify({ posts: [], login_required: true, reason: 'login_state_failed', login_state: loginState }, null, 2));
+          return;
+        }
+        if (['1', 'true', 'yes', 'on'].includes(String(process.env.LINKEDIN_POST_LOGIN_CHECK_ONLY || '0').toLowerCase())) {
+          console.log(JSON.stringify({ posts: [], login_required: false, reason: 'login_state_ok', login_state: loginState }, null, 2));
+          return;
+        }
         feedReady = true;
       } catch (error) {
         const message = error?.message || String(error);
@@ -342,12 +434,6 @@ async function main() {
       }
     }
 
-    if (/login|checkpoint|authwall/i.test(page.url())) {
-      console.error('LinkedIn login/checkpoint required in the opened Chrome window.');
-      console.log(JSON.stringify({ posts: [], login_required: true }, null, 2));
-      return;
-    }
-
     const selectedPlans = plans.slice(0, maxPlans);
     for (let planIndex = 0; planIndex < selectedPlans.length; planIndex += 1) {
       const plan = selectedPlans[planIndex];
@@ -358,7 +444,7 @@ async function main() {
         try {
           await ensurePage();
           await closeExtraPages();
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: envMs('LINKEDIN_POST_GOTO_TIMEOUT_MS', 60000) });
           await page.waitForTimeout(3500 + Math.floor(Math.random() * 1500));
           await expandSeeMore(page);
           await autoScroll(page, scrollRounds);

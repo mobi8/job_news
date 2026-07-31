@@ -46,13 +46,14 @@ export LINKEDIN_POST_BATCH_PAUSE_MIN_SECONDS="${LINKEDIN_POST_BATCH_PAUSE_MIN_SE
 export LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS="${LINKEDIN_POST_BATCH_PAUSE_MAX_SECONDS:-45}"
 export LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS="${LINKEDIN_POST_QUERY_PAUSE_MIN_SECONDS:-4}"
 export LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS="${LINKEDIN_POST_QUERY_PAUSE_MAX_SECONDS:-6}"
-# Default to background/headless scraping. If the session is expired, the Python
-# runner opens a login browser once, then retries the scrape.
+# Default to background/headless scraping with the existing persistent profile.
+# If the session is expired, exit quickly and ask for manual login.
 export LINKEDIN_POST_HEADLESS="${LINKEDIN_POST_HEADLESS:-1}"
-export LINKEDIN_POST_AUTO_LOGIN_SETUP="${LINKEDIN_POST_AUTO_LOGIN_SETUP:-1}"
+export LINKEDIN_POST_AUTO_LOGIN_SETUP="${LINKEDIN_POST_AUTO_LOGIN_SETUP:-0}"
 export LINKEDIN_USE_SYSTEM_CHROME="${LINKEDIN_USE_SYSTEM_CHROME:-1}"
 export LINKEDIN_CDP_PORT="${LINKEDIN_CDP_PORT:-9223}"
 export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
+export LINKEDIN_POST_TOTAL_TIMEOUT_SECONDS="${LINKEDIN_POST_TOTAL_TIMEOUT_SECONDS:-2700}"
 # Each Python-managed batch disconnects/restarts the scraper Chrome profile.
 # Keep Chrome open by default; only close it when explicitly requested.
 export LINKEDIN_CLOSE_CHROME_AFTER="${LINKEDIN_CLOSE_CHROME_AFTER:-0}"
@@ -70,12 +71,25 @@ if [[ "${LINKEDIN_POST_ONCE:-0}" == "1" ]]; then
 fi
 
 mkdir -p "${LINKEDIN_POSTS_PROFILE_DIR}"
+LOCK_PATH="${WORKDIR}/outputs/linkedin_posts.lock"
+
+if [[ -f "${LOCK_PATH}" ]]; then
+  lock_info="$("${PYTHON_BIN}" -c 'import json, sys; data=json.load(open(sys.argv[1])); print("{} {}".format(int(data.get("pid") or 0), data.get("started_at_epoch") or ""))' "${LOCK_PATH}" 2>/dev/null || true)"
+  lock_pid="${lock_info%% *}"
+  lock_started="${lock_info#* }"
+  if [[ "${lock_pid}" =~ ^[0-9]+$ ]] && kill -0 "${lock_pid}" 2>/dev/null; then
+    runtime="$("${PYTHON_BIN}" -c 'import sys, time; started=float(sys.argv[1] or 0); elapsed=max(0, int(time.time()-started)); h, r=divmod(elapsed, 3600); m, s=divmod(r, 60); print(f"{h}h {m}m {s}s" if h else (f"{m}m {s}s" if m else f"{s}s"))' "${lock_started}" 2>/dev/null || echo "unknown")"
+    echo "LinkedIn posts already running: PID=${lock_pid}, runtime=${runtime}"
+    exit 75
+  fi
+  echo "Removing stale LinkedIn posts lock: ${LOCK_PATH}"
+  rm -f "${LOCK_PATH}"
+fi
 
 # Cleanup function for EXIT/INT/TERM
 cleanup_processes() {
   echo "Cleaning up LinkedIn posts runner..."
   pkill -f "linkedin_posts_probe" 2>/dev/null || true
-  pkill -f -- "--remote-debugging-port=9223" 2>/dev/null || true
   sleep 0.5
 }
 
@@ -89,19 +103,31 @@ fi
 # Kill stale processes before starting
 echo "Clearing stale LinkedIn posts processes..."
 pkill -f "linkedin_posts_probe" 2>/dev/null || true
-pkill -f -- "--remote-debugging-port=9223" 2>/dev/null || true
 sleep 1
 
 # Chrome must be launched with --remote-debugging-port for the scraper to attach.
-# If the same profile is already open without CDP, close it and let the probe
-# reopen Chrome correctly. Login cookies remain in the profile directory.
-pkill -f -- "--user-data-dir=${LINKEDIN_POSTS_PROFILE_DIR}" 2>/dev/null || true
-sleep 1
+# The Node probe attaches to a healthy LinkedIn profile Chrome when possible and
+# only restarts the dedicated profile when CDP is missing or unusable.
 
 if command -v caffeinate >/dev/null 2>&1; then
   echo "Starting LinkedIn posts runner..."
-  caffeinate -s env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+  env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@" &
 else
   echo "Starting LinkedIn posts runner..."
-  env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@"
+  env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/watch/linkedin_posts.py "$@" &
 fi
+runner_pid="$!"
+started_at="$(date +%s)"
+while kill -0 "${runner_pid}" 2>/dev/null; do
+  now="$(date +%s)"
+  if (( now - started_at >= LINKEDIN_POST_TOTAL_TIMEOUT_SECONDS )); then
+    echo "LinkedIn posts runner shell timeout after ${LINKEDIN_POST_TOTAL_TIMEOUT_SECONDS}s"
+    kill "${runner_pid}" 2>/dev/null || true
+    sleep 2
+    kill -9 "${runner_pid}" 2>/dev/null || true
+    wait "${runner_pid}" 2>/dev/null || true
+    exit 124
+  fi
+  sleep 2
+done
+wait "${runner_pid}"

@@ -45,6 +45,61 @@ SCRIPT_NAMES = {
     "posts": "./run_linkedin_posts.sh",
 }
 
+
+def _clean_script_log(output: str, limit: int = 5) -> list[str]:
+    """Return concise, user-facing log lines from a script run."""
+    noisy_prefixes = (
+        "[DIAGNOSTIC]",
+        "Loading .env",
+        "Clearing stale",
+        "Cleaning up",
+    )
+    lines = []
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(" "):
+            continue
+        if any(line.startswith(prefix) for prefix in noisy_prefixes):
+            continue
+        lines.append(line)
+    return lines[-limit:]
+
+
+def _script_result_message(script_name: str, script_label: str, returncode: int, output: str) -> str:
+    log_lines = _clean_script_log(output, limit=10)
+
+    if returncode == 0:
+        return f"✅ {script_label} 완료\n\n마지막 로그:\n" + "\n".join(log_lines[-3:])
+
+    if script_name == "posts" and returncode == 2:
+        return (
+            "⚠️ LinkedIn 로그인이 필요합니다.\n\n"
+            "브라우저에서 LinkedIn에 다시 로그인한 뒤 /posts를 실행해주세요.\n"
+            "터미널에서는 `./setup_linkedin_posts_login.sh`로 로그인 창을 열 수 있습니다."
+        )
+
+    if script_name == "posts" and returncode == 3:
+        return (
+            "⚠️ LinkedIn 추가 인증이 필요합니다.\n\n"
+            "로그인 Chrome에서 checkpoint/captcha를 완료한 뒤 /posts를 다시 실행해주세요.\n"
+            "터미널에서는 `./setup_linkedin_posts_login.sh`로 같은 전용 프로필 Chrome을 열 수 있습니다."
+        )
+
+    if script_name == "posts" and returncode == 75:
+        detail = next((line for line in log_lines if "already running" in line), "")
+        suffix = f"\n\n{detail}" if detail else ""
+        return f"⚠️ LinkedIn 포스트가 이미 실행 중입니다.{suffix}"
+
+    if script_name == "posts" and returncode == 124:
+        return "⚠️ LinkedIn 포스트가 제한 시간 안에 끝나지 않아 중단했습니다.\n\n마지막 로그:\n" + "\n".join(log_lines[-5:])
+
+    return (
+        f"❌ {script_label} 실패 (종료코드: {returncode})\n\n"
+        + "에러:\n"
+        + "\n".join(log_lines[-5:])
+    )
+
+
 def _execute_script(script_name: str) -> None:
     """Run script in background and send summary when done"""
     script_path = SCRIPT_NAMES.get(script_name)
@@ -109,22 +164,8 @@ def _execute_script(script_name: str) -> None:
                 if line.strip():
                     print(f"  {line}")
 
-            # Extract key log lines (last 10 non-empty lines)
             output = result.stdout + result.stderr
-            log_lines = [
-                line.strip()
-                for line in output.split("\n")
-                if line.strip() and not line.startswith(" ")
-            ][-10:]
-
-            if result.returncode == 0:
-                summary = f"✅ {script_label} 완료\n\n마지막 로그:\n" + "\n".join(log_lines[-3:])
-            else:
-                summary = (
-                    f"❌ {script_label} 실패 (종료코드: {result.returncode})\n\n"
-                    + "에러:\n"
-                    + "\n".join(log_lines[-5:])
-                )
+            summary = _script_result_message(script_name, script_label, result.returncode, output)
 
             send_telegram_text(summary)
         except subprocess.TimeoutExpired:
