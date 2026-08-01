@@ -422,14 +422,15 @@ class Database:
         self.conn.execute(f"DELETE FROM jobs WHERE source IN ({placeholders})", tuple(sources))
         self.conn.commit()
 
-    def purge_language_filtered_jobs(self) -> None:
+    def purge_language_filtered_jobs(self) -> int:
         clauses = " OR ".join(["lower(title) LIKE ?"] * len(EXCLUDED_LANGUAGE_TERMS))
         params = [f"%{term}%" for term in EXCLUDED_LANGUAGE_TERMS]
-        self.conn.execute(
+        cursor = self.conn.execute(
             f"DELETE FROM jobs WHERE ({clauses})",
             params,
         )
         self.conn.commit()
+        return cursor.rowcount if cursor.rowcount is not None and cursor.rowcount > 0 else 0
 
     def purge_hard_excluded_jobs(self) -> int:
         from .scoring import is_hard_excluded_job

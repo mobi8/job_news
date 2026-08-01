@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import subprocess
 import threading
+import signal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -71,6 +72,19 @@ def _script_result_message(script_name: str, script_label: str, returncode: int,
     if returncode == 0:
         return f"✅ {script_label} 완료\n\n마지막 로그:\n" + "\n".join(log_lines[-3:])
 
+    if script_name == "run" and returncode == 2:
+        return (
+            f"⚠️ {script_label} 부분 완료\n\n"
+            + "일부 phase가 실패하거나 timeout 되었지만 나머지 phase는 계속 실행되었습니다.\n\n"
+            + "마지막 로그:\n"
+            + "\n".join(log_lines[-8:])
+        )
+
+    if script_name == "run" and returncode == 75:
+        detail = next((line for line in log_lines if "already running" in line), "")
+        suffix = f"\n\n{detail}" if detail else ""
+        return f"⚠️ 전체 수집이 이미 실행 중입니다.{suffix}"
+
     if script_name == "posts" and returncode == 2:
         return (
             "⚠️ LinkedIn 로그인이 필요합니다.\n\n"
@@ -98,6 +112,46 @@ def _script_result_message(script_name: str, script_label: str, returncode: int,
         + "에러:\n"
         + "\n".join(log_lines[-5:])
     )
+
+
+def _terminate_process_group(process: subprocess.Popen, label: str, timeout_seconds: int) -> tuple[str, str]:
+    stdout = ""
+    stderr = ""
+    try:
+        pgid = os.getpgid(process.pid)
+    except ProcessLookupError:
+        pgid = None
+
+    print(f"[DIAGNOSTIC] {label} timed out after {timeout_seconds}s; cleaning process group pid={process.pid} pgid={pgid}")
+    if pgid is not None:
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+            print(f"[DIAGNOSTIC] Sent TERM to process group {pgid}")
+        except ProcessLookupError:
+            print(f"[DIAGNOSTIC] Process group {pgid} already exited before TERM")
+    else:
+        process.terminate()
+
+    try:
+        out, err = process.communicate(timeout=5)
+        stdout += out or ""
+        stderr += err or ""
+        print(f"[DIAGNOSTIC] {label} process group exited after TERM")
+        return stdout, stderr
+    except subprocess.TimeoutExpired:
+        if pgid is not None:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+                print(f"[DIAGNOSTIC] Sent KILL to process group {pgid}")
+            except ProcessLookupError:
+                print(f"[DIAGNOSTIC] Process group {pgid} already exited before KILL")
+        else:
+            process.kill()
+        out, err = process.communicate()
+        stdout += out or ""
+        stderr += err or ""
+        print(f"[DIAGNOSTIC] {label} process group cleanup completed after KILL")
+        return stdout, stderr
 
 
 def _execute_script(script_name: str) -> None:
@@ -147,29 +201,49 @@ def _execute_script(script_name: str) -> None:
             print(f"  XDG_RUNTIME_DIR: {env.get('XDG_RUNTIME_DIR', 'NOT SET')}")
             print(f"  SHELL: {env.get('SHELL', 'NOT SET')}")
 
-            result = subprocess.run(
+            if script_name == "run":
+                timeout_seconds = int(env.get("TELEGRAM_RUN_TIMEOUT_SECONDS", "10800"))
+            elif script_name == "posts":
+                timeout_seconds = int(
+                    env.get("TELEGRAM_POSTS_TIMEOUT_SECONDS", env.get("TELEGRAM_SCRIPT_TIMEOUT_SECONDS", "5400"))
+                )
+            else:
+                timeout_seconds = int(env.get("TELEGRAM_SCRIPT_TIMEOUT_SECONDS", "5400"))
+
+            process = subprocess.Popen(
                 ["/bin/bash", str(script_full_path)],
                 cwd=str(workdir),
                 env=env,  # Explicitly pass environment (inherits from parent)
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=3600,  # 1 hour timeout
+                start_new_session=True,
             )
+            try:
+                stdout, stderr = process.communicate(timeout=timeout_seconds)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = _terminate_process_group(process, script_label, timeout_seconds)
+                output = (stdout or "") + (stderr or "")
+                send_telegram_text(
+                    f"❌ {script_label} 타임아웃 ({timeout_seconds}초 초과)\n\n"
+                    "child process group cleanup 완료\n\n"
+                    "마지막 로그:\n"
+                    + "\n".join(_clean_script_log(output, limit=5))
+                )
+                return
 
             # Diagnostic: capture first 20 lines
-            all_output = result.stdout + result.stderr
+            all_output = (stdout or "") + (stderr or "")
             first_lines = all_output.split("\n")[:20]
-            print(f"[DIAGNOSTIC] First 20 output lines (returncode={result.returncode}):")
+            print(f"[DIAGNOSTIC] First 20 output lines (returncode={process.returncode}):")
             for line in first_lines:
                 if line.strip():
                     print(f"  {line}")
 
-            output = result.stdout + result.stderr
-            summary = _script_result_message(script_name, script_label, result.returncode, output)
+            output = (stdout or "") + (stderr or "")
+            summary = _script_result_message(script_name, script_label, process.returncode, output)
 
             send_telegram_text(summary)
-        except subprocess.TimeoutExpired:
-            send_telegram_text(f"❌ {script_label} 타임아웃 (1시간 초과)")
         except Exception as e:
             send_telegram_text(f"❌ {script_label} 오류: {str(e)}")
         finally:

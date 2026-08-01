@@ -8,9 +8,6 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="python3"
 fi
 
-echo "Cleaning up stale Glassdoor runs..."
-rm -f "${WORKDIR}/outputs/scrape_run.lock"
-
 cd "${WORKDIR}"
 if [[ -f "${WORKDIR}/.env" ]]; then
   set -a

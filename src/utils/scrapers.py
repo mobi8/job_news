@@ -1042,6 +1042,7 @@ def fetch_glassdoor_jobs_via_browserless(
     search_urls: List[str] | None = None,
     keywords: List[str] | None = None,
 ) -> List[JobPosting]:
+    fetch_glassdoor_jobs_via_browserless.last_errors = []
     target_urls = search_urls or GLASSDOOR_BROWSERLESS_SEARCH_URLS
     target_keywords = keywords or GLASSDOOR_BROWSERLESS_KEYWORDS
 
@@ -1051,6 +1052,9 @@ def fetch_glassdoor_jobs_via_browserless(
 
     if not GLASSDOOR_BROWSERLESS_PROBE_PATH.exists():
         logger.warning("Glassdoor Browserless probe script not found at %s", GLASSDOOR_BROWSERLESS_PROBE_PATH)
+        fetch_glassdoor_jobs_via_browserless.last_errors = [
+            f"Glassdoor Browserless probe script not found at {GLASSDOOR_BROWSERLESS_PROBE_PATH}"
+        ]
         return []
 
     jobs: List[JobPosting] = []
@@ -1078,8 +1082,10 @@ def fetch_glassdoor_jobs_via_browserless(
     )
     if not pages:
         logger.warning("Glassdoor: no results from browserless fetch")
+        fetch_glassdoor_jobs_via_browserless.last_errors = ["no results from browserless fetch"]
         return []
 
+    page_errors: list[str] = []
     for idx, (search_url, page) in enumerate(zip(target_urls, pages)):
         keyword = target_keywords[idx] if idx < len(target_keywords) else ""
         page_jobs = 0
@@ -1103,6 +1109,7 @@ def fetch_glassdoor_jobs_via_browserless(
                 search_url,
                 clean_text(page.get("error", ""))[:240],
             )
+            page_errors.append(f"{search_url}: {clean_text(page.get('error', ''))[:240]}")
         if page.get("pageTitle"):
             browser_logger.info(
                 "Glassdoor browserless page title: %s | %s",
@@ -1174,6 +1181,7 @@ def fetch_glassdoor_jobs_via_browserless(
                     )[:800],
                 )
 
+    fetch_glassdoor_jobs_via_browserless.last_errors = page_errors
     return jobs
 
 

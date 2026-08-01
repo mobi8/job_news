@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,13 +19,60 @@ from utils.logger import watch_logger
 
 
 # Queue file path for career-ops to read
-QUEUE_FILE_PATH = Path("/Users/lewis/Desktop/career/career-ops/data/job_queue.jsonl")
+QUEUE_FILE_PATH = Path(
+    os.getenv("JOB_QUEUE_FILE_PATH")
+    or os.getenv("QUEUE_FILE_PATH")
+    or "/Users/lewis/Desktop/career/career-ops/data/job_queue.jsonl"
+)
 MIN_SCORE_THRESHOLD = 60
 
 
 def ensure_queue_directory() -> None:
     """Create queue directory if it doesn't exist"""
     QUEUE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _fingerprint_from_parts(role: Any, company: Any, location: Any = "") -> str:
+    parts = [
+        str(role or "").strip().lower(),
+        str(company or "").strip().lower(),
+        str(location or "").strip().lower(),
+    ]
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def _load_exported_ids(queue_path: Path = QUEUE_FILE_PATH) -> tuple[set[str], int]:
+    exported_ids: set[str] = set()
+    invalid_rows = 0
+    if not queue_path.exists():
+        return exported_ids, invalid_rows
+
+    with open(queue_path, "r", encoding="utf-8") as f:
+        for line_number, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                invalid_rows += 1
+                watch_logger.warning(
+                    "Invalid queue row %s in %s; skipping for duplicate check",
+                    line_number,
+                    queue_path,
+                )
+                continue
+
+            existing_id = item.get("id") or item.get("fingerprint")
+            if not existing_id:
+                existing_id = _fingerprint_from_parts(
+                    item.get("role") or item.get("title"),
+                    item.get("company"),
+                    item.get("location"),
+                )
+            if existing_id:
+                exported_ids.add(str(existing_id))
+    return exported_ids, invalid_rows
 
 
 def export_high_scoring_jobs(db_path: str, min_score: int = MIN_SCORE_THRESHOLD) -> Dict[str, Any]:
@@ -37,7 +86,21 @@ def export_high_scoring_jobs(db_path: str, min_score: int = MIN_SCORE_THRESHOLD)
     Returns:
         Dict with export statistics (count, file_path, exported_ids)
     """
-    ensure_queue_directory()
+    try:
+        ensure_queue_directory()
+    except PermissionError as exc:
+        return {
+            "count": 0,
+            "candidate_count": 0,
+            "newly_exported_count": 0,
+            "skipped_duplicate_count": 0,
+            "invalid_existing_row_count": 0,
+            "file_path": str(QUEUE_FILE_PATH),
+            "exported_ids": [],
+            "status": "failed",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
 
     db = Database(Path(db_path))
     conn = db.conn
@@ -64,39 +127,80 @@ def export_high_scoring_jobs(db_path: str, min_score: int = MIN_SCORE_THRESHOLD)
         )
 
         rows = cursor.fetchall()
+        candidate_count = len(rows)
+        already_exported_ids, invalid_existing_row_count = _load_exported_ids()
         if not rows:
             watch_logger.info(f"No jobs found with score >= {min_score}")
             return {
                 "count": 0,
+                "candidate_count": 0,
+                "newly_exported_count": 0,
+                "skipped_duplicate_count": 0,
+                "invalid_existing_row_count": invalid_existing_row_count,
                 "file_path": str(QUEUE_FILE_PATH),
                 "exported_ids": [],
                 "status": "no_jobs",
             }
 
-        # Convert rows to dicts and append to JSONL file
+        # Convert rows to dicts and append only fingerprints not already exported.
         exported_ids = []
-        with open(QUEUE_FILE_PATH, "a", encoding="utf-8") as f:
-            for row in rows:
-                job_dict = {
-                    "id": row[0],
-                    "company": row[1],
-                    "role": row[2],
-                    "score": row[3],
-                    "description": row[4],
-                    "url": row[5],
-                    "source": row[6],
-                    "collected_at": row[7],
-                    "exported_at": datetime.utcnow().isoformat() + "Z",
-                }
-                f.write(json.dumps(job_dict, ensure_ascii=False) + "\n")
-                exported_ids.append(job_dict["id"])
+        rows_to_export = []
+        skipped_duplicate_count = 0
+        for row in rows:
+            job_id = str(row[0])
+            if job_id in already_exported_ids:
+                skipped_duplicate_count += 1
+                continue
+            rows_to_export.append(row)
+
+        try:
+            with open(QUEUE_FILE_PATH, "a", encoding="utf-8") as f:
+                for row in rows_to_export:
+                    job_id = str(row[0])
+                    job_dict = {
+                        "id": job_id,
+                        "company": row[1],
+                        "role": row[2],
+                        "score": row[3],
+                        "description": row[4],
+                        "url": row[5],
+                        "source": row[6],
+                        "collected_at": row[7],
+                        "exported_at": datetime.utcnow().isoformat() + "Z",
+                    }
+                    f.write(json.dumps(job_dict, ensure_ascii=False) + "\n")
+                    exported_ids.append(job_dict["id"])
+                    already_exported_ids.add(job_id)
+        except PermissionError as exc:
+            watch_logger.warning("Queue export failed: %s %s", type(exc).__name__, exc)
+            return {
+                "count": 0,
+                "candidate_count": candidate_count,
+                "newly_exported_count": 0,
+                "skipped_duplicate_count": skipped_duplicate_count,
+                "invalid_existing_row_count": invalid_existing_row_count,
+                "file_path": str(QUEUE_FILE_PATH),
+                "exported_ids": [],
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            }
 
         watch_logger.info(
-            f"Exported {len(exported_ids)} jobs with score >= {min_score} to {QUEUE_FILE_PATH}"
+            "Queue export candidates=%s newly_exported=%s skipped_duplicates=%s invalid_existing_rows=%s file=%s",
+            candidate_count,
+            len(exported_ids),
+            skipped_duplicate_count,
+            invalid_existing_row_count,
+            QUEUE_FILE_PATH,
         )
 
         return {
             "count": len(exported_ids),
+            "candidate_count": candidate_count,
+            "newly_exported_count": len(exported_ids),
+            "skipped_duplicate_count": skipped_duplicate_count,
+            "invalid_existing_row_count": invalid_existing_row_count,
             "file_path": str(QUEUE_FILE_PATH),
             "exported_ids": exported_ids,
             "status": "success",
