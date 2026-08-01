@@ -3,7 +3,7 @@ set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
-START_WORKERS="${DASHBOARD_WITH_WORKERS:-1}"
+START_WORKERS=0
 JOBS_DIR="${WORKDIR}/outputs"
 VENV_DIR="${WORKDIR}/venv"
 VENV_PYTHON_VERSION_FILE="${VENV_DIR}/.python-version"
@@ -11,9 +11,6 @@ PYTHON_BIN="${PYTHON_BIN:-}"
 
 UVICORN_PID=""
 VITE_PID=""
-WATCH_LOOP_PID=""
-WATCH_LOOP_LOG_TAIL_PID=""
-TELEGRAM_POLLER_PID=""
 TELEGRAM_SCRAPER_PID=""
 CLEANUP_IN_PROGRESS=0
 
@@ -22,7 +19,8 @@ export WS_NO_UTF_8_VALIDATE="${WS_NO_UTF_8_VALIDATE:-1}"
 
 case "${1:-}" in
   --with-workers|--full)
-    START_WORKERS=1
+    START_WORKERS=0
+    echo "Worker startup is disabled. Dashboard starts API, frontend, and browser only."
     shift
     ;;
   --ui-only|--no-workers)
@@ -30,15 +28,15 @@ case "${1:-}" in
     shift
     ;;
   --help|-h)
-    echo "Usage: ./run_dashboard.sh [--ui-only|--with-workers]"
-    echo "  --ui-only       Disable Telegram poller and watch loop."
-    echo "  --with-workers  Enable workers (default)."
+    echo "Usage: ./run_dashboard.sh [--ui-only]"
+    echo "  --ui-only       Start API, frontend, and browser only."
+    echo "  --with-workers  Legacy option; workers remain disabled."
     exit 0
     ;;
 esac
 
 startup_cleanup() {
-  for pid in "$TELEGRAM_POLLER_PID" "$WATCH_LOOP_PID" "$WATCH_LOOP_LOG_TAIL_PID" "$VITE_PID" "$UVICORN_PID"; do
+  for pid in "$VITE_PID" "$UVICORN_PID"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       kill -TERM "$pid" 2>/dev/null || true
     fi
@@ -159,7 +157,7 @@ fi
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
-echo "Starting Job Watch backend + frontend + watch loop..."
+echo "Starting Job Watch backend + frontend..."
 
 terminate_pids() {
   local label="$1"
@@ -211,15 +209,7 @@ kill_matching_processes() {
   terminate_pids "$label" "${pids[@]}"
 }
 
-# Clean up any older dashboard/watch processes before starting fresh.
-kill_matching_processes "telegram poller" "src/api/telegram_poller.py"
-kill_matching_processes "telegram poller wrapper" "python3 src/api/telegram_poller.py"
-kill_matching_processes "telegram scraper" "src/services/telegram_scraper.py"
-kill_matching_processes "watch loop" "src/watch/loop.py"
-kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
-kill_matching_processes "scraper" "src/watch/scraper.py"
-kill_matching_processes "browser probe" "browser_probe.js"
-kill_matching_processes "playwright chrome profile" "chrome-profile-"
+# Clean up only dashboard-owned API/frontend processes before starting fresh.
 kill_matching_processes "backend" "uvicorn src.api.app:app"
 kill_matching_processes "frontend" "frontend/.bin/vite"
 kill_matching_processes "frontend wrapper" "node_modules/.bin/vite"
@@ -355,39 +345,8 @@ echo "  Frontend ready ✓"
 echo "✓ Dashboard ready at http://localhost:$VITE_PORT/"
 open "http://localhost:$VITE_PORT/" 2>/dev/null || xdg-open "http://localhost:$VITE_PORT/" 2>/dev/null || echo "  Please open http://localhost:$VITE_PORT/ in your browser"
 
-if [[ "${START_WORKERS}" == "1" ]]; then
-cd "${WORKDIR}"
-python3 src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
-TELEGRAM_POLLER_PID=$!
-echo "  Telegram poller started (PID: $TELEGRAM_POLLER_PID)"
-sleep 1
-
-# Test Telegram scraper availability without importing packages during boot.
-shopt -s nullglob
-site_package_dirs=("${VENV_DIR}"/lib/python*/site-packages)
-shopt -u nullglob
-site_packages="${site_package_dirs[0]:-}"
-if [[ -n "${site_packages}" && -f "${site_packages}/requests/__init__.py" && -f "${site_packages}/urllib3/exceptions.py" && -f "${site_packages}/bs4/__init__.py" ]]; then
-  echo "  Telegram scraper dependencies available ✓"
-else
-  echo "  ⚠ Warning: Telegram scraper dependencies not available"
-fi
-
-# Start watch loop directly with caffeinate (keep system awake during long runs)
-cd "${WORKDIR}"
-# Stream the watch loop log back into this terminal so each scraper phase stays visible.
-: > /tmp/watch_loop.log
-tail -n 0 -f /tmp/watch_loop.log &
-WATCH_LOOP_LOG_TAIL_PID=$!
-echo "  Watch loop log tail started (PID: $WATCH_LOOP_LOG_TAIL_PID)"
-
-caffeinate -s python3 src/watch/loop.py > /tmp/watch_loop.log 2>&1 &
-WATCH_LOOP_PID=$!
-echo "  Watch loop started with caffeinate (PID: $WATCH_LOOP_PID)"
-else
-  echo "  UI-only mode: workers are not started."
-  echo "  Use ./run_watch_loop.sh for continuous collection or ./run_dashboard.sh --with-workers for the old combined mode."
-fi
+echo "  Dashboard mode: workers are not started."
+echo "  Telegram poller is managed by launchd; watch loop is disabled."
 
 cleanup() {
   if [[ $CLEANUP_IN_PROGRESS -eq 1 ]]; then
@@ -400,25 +359,7 @@ cleanup() {
   echo "Shutting down gracefully..."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kill_matching_processes "watch loop" "src/watch/loop.py"
-  kill_matching_processes "watch loop wrapper" "caffeinate -s python3 src/watch/loop.py"
-
   # Step 1: Send SIGTERM (graceful shutdown)
-  if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
-    echo "  → Stopping Telegram poller (PID: $TELEGRAM_POLLER_PID)..."
-    kill -TERM "$TELEGRAM_POLLER_PID" 2>/dev/null || true
-  fi
-
-  if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
-    echo "  → Stopping watch loop (PID: $WATCH_LOOP_PID)..."
-    kill -TERM "$WATCH_LOOP_PID" 2>/dev/null || true
-  fi
-
-  if [[ -n "$WATCH_LOOP_LOG_TAIL_PID" ]] && kill -0 "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null; then
-    echo "  → Stopping watch loop log tail (PID: $WATCH_LOOP_LOG_TAIL_PID)..."
-    kill -TERM "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null || true
-  fi
-
   if [[ -n "$VITE_PID" ]] && kill -0 "$VITE_PID" 2>/dev/null; then
     echo "  → Stopping frontend (PID: $VITE_PID)..."
     kill -TERM "$VITE_PID" 2>/dev/null || true
@@ -433,7 +374,7 @@ cleanup() {
   local wait_count=0
   while [[ $wait_count -lt 100 ]]; do
     local all_stopped=1
-    for pid in "$TELEGRAM_POLLER_PID" "$WATCH_LOOP_PID" "$WATCH_LOOP_LOG_TAIL_PID" "$VITE_PID" "$UVICORN_PID"; do
+    for pid in "$VITE_PID" "$UVICORN_PID"; do
       if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
         all_stopped=0
         break
@@ -450,21 +391,6 @@ cleanup() {
 
   # Step 3: Force kill if still running (after 10 seconds)
   echo "  → Forcing shutdown..."
-  if [[ -n "$TELEGRAM_POLLER_PID" ]] && kill -0 "$TELEGRAM_POLLER_PID" 2>/dev/null; then
-    echo "  ⚠ Force killing Telegram poller (PID: $TELEGRAM_POLLER_PID)"
-    kill -KILL "$TELEGRAM_POLLER_PID" 2>/dev/null || true
-  fi
-
-  if [[ -n "$WATCH_LOOP_PID" ]] && kill -0 "$WATCH_LOOP_PID" 2>/dev/null; then
-    echo "  ⚠ Force killing watch loop (PID: $WATCH_LOOP_PID)"
-    kill -KILL "$WATCH_LOOP_PID" 2>/dev/null || true
-  fi
-
-  if [[ -n "$WATCH_LOOP_LOG_TAIL_PID" ]] && kill -0 "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null; then
-    echo "  ⚠ Force killing watch loop log tail (PID: $WATCH_LOOP_LOG_TAIL_PID)"
-    kill -KILL "$WATCH_LOOP_LOG_TAIL_PID" 2>/dev/null || true
-  fi
-
   if [[ -n "$VITE_PID" ]] && kill -0 "$VITE_PID" 2>/dev/null; then
     echo "  ⚠ Force killing frontend (PID: $VITE_PID)"
     kill -KILL "$VITE_PID" 2>/dev/null || true
@@ -491,8 +417,6 @@ trap cleanup EXIT INT TERM
 
 # Wait for all processes (will exit via trap on signal)
 WAIT_PIDS=()
-[[ -n "$TELEGRAM_POLLER_PID" ]] && WAIT_PIDS+=("$TELEGRAM_POLLER_PID")
-[[ -n "$WATCH_LOOP_PID" ]] && WAIT_PIDS+=("$WATCH_LOOP_PID")
 [[ -n "$VITE_PID" ]] && WAIT_PIDS+=("$VITE_PID")
 [[ -n "$UVICORN_PID" ]] && WAIT_PIDS+=("$UVICORN_PID")
 wait "${WAIT_PIDS[@]}" 2>/dev/null || true
