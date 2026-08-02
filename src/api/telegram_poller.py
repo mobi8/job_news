@@ -347,8 +347,8 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
         return
     action = args[0].lower()
     if action == "list":
-        if len(args) > 3:
-            _send_collect_text("Usage: /collect list [phase] [selector]", chat_id)
+        if len(args) > 2:
+            _send_collect_text("Usage: /collect list [phase]", chat_id)
             return
         _send_collect_chunks(_collect_list_message(*args[1:]), chat_id)
         return
@@ -361,11 +361,16 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
     if len(args) > 3:
         _send_collect_text("Usage: /collect <phase> [selector] [subselector]", chat_id)
         return
-    target = args[1] if len(args) == 2 else None
-    if len(args) == 3:
-        target = args[1]
-    subselector = args[2] if len(args) == 3 else None
-    _execute_collect_phase(action, target, chat_id, subselector=subselector, background=background)
+
+    # Parse phase and selectors
+    # /collect <phase>
+    # /collect <phase> <selector>
+    # /collect <phase> <selector> <subselector>
+    phase = args[0].lower()
+    selector = args[1].lower() if len(args) >= 2 else None
+    subselector = args[2].lower() if len(args) >= 3 else None
+
+    _execute_collect_phase(phase, selector, chat_id, subselector=subselector, background=background)
 
 
 def _telegram_help_text() -> str:
@@ -376,11 +381,12 @@ def _telegram_help_text() -> str:
         "/collect status — 현재 실행 상태 확인\n"
         "/collect help — 상세 사용법\n"
         "/collect &lt;phase&gt; — 특정 phase 실행\n"
-        "/collect &lt;phase&gt; &lt;selector&gt; — target group 실행\n"
-        "/collect &lt;phase&gt; &lt;selector&gt; &lt;subselector&gt; — keyword/role 범위 실행\n"
-        "  Target 지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, recruiters, rss, player, posts\n"
-        "  Target 미지원: dashboard, telegram, notifications, queue, all\n"
-        "  Example: /collect rss | /collect posts 1 | /collect status\n\n"
+        "/collect &lt;phase&gt; &lt;selector&gt; — target group 실행 (예: linkedin uae)\n"
+        "/collect &lt;phase&gt; &lt;selector&gt; &lt;subselector&gt; — 특정 keyword 범위 실행 (예: linkedin uae payments)\n"
+        "  지원 phase: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, recruiters, rss, player, posts\n"
+        "  지원 selector: uae, remote, amsterdam, australia, posts_uae, posts_emea, posts_asia 등\n"
+        "  지원 subselector: payments, custody_wallet, settlement_treasury, product_delivery, pmo_transformation 등\n"
+        "  예시: /collect linkedin | /collect linkedin uae | /collect linkedin uae payments | /collect status\n\n"
         "/run — 전체 수집 실행\n"
         "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"
         "  ⏱️ 소요시간: 약 2-3분 | 결과: 새 공고 개수\n\n"
