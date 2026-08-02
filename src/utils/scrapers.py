@@ -1329,12 +1329,6 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
             elif any(x in location_str for x in ["emea", "europe, middle east", "remote", "유럽연합", "유럽 연합", "eu"]):
                 country = "Remote"
                 source_name = "linkedin_emea"
-            elif "amsterdam" in location_str or "netherlands" in location_str:
-                country = "Netherlands"
-                source_name = "linkedin_amsterdam"
-            elif "australia" in location_str or "sydney" in location_str or "멜버른" in location_str or "호주" in location_str:
-                country = "Australia"
-                source_name = "linkedin_australia"
 
             # Fallback to search URL if location is ambiguous or empty
             if not country:
