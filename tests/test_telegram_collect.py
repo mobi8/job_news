@@ -134,3 +134,28 @@ def test_collect_rejects_extra_arguments(monkeypatch):
     telegram_poller._handle_collect_command("/collect rss one two", chat_id="111", background=False)
 
     assert messages[-1][0] == "Usage: /collect <phase> [target]"
+
+
+def test_help_and_commands_share_collect_help(monkeypatch):
+    messages = []
+    monkeypatch.setattr(telegram_poller, "send_telegram_text", lambda text: messages.append(text) or True)
+
+    telegram_poller.handle_message("/help", chat_id="111")
+    telegram_poller.handle_message("/commands", chat_id="111")
+
+    assert len(messages) == 2
+    assert messages[0] == messages[1]
+    help_text = messages[0]
+    assert "/collect — phase 단위 수집 실행" in help_text
+    assert "/collect list — 실행 가능한 phase 목록" in help_text
+    assert "/collect status — 현재 실행 상태 확인" in help_text
+    assert "/collect help — 상세 사용법" in help_text
+    assert "/collect &lt;phase&gt; — 특정 phase 실행" in help_text
+    assert "/collect &lt;phase&gt; &lt;target&gt; — target 지원 phase만 특정 target 실행" in help_text
+    assert "Target 지원: rss, player, posts" in help_text
+    assert "Target 미지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, dashboard, telegram, notifications, queue" in help_text
+    assert "Example: /collect rss | /collect posts 1 | /collect status" in help_text
+    assert "/run — 전체 수집 실행" in help_text
+    assert "/glass — Glassdoor 수집" in help_text
+    assert "/posts — LinkedIn 포스트 분석" in help_text
+    assert "spot. [위치] | [키워드] | [개수]" in help_text

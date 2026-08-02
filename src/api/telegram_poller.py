@@ -347,6 +347,35 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
     _execute_collect_phase(action, target, chat_id, background=background)
 
 
+def _telegram_help_text() -> str:
+    return (
+        "📋 사용 가능한 명령어:\n\n"
+        "/collect — phase 단위 수집 실행\n"
+        "/collect list — 실행 가능한 phase 목록\n"
+        "/collect status — 현재 실행 상태 확인\n"
+        "/collect help — 상세 사용법\n"
+        "/collect &lt;phase&gt; — 특정 phase 실행\n"
+        "/collect &lt;phase&gt; &lt;target&gt; — target 지원 phase만 특정 target 실행\n"
+        "  Target 지원: rss, player, posts\n"
+        "  Target 미지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, dashboard, telegram, notifications, queue\n"
+        "  Example: /collect rss | /collect posts 1 | /collect status\n\n"
+        "/run — 전체 수집 실행\n"
+        "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"
+        "  ⏱️ 소요시간: 약 2-3분 | 결과: 새 공고 개수\n\n"
+        "/glass — Glassdoor 수집\n"
+        "  🔍 Glassdoor 전용 공고 수집\n"
+        "  ⏱️ 소요시간: 약 1-2분\n\n"
+        "/posts — LinkedIn 포스트 분석\n"
+        "  🔍 LinkedIn 최신 포스트 및 인사이트\n"
+        "  ⏱️ 소요시간: 약 1분\n\n"
+        "spot. [위치] | [키워드] | [개수] — LinkedIn 스팟 검색\n"
+        "  📍 예: spot. Copenhagen, Denmark | crypto,web3 | 5\n"
+        "  🔍 키워드: crypto, payments, fintech, web3 등\n"
+        "  ⏱️ 소요시간: 약 1-2분\n\n"
+        "/help 또는 /commands — 이 도움말 표시"
+    )
+
+
 def _clean_script_log(output: str, limit: int = 5) -> list[str]:
     """Return concise, user-facing log lines from a script run."""
     noisy_prefixes = (
@@ -1357,29 +1386,7 @@ def handle_message(text: str, chat_id: object | None = None) -> None:
             return
 
         if cmd in ("help", "commands"):
-            help_text = (
-                "📋 사용 가능한 명령어:\n\n"
-                "/collect help — phase별 수집 실행 도움말\n"
-                "/collect list — 실행 가능한 phase와 target 확인\n"
-                "/collect status — 현재/최근 phase 실행 상태 확인\n"
-                "/collect rss [target] — RSS 수집 실행\n"
-                "/collect posts [plan_number] — LinkedIn 포스트 plan 실행\n\n"
-                "/run — 전체 수집 실행\n"
-                "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"
-                "  ⏱️ 소요시간: 약 2-3분 | 결과: 새 공고 개수\n\n"
-                "/glass — Glassdoor 수집\n"
-                "  🔍 Glassdoor 전용 공고 수집\n"
-                "  ⏱️ 소요시간: 약 1-2분\n\n"
-                "/posts — LinkedIn 포스트 분석\n"
-                "  🔍 LinkedIn 최신 포스트 및 인사이트\n"
-                "  ⏱️ 소요시간: 약 1분\n\n"
-                "spot. [위치] | [키워드] | [개수] — LinkedIn 스팟 검색\n"
-                "  📍 예: spot. Copenhagen, Denmark | crypto,web3 | 5\n"
-                "  🔍 키워드: crypto, payments, fintech, web3 등\n"
-                "  ⏱️ 소요시간: 약 1-2분\n\n"
-                "/help 또는 /commands — 이 도움말 표시"
-            )
-            send_telegram_text(help_text)
+            send_telegram_text(_telegram_help_text())
             return
 
         if cmd in SCRIPT_NAMES:
