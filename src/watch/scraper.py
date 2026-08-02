@@ -78,6 +78,7 @@ from utils.collection_config import (
     INDEED_SEARCH_KEYWORDS,
     JOBSPY_COUNTRY_PLANS,
     LINKEDIN_SEARCH_KEYWORDS,
+    get_source_metadata_by_id,
     target_filter_keyword_queries,
 )
 from utils.models import JobPosting
@@ -402,6 +403,69 @@ def _build_google_search_term(keyword: str, location: str) -> str:
     if cleaned_location:
         return f"{cleaned_keyword} jobs in {cleaned_location} since yesterday"
     return f"{cleaned_keyword} jobs since yesterday"
+
+
+def _normalize_country(job: dict[str, Any]) -> str:
+    """Normalize job country based on multiple sources.
+
+    Priority:
+    1. Job's current valid country (from parsing/plan)
+    2. Source metadata country (from YAML source_metadata)
+    3. Location-based detection
+
+    Returns country string or empty string if unresolved.
+    """
+    # Special cases: explicitly marked as "Other" country
+    if job.get("country") == "Other" or job.get("source") in {"linkedin_post_spot", "linkedin_job_spot"}:
+        return "Other"
+    if job.get("source") == "linkedin_emea":
+        return "Remote"
+
+    # Priority 1: Current valid country if exists
+    existing_country = (job.get("country") or "").strip()
+    if existing_country and existing_country not in ("", "Other"):
+        return existing_country
+
+    # Priority 2: Source metadata country (from YAML source_metadata)
+    source = job.get("source", "").strip()
+    if source:
+        source_meta = get_source_metadata_by_id(source)
+        if source_meta and source_meta.get("country"):
+            return source_meta["country"]
+
+    # Priority 3: Location-based detection (fallback)
+    location = (job.get("location") or "").lower().strip()
+    if not location:
+        return ""
+
+    # Netherlands / Amsterdam
+    if any(x in location for x in ["amsterdam", "netherlands", "dutch", "rotterdam", "utrecht"]):
+        return "Netherlands"
+
+    # Australia
+    if any(x in location for x in ["australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "호주", "시드니", "멜버른"]):
+        return "Australia"
+
+    # Malta (high priority)
+    if any(x in location for x in ["malta", "valletta", "몰타", "sliema", "gzira"]):
+        return "Malta"
+
+    # Georgia (check before USA)
+    if any(x in location for x in ["미국 조지아", "us georgia", "georgia, usa", "georgia, united states"]):
+        return ""
+    if any(x in location for x in ["georgia", "조지아", "tbilisi", "트빌리시", "batumi", "바투미"]):
+        return "Georgia"
+
+    # Exclude USA/Hong Kong
+    if any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
+        return ""
+
+    # UAE
+    if any(x in location for x in ["dubai", "두바이", "united arab emirates", "uae"]):
+        return "UAE"
+
+    # Default: location exists but doesn't match any known country
+    return ""
 
 
 def _run_jobspy_keyword_bucket(
