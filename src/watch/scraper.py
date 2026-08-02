@@ -2,18 +2,21 @@
 # -*- coding: utf-8 -*-
 
 """
-UAE job watcher — thin entry point.
+UAE job watcher — entry point for collection orchestration.
 
-All logic lives in the modules below:
-  config.py        — runtime/path/scoring compatibility constants
-  collection_config.py — YAML-backed external source registry
-  models.py        — JobPosting dataclass
-  db.py            — Database (SQLite wrapper)
-  utils.py         — utility helpers
-  scoring.py       — match scoring & filtering
-  scrapers.py      — per-source fetch/parse functions
-  reporter.py      — save_json / save_csv / save_markdown / save_dashboard
-  notifications.py — Telegram send helpers + source_*_counts
+Called by: run_collect_once.sh (line 207: `python src/watch/scraper.py collect`)
+Delegates to: utils.scrapers (per-source fetch/parse implementations via collection_config.SOURCES registry)
+
+Module dependencies:
+  config.py            — runtime/path/scoring compatibility constants
+  collection_config.py — YAML-backed external source registry + phase definitions
+  models.py            — JobPosting dataclass
+  db.py                — Database (SQLite wrapper)
+  utils.py             — utility helpers
+  scoring.py           — match scoring & filtering
+  scrapers.py          — per-source fetch/parse functions (LinkedIn, Indeed, Glassdoor, RSS, Telegram, etc.)
+  reporter.py          — save_json / save_csv / save_markdown / save_dashboard
+  notifications.py     — Telegram send helpers + source_*_counts
 """
 
 from __future__ import annotations

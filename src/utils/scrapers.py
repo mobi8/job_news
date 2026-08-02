@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Per-source job/news fetch & parse implementation.
+
+All scraping logic for LinkedIn, Indeed, Glassdoor, DrJobs, JobSpy, RSS feeds, and Telegram channels.
+Exported functions follow pattern: fetch_<source>() -> List[JobPosting] or fetch_news_<source>() -> List[NewsItem].
+Entry point: src/watch/scraper.py (calls functions here via collection_config.SOURCES registry).
+"""
+
 from __future__ import annotations
 
 import html
