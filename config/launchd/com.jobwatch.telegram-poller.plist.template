@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jobwatch.telegram-poller</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/lewis/Desktop/agent/venv312/bin/python</string>
+    <string>/Users/lewis/Desktop/agent/src/api/telegram_poller.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/lewis/Desktop/agent</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/jobwatch_telegram_poller.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/tmp/jobwatch_telegram_poller.error.log</string>
+</dict>
+</plist>

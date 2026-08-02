@@ -179,6 +179,47 @@ TELEGRAM_ALLOWED_CHAT_IDS=12345,67890
 
 If `TELEGRAM_ALLOWED_CHAT_IDS` is not set, `TELEGRAM_CHAT_ID` is used as the single allowed chat. If neither is set, execution-style collect commands are disabled.
 
+## Telegram Poller Launchd
+
+Run the Telegram poller as a macOS launchd user service so it starts at login and restarts if it exits.
+
+Install:
+
+```bash
+./install_poller_launchd.sh
+```
+
+Check status:
+
+```bash
+./status_poller_launchd.sh
+```
+
+Logs:
+
+```bash
+tail -f /tmp/jobwatch_telegram_poller.log
+tail -f /tmp/jobwatch_telegram_poller.error.log
+```
+
+Restart:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.jobwatch.telegram-poller
+```
+
+Remove:
+
+```bash
+./uninstall_poller_launchd.sh
+```
+
+`run_poller.sh` no longer starts a detached background process by default. If launchd is installed, it shows service status. For a temporary terminal-bound run, use:
+
+```bash
+./run_poller.sh --foreground
+```
+
 ## Override Priority
 
 Runtime values use this priority:

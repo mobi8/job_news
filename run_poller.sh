@@ -2,9 +2,31 @@
 set -euo pipefail
 
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LABEL="com.jobwatch.telegram-poller"
+DOMAIN="gui/$(id -u)"
+PLIST_DEST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+PYTHON_BIN="${PYTHON_BIN:-}"
+
+usage() {
+  cat <<EOF
+Usage: ./run_poller.sh [--foreground]
+
+Default:
+  Show launchd service status. If the service is installed, this script does
+  not start another poller.
+
+Options:
+  --foreground   Run telegram_poller.py in the current terminal when launchd is
+                 not loaded and no poller is already running.
+  --help         Show this help.
+
+Install launchd service:
+  ./install_poller_launchd.sh
+EOF
+}
 
 select_python_bin() {
-  if [[ -n "${PYTHON_BIN:-}" ]]; then
+  if [[ -n "${PYTHON_BIN}" ]]; then
     if [[ -x "${PYTHON_BIN}" ]]; then
       return 0
     fi
@@ -37,7 +59,26 @@ log_python_bin() {
   fi
 }
 
-select_python_bin
+launchd_loaded() {
+  launchctl print "${DOMAIN}/${LABEL}" >/dev/null 2>&1
+}
+
+poller_pids() {
+  pgrep -f "${WORKDIR}/src/api/telegram_poller.py" 2>/dev/null || true
+}
+
+case "${1:-}" in
+  --help|-h)
+    usage
+    exit 0
+    ;;
+  --foreground|"")
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
 
 cd "${WORKDIR}"
 if [[ -f "${WORKDIR}/.env" ]]; then
@@ -47,38 +88,34 @@ if [[ -f "${WORKDIR}/.env" ]]; then
   source "${WORKDIR}/.env"
   set +a
 fi
+
+if launchd_loaded; then
+  echo "launchd service is installed; not starting a duplicate poller."
+  "${WORKDIR}/status_poller_launchd.sh"
+  exit 0
+fi
+
+existing_pids=()
+while IFS= read -r pid; do
+  [[ -n "${pid}" ]] && existing_pids+=("${pid}")
+done < <(poller_pids)
+if [[ ${#existing_pids[@]} -gt 0 ]]; then
+  echo "telegram_poller.py is already running; not starting a duplicate."
+  printf 'pid: %s\n' "${existing_pids[@]}"
+  exit 0
+fi
+
+if [[ "${1:-}" != "--foreground" ]]; then
+  echo "launchd service is not installed."
+  echo "Install it with: ./install_poller_launchd.sh"
+  echo "For a temporary terminal-bound run: ./run_poller.sh --foreground"
+  exit 0
+fi
+
 select_python_bin
 log_python_bin
-
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
+export PYTHONUNBUFFERED=1
 
-# Check if telegram_poller is already running
-if OLD_PID=$(pgrep -f "src/api/telegram_poller.py"); then
-  echo "Stopping existing poller (PID: $OLD_PID)..."
-  kill "$OLD_PID" 2>/dev/null || true
-  sleep 1
-fi
-
-echo "Starting Telegram poller..."
-env PYTHONUNBUFFERED=1 "${PYTHON_BIN}" src/api/telegram_poller.py > /tmp/telegram_poller.log 2>&1 &
-POLLER_PID=$!
-
-sleep 0.5
-
-# Verify it started successfully
-if kill -0 "$POLLER_PID" 2>/dev/null; then
-  echo "✓ Telegram poller started successfully"
-  if [[ -n "${OLD_PID:-}" ]]; then
-    echo "  Old PID: $OLD_PID → New PID: $POLLER_PID"
-  else
-    echo "  PID: $POLLER_PID"
-  fi
-  echo ""
-  echo "Check logs with:"
-  echo "  tail -f /tmp/telegram_poller.log"
-else
-  echo "❌ Failed to start Telegram poller"
-  echo "See logs for details:"
-  echo "  cat /tmp/telegram_poller.log"
-  exit 1
-fi
+echo "Starting Telegram poller in foreground. Press Ctrl-C to stop."
+exec "${PYTHON_BIN}" src/api/telegram_poller.py
