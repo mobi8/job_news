@@ -9,8 +9,6 @@ from .config import (
     ALLOWED_LANGUAGE_TERMS,
     COMMERCIAL_ROLE_TERMS,
     EXCLUDED_LANGUAGE_TERMS,
-    FOCUS_DOMAIN_TERMS,
-    FOCUS_LOCATION_TERMS,
     FOCUS_ROLE_TERMS,
     GENERIC_FINANCE_TERMS,
     GENERIC_PAYMENT_TERMS,
@@ -19,10 +17,15 @@ from .config import (
     NEGATIVE_ROLE_TERMS,
     NON_COMMERCIAL_ROLE_TERMS,
     PRODUCT_ROLE_TERMS,
-    RECRUITER_COMPANIES,
-    REMOTE_GCC_LOCATION_TERMS,
     RESUME_SKILL_LEXICON,
     STRONG_DOMAIN_TERMS,
+)
+from .collection_config import (
+    FOCUS_DOMAIN_TERMS,
+    FOCUS_LOCATION_TERMS,
+    RECRUITER_COMPANIES,
+    REMOTE_GCC_LOCATION_TERMS,
+    SOURCE_LABELS,
 )
 from .models import JobPosting
 from .utils import inferred_profile_text, normalize_linkedin_identifier
@@ -396,6 +399,8 @@ def top_recommendations(jobs: List[JobPosting], resume_text: str, limit: int | N
 
 
 def source_label(source: str) -> str:
+    if source in SOURCE_LABELS:
+        return SOURCE_LABELS[source]
     mapping = {
         "jobvite_pragmaticplay": "Jobvite",
         "smartrecruitment": "SmartRecruitment",

@@ -21,6 +21,7 @@ from .config import (
     SCRAPE_STATE_PATH,
     TELEGRAM_SENT_HISTORY_PATH,
 )
+from .collection_config import SOURCE_ALIASES
 from .models import JobPosting
 
 
@@ -490,6 +491,7 @@ def parse_requested_sources(raw_value: Optional[str]) -> Optional[set[str]]:
         return None
 
     alias_map = {
+        **SOURCE_ALIASES,
         "jobvite": "jobvite_pragmaticplay",
         "jobvite_pragmaticplay": "jobvite_pragmaticplay",
         "smartrecruitment": "smartrecruitment",

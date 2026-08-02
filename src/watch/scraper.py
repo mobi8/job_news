@@ -5,7 +5,8 @@
 UAE job watcher — thin entry point.
 
 All logic lives in the modules below:
-  config.py        — constants & URLs
+  config.py        — runtime/path/scoring compatibility constants
+  collection_config.py — YAML-backed external source registry
   models.py        — JobPosting dataclass
   db.py            — Database (SQLite wrapper)
   utils.py         — utility helpers
@@ -57,14 +58,10 @@ from utils.logger import scraper_logger, setup_logger
 from utils.config import (
     DB_PATH,
     BROWSER_LOOKBACK_HOURS,
-    GOOGLE_SEARCH_KEYWORDS,
-    INDEED_SEARCH_KEYWORDS,
-    JOBSPY_COUNTRY_PLANS,
     JOBSPY_HOURS_OLD,
     JOBSPY_LOOKBACK_OVERLAP_HOURS,
     JOBSPY_MAX_LOOKBACK_HOURS,
     JOBSPY_MIN_LOOKBACK_HOURS,
-    LINKEDIN_SEARCH_KEYWORDS,
     IGAMINGHUNT_BAMBOOHR_URL,
     IGAMING_RECRUITMENT_URL,
     JOBRAPIDO_URL,
@@ -72,6 +69,12 @@ from utils.config import (
     JOBLEADS_URL,
     OUTPUT_DIR,
     SMARTRECRUITMENT_URL,
+)
+from utils.collection_config import (
+    GOOGLE_SEARCH_KEYWORDS,
+    INDEED_SEARCH_KEYWORDS,
+    JOBSPY_COUNTRY_PLANS,
+    LINKEDIN_SEARCH_KEYWORDS,
 )
 from utils.models import JobPosting
 from utils.db import Database
@@ -634,8 +637,9 @@ def _process_jobspy_country(
 ) -> list:
     """Process Indeed scraping for a single country. Returns Indeed jobs only."""
     country = plan["country"]
-    if country != "UAE":
-        return []
+    site_name = plan.get("site", "indeed")
+    if site_name != "indeed":
+        return {"jobs": [], "failures": 0}
 
     indeed_jobs: list = []
     jobspy_logger.info("Scraping JobSpy country bucket: %s", country)
@@ -646,12 +650,12 @@ def _process_jobspy_country(
         now_iso=now_iso,
         site_name="indeed",
         keywords=INDEED_SEARCH_KEYWORDS,
-        source=plan["indeed_source"],
+        source=plan.get("source") or plan.get("indeed_source") or _jobspy_source_name("indeed", country),
         country=country,
-        location=plan["indeed_location"],
+        location=plan.get("location") or plan.get("indeed_location"),
         results_wanted=JOBSPY_INDEED_RESULTS_WANTED,
         hours_old=jobspy_lookback_hours,
-        country_indeed=plan["indeed_country"],
+        country_indeed=plan.get("indeed_country"),
         inter_keyword_delay_seconds=JOBSPY_INDEED_INTER_KEYWORD_DELAY_SECONDS,
     )
 

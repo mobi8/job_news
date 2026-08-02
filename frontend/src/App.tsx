@@ -6,10 +6,11 @@ import {
   fetchNews,
   fetchStats,
   fetchJobStatuses,
+  fetchSourceMetadata,
   fetchJobDetail,
   updateJobStatus as apiUpdateJobStatus,
 } from "./lib/api.ts";
-import type { JobsResponse, StatsResponse, JobPosting } from "./lib/api.ts";
+import type { JobsResponse, SourceMetadata, StatsResponse, JobPosting } from "./lib/api.ts";
 import "./App.css";
 
 const filterOptions = [
@@ -207,9 +208,11 @@ function CategoryTabs({
 function FilterBar({
   filters,
   onChange,
+  sourceOptions,
 }: {
   filters: FilterState;
   onChange: (values: FilterState) => void;
+  sourceOptions: { label: string; value: string }[];
 }) {
   return (
     <div className="filter-frame">
@@ -224,7 +227,7 @@ function FilterBar({
           value={filters.source}
           onChange={(event) => onChange({ ...filters, source: event.target.value })}
         >
-          {filterOptions.map((option) => (
+          {sourceOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -684,6 +687,12 @@ function App() {
     refetchInterval: 30000,
   });
 
+  const sourceMetadataQuery = useQuery({
+    queryKey: ["source-metadata"],
+    queryFn: fetchSourceMetadata,
+    staleTime: 300_000,
+  });
+
   const jobsQuery = useQuery<
     JobsResponse,
     Error,
@@ -710,6 +719,14 @@ function App() {
       }),
     refetchInterval: 30000,
   });
+
+  const sourceFilterOptions = useMemo(() => {
+    const metadata = sourceMetadataQuery.data?.source_metadata || statsQuery.data?.source_metadata || [];
+    const jobSources = metadata
+      .filter((item: SourceMetadata) => item.kind !== "news" && item.enabled !== false && item.id && item.label)
+      .map((item: SourceMetadata) => ({ label: item.label, value: item.id }));
+    return jobSources.length ? [{ label: "전체", value: "" }, ...jobSources] : filterOptions;
+  }, [sourceMetadataQuery.data?.source_metadata, statsQuery.data?.source_metadata]);
 
   const newsQuery = useQuery<any[], Error, any[], ["news"]>({
     queryKey: ["news"],
@@ -862,7 +879,7 @@ function App() {
             </div>
           </div>
           <div className="controls-card filter-card">
-            <FilterBar filters={filters} onChange={(values) => setFilters(values)} />
+            <FilterBar filters={filters} onChange={(values) => setFilters(values)} sourceOptions={sourceFilterOptions} />
           </div>
         </section>
       )}

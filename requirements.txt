@@ -5,3 +5,4 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 pydantic>=2.9,<2.10
 python-jobspy>=1.1.82
+PyYAML>=6.0.0

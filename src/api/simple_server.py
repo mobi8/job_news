@@ -4,12 +4,15 @@ from __future__ import annotations
 import datetime as dt
 import json
 import sqlite3
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+from utils.collection_config import SOURCE_LABELS, SOURCE_METADATA  # noqa: E402
 OUTPUT_DIR = ROOT / "outputs"
 JOBS_DATA_PATH = OUTPUT_DIR / "jobs_analysis.json"
 STATS_DATA_PATH = OUTPUT_DIR / "job_stats_data.json"
@@ -106,6 +109,8 @@ def detect_country(job: dict[str, Any]) -> str:
 
 
 def source_label(source: str) -> str:
+    if source in SOURCE_LABELS:
+        return SOURCE_LABELS[source]
     labels = {
         "linkedin_public": "LinkedIn",
         "indeed_uae": "Indeed UAE",
@@ -200,6 +205,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/stats":
                 self.send_json(200, self.handle_stats())
                 return
+            if path == "/api/source-metadata":
+                self.send_json(200, {"source_metadata": SOURCE_METADATA})
+                return
             if path == "/api/recommendations":
                 self.send_json(200, self.handle_recommendations(parse_int(one(params, "limit"), 10) or 10))
                 return
@@ -288,6 +296,7 @@ class Handler(BaseHTTPRequestHandler):
             "source_daily": data.get("source_daily", []),
             "updated_at": data.get("updated_at") or stats.get("updated_at"),
             "collection_metadata": merge_running_collection_metadata(data.get("collection_metadata")),
+            "source_metadata": SOURCE_METADATA,
         }
 
     def handle_recommendations(self, limit: int) -> dict[str, Any]:

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from services.career_bridge import run, route_command
 from services.linkedin_spot import parse_spot_command, spot_usage, start_spot_search
+from utils.collection_config import SOURCE_METADATA
 from utils.config import OUTPUT_DIR
 from utils.scoring import source_label
 
@@ -267,7 +268,13 @@ def get_stats() -> Dict[str, Any]:
         "source_daily": data.get("source_daily", []),
         "updated_at": data.get("updated_at") or stats.get("updated_at"),
         "collection_metadata": merge_running_collection_metadata(data.get("collection_metadata")),
+        "source_metadata": SOURCE_METADATA,
     }
+
+
+@app.get("/api/source-metadata", summary="Source metadata")
+def get_source_metadata() -> Dict[str, Any]:
+    return {"source_metadata": SOURCE_METADATA}
 
 
 @app.get("/api/recommendations", summary="Top recommendations")

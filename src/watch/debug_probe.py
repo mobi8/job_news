@@ -13,14 +13,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from utils.config import _glassdoor_uae_keyword_url
+from utils.collection_config import build_glassdoor_uae_url
 from utils.scrapers import fetch_glassdoor_jobs_via_browserless
 from watch.scraper import _run_jobspy_query
 
 
 def _cmd_glassdoor(args: argparse.Namespace) -> int:
     keyword = args.keyword.strip()
-    url = args.url or _glassdoor_uae_keyword_url(keyword)
+    url = args.url or build_glassdoor_uae_url(keyword)
     jobs = fetch_glassdoor_jobs_via_browserless(search_urls=[url], keywords=[keyword])
     print(json.dumps(
         {

@@ -24,21 +24,26 @@ scrape_jobs = None
 from .config import (
     BROWSER_PROBE_PATH,
     GLASSDOOR_BROWSERLESS_PROBE_PATH,
-    GLASSDOOR_BROWSERLESS_KEYWORDS,
-    GLASSDOOR_BROWSERLESS_SEARCH_URLS,
     COMMERCIAL_ROLE_TERMS,
     IGAMINGHUNT_BAMBOOHR_URL,
     IGAMING_RECRUITMENT_URL,
-    INDEED_SEARCH_KEYWORDS,
-    INDEED_SEARCH_URLS,
     JOBVITE_URL,
+    PRODUCT_ROLE_TERMS,
+    STRONG_DOMAIN_TERMS,
+    TELEGRAM_CHANNELS,
+)
+from .collection_config import (
+    DRJOBS_SEARCH_URLS,
+    GLASSDOOR_BROWSERLESS_KEYWORDS,
+    GLASSDOOR_BROWSERLESS_SEARCH_URLS,
+    INDEED_SEARCH_KEYWORDS,
+    INDEED_SEARCH_URL_METADATA,
+    INDEED_SEARCH_URLS,
+    LINKEDIN_SEARCH_URL_METADATA,
     LINKEDIN_SEARCH_URLS,
     NEWS_RSS_FEEDS,
     PLAYER_RSS_FEEDS,
-    PRODUCT_ROLE_TERMS,
     RECRUITER_SEARCH_URLS,
-    STRONG_DOMAIN_TERMS,
-    TELEGRAM_CHANNELS,
 )
 from .models import JobPosting, NewsItem
 from .scoring import evaluate_fit
@@ -869,29 +874,7 @@ def _drjobs_keyword_to_slug(keyword: str) -> str:
 
 
 def _build_drjobs_search_urls() -> List[str]:
-    keywords = [
-        "igaming",
-        "crypto",
-        "digital asset",
-        "exchange",
-        "custody",
-        "wallet",
-        "backlog",
-    ]
-    urls: List[str] = []
-    seen = set()
-
-    for keyword in keywords:
-        slug = _drjobs_keyword_to_slug(keyword)
-        if slug in seen:
-            continue
-        seen.add(slug)
-        urls.append(f"https://drjobs.ae/{slug}-jobs")
-
-    # The plain igaming landing page is the most reliable starting point, so keep it first.
-    urls.insert(0, "https://drjobs.ae/igaming-jobs")
-
-    return urls
+    return list(DRJOBS_SEARCH_URLS)
 
 
 def fetch_drjobs_jobs_via_browser() -> List[JobPosting]:
@@ -982,10 +965,11 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
 
             location_str = clean_text(item.get("location", "")).lower()
             search_lower = search_url.lower()
+            target_metadata = INDEED_SEARCH_URL_METADATA.get(search_url, {})
 
             # Determine country from job location or search URL
-            country = None
-            source_name = None
+            country = target_metadata.get("country")
+            source_name = target_metadata.get("source")
 
             # Check location_str first for explicit keywords
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
@@ -1016,7 +1000,9 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
                 continue
 
             # Validate location doesn't contain excluded countries (USA, UK, etc.)
-            if any(x in location_str for x in ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl", "remote - usa"]):
+            configured_excludes = target_metadata.get("exclude_terms") or []
+            default_excludes = ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl", "remote - usa"]
+            if any(x in location_str for x in [*configured_excludes, *default_excludes]):
                 logger.debug("Skipping Indeed job from excluded region: %s", location_str)
                 continue
 
@@ -1316,10 +1302,11 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
 
             location_str = clean_text(item.get("location", "")).lower()
             search_lower = search_url.lower()
+            target_metadata = LINKEDIN_SEARCH_URL_METADATA.get(search_url, {})
 
             # Determine country from job location or search URL
-            country = None
-            source_name = None
+            country = target_metadata.get("country")
+            source_name = target_metadata.get("source")
 
             # Check location_str first for explicit keywords
             if "malta" in location_str or "valletta" in location_str or "몰타" in location_str:
@@ -1357,12 +1344,14 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                 continue
 
             # Validate location doesn't contain excluded countries (USA, UK, etc.)
-            if any(x in location_str for x in [
+            configured_excludes = target_metadata.get("exclude_terms") or []
+            default_excludes = [
                 "united states", "usa", "united kingdom", "uk", "canada",
                 "california", "new york", "texas", "ohio", "oh", "florida", "fl",
                 "미국", "뉴욕", "샌프란시스코", "영국", "런던", "맨체스터", "버밍엄",
                 "캐나다", "중국", "일본", "홍콩", "싱가포르",
-            ]):
+            ]
+            if any(x in location_str for x in [*configured_excludes, *default_excludes]):
                 skipped_excluded_region_count += 1
                 logger.debug("Skipping LinkedIn job from excluded region: %s", location_str)
                 continue

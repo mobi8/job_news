@@ -27,8 +27,12 @@ if env_path.exists():
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
 
-from utils.config import (  # noqa: E402
+from utils.collection_config import (  # noqa: E402
+    LINKEDIN_POST_FILTERS,
+    LINKEDIN_POST_LOCATION_TERMS_BY_COUNTRY,
     LINKEDIN_POST_SEARCH_PLANS,
+)
+from utils.config import (  # noqa: E402
     LINKEDIN_POSTS_PROBE_PATH,
     LINKEDIN_POSTS_PROFILE_DIR,
     OUTPUT_DIR,
@@ -157,10 +161,10 @@ def _signal_handler(signum, frame):  # pragma: no cover - signal path
 for _sig in (signal.SIGTERM, signal.SIGINT):
     signal.signal(_sig, _signal_handler)
 
-HIRING_TERMS = [
+HIRING_TERMS = list(LINKEDIN_POST_FILTERS.get("hiring_terms") or [
     "hiring", "we are hiring", "we're hiring", "open role", "job alert", "looking for",
     "vacancy", "join our team", "apply", "referral", "recruiting",
-]
+])
 JOB_POST_SIGNAL_PATTERNS = [
     r"\b(?:we(?: are|'re)|is|now|actively)\s+hiring\b",
     r"#hiring\b",
@@ -174,28 +178,18 @@ JOB_POST_SIGNAL_PATTERNS = [
     r"\b(?:role|position)\s*:",
     r"\b(?:we(?: are|'re)\s+)?looking\s+for\s+(?:a|an|our)?\s*.{0,50}\b(?:manager|engineer|developer|lead|specialist|candidate|talent|product|sales|business development|bd)\b",
 ]
-JOB_DESTINATION_TERMS = [
-    "/jobs/",
-    "/careers/",
-    "greenhouse.io",
-    "lever.co",
-    "ashbyhq.com",
-    "workable.com",
-    "recruitee.com",
-    "smartrecruiters.com",
-]
-DOMAIN_TERMS = [
+JOB_DESTINATION_TERMS = list(LINKEDIN_POST_FILTERS.get("job_destination_terms") or [
+    "/jobs/", "/careers/", "greenhouse.io", "lever.co", "ashbyhq.com",
+    "workable.com", "recruitee.com", "smartrecruiters.com",
+])
+DOMAIN_TERMS = list(LINKEDIN_POST_FILTERS.get("domain_terms") or [
     "crypto", "web3", "blockchain", "payment", "payments", "fintech", "igaming",
     "gaming", "casino", "sportsbook", "product", "business development", "wallet",
     "backlog",
-]
-LOCATION_TERMS_BY_COUNTRY = {
+])
+LOCATION_TERMS_BY_COUNTRY = dict(LINKEDIN_POST_LOCATION_TERMS_BY_COUNTRY or {
     "UAE": ["uae", "dubai", "abu dhabi", "united arab emirates", "emirates"],
-    "Remote": ["remote", "mena", "middle east", "gcc", "uae", "dubai", "saudi", "qatar", "bahrain", "kuwait", "oman"],
-    "Amsterdam": ["amsterdam", "netherlands", "nederland", "holland"],
-    "Australia": ["australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra"],
-    "Malta": ["malta", "sliema", "valletta", "st julian", "st. julian"],
-}
+})
 
 
 def _probe_env(plans: List[Dict[str, Any]] | None = None) -> Dict[str, str]:

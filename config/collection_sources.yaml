@@ -1,0 +1,1140 @@
+# External collection source registry.
+#
+# This is the single user-managed source of truth for job/news collection targets.
+# Keep scoring rules, parser logic, and complex regex in Python code.
+#
+# Minimal edit examples:
+# - Disable one target: set `enabled: false`.
+# - Add one Indeed keyword: append `{id: new_topic, query: "new topic"}` under the target's `keyword_groups`.
+# - Add one RSS feed: append an item under `sources.news_feeds` with `id`, `source`, `label`, `url`, and `parser: rss`.
+version: 1
+
+# Dashboard/API labels, aliases, country overrides, and frontend filter metadata.
+source_metadata:
+- id: jobvite_pragmaticplay
+  label: Jobvite
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - jobvite
+- id: smartrecruitment
+  label: SmartRecruitment
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - smartrecruit
+  - smartrecruiters
+- id: igamingrecruitment
+  label: iGaming Recruitment
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - igaming_recruitment
+  - igaming recruitment
+- id: igaminghunt_bamboohr
+  label: IGAMINGHUNT
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - igaminghunt
+  - bamboohr_igaminghunt
+- id: jobrapido_uae
+  label: Jobrapido
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - jobrapido
+- id: jobleads
+  label: JobLeads
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - joblead
+- id: drjobs
+  label: DrJobs
+  kind: jobs
+  group: Browser
+  country: UAE
+  aliases:
+  - drjobs.ae
+- id: glassdoor_uae
+  label: Glassdoor UAE
+  kind: jobs
+  group: Browserless
+  country: UAE
+  aliases:
+  - glassdoor
+  - glassdoor_browserless_uae
+- id: indeed_uae
+  label: Indeed UAE
+  kind: jobs
+  group: Indeed
+  country: UAE
+  aliases:
+  - indeed
+  - indeed_jobspy
+  - jobspy_indeed
+  - indeed_browserless_uae
+- id: indeed_georgia
+  label: Indeed Georgia
+  kind: jobs
+  group: Indeed
+  country: Georgia
+  aliases: []
+- id: indeed_malta
+  label: Indeed Malta
+  kind: jobs
+  group: Indeed
+  country: Malta
+  aliases: []
+- id: linkedin_public
+  label: LinkedIn
+  kind: jobs
+  group: LinkedIn
+  country: UAE
+  aliases:
+  - linkedin
+  - linkedin_jobspy
+  - jobspy_linkedin
+- id: linkedin_emea
+  label: LinkedIn EMEA
+  kind: jobs
+  group: LinkedIn
+  country: Remote
+  aliases:
+  - linkedin emea
+- id: linkedin_georgia
+  label: LinkedIn Georgia
+  kind: jobs
+  group: LinkedIn
+  country: Georgia
+  aliases: []
+- id: linkedin_malta
+  label: LinkedIn Malta
+  kind: jobs
+  group: LinkedIn
+  country: Malta
+  aliases: []
+- id: linkedin_post
+  label: LinkedIn Post
+  kind: jobs
+  group: LinkedIn
+  country: UAE
+  aliases:
+  - posts
+- id: linkedin_post_spot
+  label: LinkedIn Spot
+  kind: jobs
+  group: LinkedIn
+  country: Other
+  aliases: []
+- id: linkedin_job_spot
+  label: LinkedIn Jobs Spot
+  kind: jobs
+  group: LinkedIn
+  country: Other
+  aliases: []
+- id: google_uae
+  label: Google UAE
+  kind: jobs
+  group: Google
+  country: UAE
+  aliases:
+  - google
+- id: google_georgia
+  label: Google Georgia
+  kind: jobs
+  group: Google
+  country: Georgia
+  aliases: []
+- id: google_malta
+  label: Google Malta
+  kind: jobs
+  group: Google
+  country: Malta
+  aliases: []
+- id: telegram_job_crypto_uae
+  label: TG Jobs UAE
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: telegram_cryptojobslist
+  label: TG Crypto
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: telegram_hr1win
+  label: TG 1Win
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: himalayas_igaming
+  label: Himalayas iGaming
+  kind: jobs
+  group: Remote
+  country: Remote
+  aliases: []
+sources:
+  # Fixed or explicit job pages. Keep URL strings exact unless the upstream site changes.
+  job_pages:
+  - id: pragmatic_jobvite
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: jobvite_pragmaticplay
+    label: Pragmatic Play Jobvite
+    url: https://jobs.jobvite.com/pragmaticplay/jobs
+    parser: jobvite
+    country: Global
+  - id: pragmatic_smartrecruiters
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: smartrecruitment
+    label: Pragmatic Play SmartRecruiters
+    url: https://jobs.smartrecruitment.com/jobs?department_id=20888
+    parser: smartrecruiters
+    country: Global
+  - id: igaming_recruitment
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: igamingrecruitment
+    label: iGaming Recruitment
+    url: https://igamingrecruitment.io/jobs/
+    parser: igaming_recruitment
+    country: Global
+  - id: igaminghunt_bamboohr
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: igaminghunt_bamboohr
+    label: IGAMINGHUNT BambooHR
+    url: https://igaminghunt.bamboohr.com/jobs/embed2.php
+    parser: bamboohr
+    country: Global
+  - id: jobrapido_uae
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobrapido_uae
+    label: Jobrapido UAE
+    url: https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all
+    parser: jobrapido
+    country: UAE
+  - id: jobleads_uae
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobleads
+    label: JobLeads UAE
+    url: https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2
+    parser: jobleads
+    country: UAE
+  telegram_channels: []
+
+  # LinkedIn job searches. Generated targets use `builder: linkedin_jobs`;
+  # targets with `explicit_override` preserve that URL exactly.
+  linkedin_jobs:
+    enabled: true
+    type: generated_search
+    fetch_method: browser
+    targets:
+    - id: linkedin_company_42167861_emea
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      url:
+        builder: linkedin_jobs
+        explicit_override: https://www.linkedin.com/jobs/search/?f_C=42167861&geoId=92000000&origin=COMPANY_PAGE_JOBS_CLUSTER_EXPANSION
+    - id: linkedin_emea_crypto
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: crypto
+        query: crypto OR web3 OR stablecoin OR digital asset OR payments OR igaming OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_emea_game_dev
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: game_dev
+        query: game OR gaming OR mobile game OR game developer OR unity OR unreal
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_emea_game_studio
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: game_studio
+        query: game studio OR game design OR game producer OR game economy OR live ops OR user acquisition
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_crypto_payment
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: crypto_payment
+        query: crypto payment OR stablecoin payment OR crypto payments OR neobanking
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_web3_wallet
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: web3_wallet
+        query: web3 OR stablecoin OR crypto OR wallet OR neobanking
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_regulation
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: United Arab Emirates
+      keyword_groups:
+      - id: regulation
+        query: ADGM OR FSRA OR VARA
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_backlog_dubai
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: backlog
+        query: backlog
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_emea_backlog
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: backlog
+        query: backlog
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_igaming
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: igaming
+        query: igaming
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_crypto_product
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: crypto_product
+        query: crypto product manager OR product owner OR neobank OR digital asset OR stable coin OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_custody_game
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: United Arab Emirates
+      keyword_groups:
+      - id: custody_game
+        query: custody OR digital asset OR digital assets OR digital asset custody OR stable coin OR game OR gaming
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_casino_resort
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: United Arab Emirates
+      keyword_groups:
+      - id: casino_resort
+        query: casino OR gaming resort OR wynn OR al marjan OR IT product manager
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_exchanges
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: United Arab Emirates
+      keyword_groups:
+      - id: exchanges
+        query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_payments_engineer
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: payments_engineer
+        query: payments engineer OR payments developer OR crypto payments OR stablecoin
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_sales
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: sales
+        query: sales manager OR business development OR account manager
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_wallet_ops
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: wallet_ops
+        query: wallet specialist OR exchange operations OR digital asset operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_mobile_game
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_groups:
+      - id: mobile_game
+        query: mobile game OR game developer OR unity OR unreal OR game engine OR DTC
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_uae_game_studio
+      enabled: true
+      source: linkedin_public
+      country: UAE
+      location: United Arab Emirates
+      keyword_groups:
+      - id: game_studio
+        query: game studio OR indie game OR game design OR game artist OR DTC
+      url:
+        builder: linkedin_jobs
+  # Indeed browser searches. `domain`, `location`, and `keyword_groups.query`
+  # build the final URL; metadata below is carried with every generated URL.
+  indeed:
+    enabled: true
+    type: generated_search
+    fetch_method: browser
+    targets:
+    - id: indeed_uae
+      enabled: true
+      source: indeed_uae
+      country: UAE
+      location: dubai
+      indeed_country: United Arab Emirates
+      domain: ae.indeed.com
+      sort: date
+      keyword_groups:
+      - id: korean
+        query: korean
+      - id: payments
+        query: payment OR crypto OR igaming OR neobanking OR backlog
+      - id: regulation
+        query: adgm OR fsra OR vara
+      - id: backlog
+        query: backlog
+      - id: crypto_product
+        query: crypto product manager OR product owner OR neobank OR digital asset OR stable coin OR backlog
+      - id: custody_game
+        query: custody OR digital asset OR digital assets OR digital asset custody OR stable coin OR game OR gaming
+      - id: casino_resort
+        query: casino OR gaming resort OR wynn OR al marjan OR IT product manager
+      - id: exchanges
+        query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+      url:
+        builder: indeed
+  # Browserless Glassdoor searches. Keywords are converted with the Glassdoor UAE URL builder.
+  glassdoor:
+    enabled: true
+    type: generated_search
+    fetch_method: browserless
+    source: glassdoor_uae
+    country: UAE
+    url_builder: glassdoor_uae
+    keywords:
+    - crypto
+    - igaming
+    - payment
+    - wallet
+    - digital asset
+    - product
+    - backlog
+    explicit_urls: []
+  # DrJobs browser searches. Explicit URLs are preserved; keywords generate `/keyword-jobs` URLs.
+  drjobs:
+    enabled: true
+    type: generated_search
+    fetch_method: browser
+    source: drjobs
+    country: UAE
+    url_builder: drjobs
+    keywords:
+    - igaming
+    - crypto
+    - digital asset
+    - exchange
+    - custody
+    - wallet
+    - backlog
+    explicit_urls:
+    - https://drjobs.ae/igaming-jobs
+  # JobSpy library targets. Enable/disable by target instead of hard-coding a country guard.
+  jobspy:
+    enabled: true
+    type: jobspy
+    fetch_method: library
+    targets:
+    - id: jobspy_uae_indeed
+      enabled: true
+      site: indeed
+      source: indeed_uae
+      country: UAE
+      location: Dubai, United Arab Emirates
+      indeed_country: United Arab Emirates
+      keywords_from: indeed
+  # LinkedIn post search plans. Count = enabled locations * roles * leads.
+  linkedin_posts:
+    enabled: true
+    type: generated_plans
+    fetch_method: browser
+    source: linkedin_post
+    leads:
+    - id: hire
+      query: hire
+      category: hiring_post
+    - id: hiring
+      query: hiring
+      category: hiring_post
+    - id: job
+      query: job
+      category: job_post
+    - id: job_alert
+      query: job alert
+      category: recruiter_post
+    roles:
+    - id: crypto
+      query: crypto
+      domain: crypto_payments
+    - id: igaming
+      query: igaming
+      domain: igaming
+    - id: web3
+      query: web3
+      domain: web3
+    - id: digital_asset
+      query: digital asset
+      domain: digital_asset
+    - id: backlog
+      query: backlog
+      domain: backlog
+    - id: game
+      query: game
+      domain: game
+    locations:
+    - id: posts_uae
+      enabled: true
+      country: UAE
+      store_country: UAE
+      label: UAE
+      query_location: in UAE
+      location_terms:
+      - uae
+      - dubai
+      - abu dhabi
+      - united arab emirates
+      - emirates
+    - id: posts_remote_mena
+      enabled: true
+      country: Remote
+      store_country: Remote
+      label: MENA Remote
+      query_location: remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman
+      location_terms:
+      - remote
+      - mena
+      - middle east
+      - gcc
+      - uae
+      - dubai
+      - saudi
+      - qatar
+      - bahrain
+      - kuwait
+      - oman
+    - id: posts_amsterdam
+      enabled: true
+      country: Amsterdam
+      store_country: Amsterdam
+      label: Amsterdam
+      query_location: in Amsterdam Netherlands
+      location_terms:
+      - amsterdam
+      - netherlands
+      - nederland
+      - holland
+    - id: posts_australia
+      enabled: true
+      country: Australia
+      store_country: Australia
+      label: Australia
+      query_location: in Australia
+      location_terms:
+      - australia
+      - sydney
+      - melbourne
+      - brisbane
+      - perth
+      - adelaide
+      - canberra
+    - id: posts_malta
+      enabled: true
+      country: Malta
+      store_country: Malta
+      label: Malta
+      query_location: in Malta
+      location_terms:
+      - malta
+      - sliema
+      - valletta
+      - st julian
+      - st. julian
+    filters:
+      hiring_terms:
+      - hiring
+      - we are hiring
+      - we're hiring
+      - open role
+      - job alert
+      - looking for
+      - vacancy
+      - join our team
+      - apply
+      - referral
+      - recruiting
+      job_destination_terms:
+      - "/jobs/"
+      - "/careers/"
+      - greenhouse.io
+      - lever.co
+      - ashbyhq.com
+      - workable.com
+      - recruitee.com
+      - smartrecruiters.com
+      domain_terms:
+      - crypto
+      - web3
+      - blockchain
+      - payment
+      - payments
+      - fintech
+      - igaming
+      - gaming
+      - casino
+      - sportsbook
+      - product
+      - business development
+      - wallet
+      - backlog
+  # Recruiter-oriented LinkedIn searches and company watch list.
+  recruiters:
+    enabled: true
+    companies:
+    - robert walters
+    - michael page
+    - hays
+    - salt
+    - discovered mena
+    - stanley james
+    - cander group
+    - mint selection
+    - ateca consulting
+    - ap executive
+    - crypto recruit
+    - blockchain talent
+    - Hyphen Connect
+    targets:
+    - id: recruiter_robert_walters_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: robert walters
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Robert Walters crypto OR web3 OR payments OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_michael_page_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: michael page
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Michael Page crypto OR payments OR product OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_hays_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: hays
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Hays crypto OR fintech OR payments OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_crypto_recruit_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: crypto recruit
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Crypto Recruit web3 OR crypto OR backlog
+      url:
+        builder: linkedin_jobs
+  # News RSS feeds. Keep feed URLs exact.
+  news_feeds:
+  - id: igaming_business
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_igaming_business
+    label: iGaming Business
+    category: igaming
+    url: https://igamingbusiness.com/feed/
+    parser: rss
+  - id: fintech_news_uae
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_fintech_uae
+    label: Fintech News UAE
+    category: fintech
+    url: https://fintechnews.ae/feed/
+    parser: rss
+  - id: intergame_news
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_news
+    label: InterGame iGaming News
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/news
+    parser: rss
+  - id: intergame_crypto
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_crypto
+    label: InterGame Cryptocurrency
+    category: crypto
+    url: https://www.intergameonline.com/rss/igaming/cryptocurrency
+    parser: rss
+  - id: intergame_all
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_all
+    label: InterGame All iGaming
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/all
+    parser: rss
+  - id: intergame_abbrev
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_abbrev
+    label: InterGame Abbreviated
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/abbreviated
+    parser: rss
+  - id: finextra_headlines
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_headlines
+    label: FinExtra Headlines
+    category: fintech
+    url: https://www.finextra.com/rss/headlines.aspx
+    parser: rss
+  - id: finextra_payments
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_payments
+    label: FinExtra Payments
+    category: payments
+    url: https://www.finextra.com/rss/channel.aspx?channel=payments
+    parser: rss
+  - id: finextra_crypto
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_crypto
+    label: FinExtra Crypto
+    category: crypto
+    url: https://www.finextra.com/rss/channel.aspx?channel=crypto
+    parser: rss
+  - id: focusgn
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_focusgn
+    label: FocusGN
+    category: igaming
+    url: https://focusgn.com/feed/
+    parser: rss
+  - id: venturebeat_games
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_venturebeat_games
+    label: VentureBeat Games
+    category: games
+    url: https://venturebeat.com/games/feed/
+    parser: rss
+  - id: pocket_gamer
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_pocket_gamer
+    label: Pocket Gamer
+    category: games
+    url: https://www.pocketgamer.biz/feed/
+    parser: rss
+  - id: gamesindustry
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_gamesindus_news
+    label: GamesIndustry.biz
+    category: games
+    url: https://www.gamesindustry.biz/feed
+    parser: rss
+  # Player/company RSS feeds. Keep feed URLs exact.
+  player_feeds:
+  - id: pragmatic_play_official
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_player_pragmatic
+    label: Pragmatic Play
+    player: Pragmatic Play
+    category: iGaming
+    url: https://www.pragmaticplay.com/news/feed/
+    parser: rss
+# Compatibility keyword groups used by non-source-specific consumers.
+keyword_groups:
+  linkedin:
+  - korean
+  - Cryptocurrency
+  - Blockchain
+  - '"crypto payment"'
+  - '"stablecoin"'
+  - '"web3"'
+  - '"neobanking"'
+  - '"payments engineer"'
+  - '"wallet"'
+  - '"custody"'
+  - '"crypto product manager"'
+  - '"product owner"'
+  - '"business development"'
+  - '"account manager"'
+  - '"igaming"'
+  - '"casino"'
+  - '"mobile game"'
+  - '"DTC"'
+  - '"backlog"'
+  indeed:
+  - Cryptocurrency
+  - Blockchain
+  - crypto
+  - crypto wallet
+  - payment
+  - digital asset
+  - virtual assets
+  - stablecoin
+  - custody
+  - neobanking
+  - operations manager
+  - business development
+  - product manager
+  - sales
+  - compliance
+  - risk
+  - game
+  - gaming
+  - igaming
+  - casino
+  - wallet
+  - backlog
+  google:
+  - korean
+  - ADGM OR FSRA OR VARA
+  - backlog
+  - crypto payment OR stablecoin payment OR crypto payments OR neobanking
+  - web3 OR stablecoin OR crypto OR neobanking
+  - payments engineer OR payments developer OR crypto payments OR stablecoin OR wallet OR custody
+  - crypto product manager OR product owner OR neobank OR digital asset OR stable coin
+  - product manager OR product owner OR business development OR sales OR account manager OR backlog
+  - ai engineer OR machine learning engineer OR llm engineer OR genai engineer
+  - ai product manager OR genai product manager OR machine learning product manager OR prompt engineer OR rag
+  - data scientist OR research scientist OR applied scientist OR mlops OR inference OR embeddings
+  - igaming
+  - casino OR gaming resort OR wynn OR al marjan OR IT product manager
+  - crypto casino OR sportsbook OR live casino OR gaming platform
+  - binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+  - crypto OR web3 OR blockchain OR payment OR neobanking OR backlog
+  - mobile game OR game developer OR unity OR unreal OR game engine OR game studio OR indie game OR game design OR game artist OR DTC
+# Shared location/domain filters used by scoring and LinkedIn post filtering.
+filters:
+  focus_location_terms:
+  - dubai
+  - united arab emirates
+  - uae
+  - abu dhabi
+  - adgm
+  - ras al-khaimah
+  - ras al khaimah
+  - 두바이
+  - 아랍에미리트
+  - 아부다비
+  - georgia
+  - tbilisi
+  - batumi
+  - 조지아
+  - malta
+  - valletta
+  - 몰타
+  remote_gcc_location_terms:
+  - bahrain
+  - qatar
+  - saudi
+  - saudi arabia
+  - riyadh
+  - jeddah
+  - doha
+  - manama
+  - georgia
+  - tbilisi
+  - batumi
+  focus_domain_terms:
+  - web3
+  - stablecoin
+  - stable coin
+  - digital asset
+  - digital assets
+  - crypto payment
+  - crypto payments
+  - neobank
+  - neobanking
+  - digital assets
+  - custody
+  - exchange
+  - wallet
+  - psp
+  - mto
+  - casino
+  - crypto casino
+  - live casino
+  - sportsbook
+  - casino tech
+  - gaming platform
+  - betting
+  - sports betting
+  - gaming
+  - gaming resort
+  - game
+  - resort
+  - hospitality tech
+  - gaming technology
+  - it product
+  - product technology
+  - dmcc
+  - dtc
+  - wynn
+  - al marjan
+  - marjan
+  - payment
+  - payments
+  - adgm
+  - vara
+  - fsra
+  - igaming
+  - blockchain
+  - crypto
+  - tokenization
+  - virtual assets
+  - cex
+  - binance
+  - bybit
+  - okx
+  - coinbase
+  - kraken
+  - bitget
+  - gate.io
+  - kucoin
+  - htx
+  - crypto.com
+  - mexc
+# News topic classifier keywords. This is configuration, not scoring code.
+topics:
+  news:
+  - key: regulation_license
+    label_ko: 규제·라이센스
+    keywords:
+    - regulation
+    - license
+    - compliance
+    - authority
+    - gaming commission
+    - central bank
+    - VARA
+    - DFSA
+    - approved
+    - ban
+  - key: igaming_market
+    label_ko: iGaming 시장
+    keywords:
+    - igaming
+    - casino
+    - betting
+    - sports betting
+    - online gaming
+    - gambling
+    - lottery
+    - esports
+  - key: game_industry
+    label_ko: 게임 산업
+    keywords:
+    - game
+    - mobile game
+    - game development
+    - game developer
+    - game studio
+    - game design
+    - indie game
+    - unity
+    - unreal
+    - game engine
+    - game industry
+  - key: fintech_uae
+    label_ko: 핀테크 UAE
+    keywords:
+    - fintech
+    - UAE
+    - Dubai
+    - Abu Dhabi
+    - DIFC
+    - ADGM
+    - neobank
+    - digital bank
+    - open banking
+  - key: crypto_web3
+    label_ko: 암호화폐·Web3
+    keywords:
+    - crypto
+    - bitcoin
+    - blockchain
+    - web3
+    - NFT
+    - DeFi
+    - token
+    - stablecoin
+    - CBDC
+  - key: payments
+    label_ko: 결제·송금
+    keywords:
+    - payment
+    - wallet
+    - transaction
+    - remittance
+    - cross-border
+    - instant payment
+    - POS
+  - key: hiring_expansion
+    label_ko: 채용·사업확장
+    keywords:
+    - hire
+    - hiring
+    - jobs
+    - talent
+    - launch
+    - expand
+    - partnership
+    - agreement
+    - opens
+  - key: investment_funding
+    label_ko: 투자·펀딩
+    keywords:
+    - investment
+    - funding
+    - raise
+    - capital
+    - venture
+    - series A
+    - series B
+    - IPO
+    - valuation
+# Runtime defaults from YAML. Environment variables still take precedence.
+runtime:
+  defaults:
+    job_watch_sources: jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads,linkedin_public,linkedin_emea,indeed_uae,glassdoor_uae,drjobs
+  linkedin_jobs:
+    batch_size: 2
+  indeed:
+    batch_size: 2
+  glassdoor:
+    batch_size: 1
+    workers: 1
+  linkedin_posts:
+    batch_size: 2
+    max_plans: 96
+    scroll_rounds: 2
+    timeout_seconds: 900
+    total_timeout_seconds: 5400
+    batch_pause_min_seconds: 25
+    batch_pause_max_seconds: 45
+    query_pause_min_seconds: 4
+    query_pause_max_seconds: 6

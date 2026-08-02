@@ -19,6 +19,7 @@ from .utils import (
     load_resume_text,
     utc_now,
 )
+from .collection_config import SOURCE_COUNTRIES, SOURCE_LABELS
 from .config import OUTPUT_DIR
 from .logger import notifications_logger
 from .reporter import read_text_safely, write_text_safely
@@ -46,6 +47,7 @@ def _ensure_telegram_env_loaded() -> None:
 
 
 SOURCE_COUNTRY_OVERRIDES = {
+    **SOURCE_COUNTRIES,
     "jobvite_pragmaticplay": "UAE",
     "smartrecruitment": "UAE",
     "igamingrecruitment": "UAE",
@@ -591,6 +593,8 @@ def send_telegram_messages_chunked(lines: List[str], max_length: int = 4000) -> 
 
 def _news_source_label(source: str) -> str:
     """Convert news source code to human-readable label."""
+    if source in SOURCE_LABELS:
+        return SOURCE_LABELS[source]
     mapping = {
         "rss_igaming_business": "iGaming Business",
         "rss_fintech_uae": "Fintech News UAE",
