@@ -1089,6 +1089,98 @@ def _runtime_int(section: str, key: str, default: int, env_name: str | None = No
         return default
 
 
+def get_enabled_job_source_ids() -> list[str]:
+    """Get all enabled job source IDs from YAML config (news sources excluded)."""
+    news_sources = {"rss", "player"}  # News-only sources to exclude
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for source_key, source_config in (_sources() or {}).items():
+        if not isinstance(source_config, dict):
+            continue
+        if source_key.startswith("telegram"):
+            continue  # Telegram channels are not job sources
+        if source_key in news_sources:
+            continue  # Skip news-only sources
+        if not _enabled(source_config):
+            continue  # Skip disabled sources
+
+        # For sources with targets (LinkedIn, Indeed, etc.), collect enabled target source IDs
+        targets = source_config.get("targets", [])
+        if targets:
+            for target in targets:
+                if isinstance(target, dict) and _enabled(target):
+                    source_id = target.get("source")
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
+        else:
+            # For flat sources (job_pages, recruiters), use source field or key
+            source_id = source_config.get("source", source_key)
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_enabled_linkedin_source_ids() -> list[str]:
+    """Get all enabled LinkedIn source IDs from YAML config."""
+    linkedin_config = _sources().get("linkedin_jobs", {})
+    if not isinstance(linkedin_config, dict):
+        return []
+
+    seen: set[str] = set()
+    result: list[str] = []
+
+    targets = linkedin_config.get("targets", [])
+    if not targets:
+        return []
+
+    for target in targets:
+        if isinstance(target, dict) and _enabled(target):
+            source_id = target.get("source")
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_collection_target_metadata() -> dict[str, dict[str, str]]:
+    """Get target metadata mapping (target_id -> {source, country, location})."""
+    metadata: dict[str, dict[str, str]] = {}
+
+    for source_key, source_config in (_sources() or {}).items():
+        if not isinstance(source_config, dict) or not _enabled(source_config):
+            continue
+
+        targets = source_config.get("targets", [])
+        if not targets:
+            continue
+
+        for target in targets:
+            if not isinstance(target, dict) or not _enabled(target):
+                continue
+
+            target_id = target.get("id", "")
+            if not target_id:
+                continue
+
+            source_id = target.get("source", "")
+            country = target.get("country", "")
+            location = target.get("location", "")
+
+            if target_id not in metadata:
+                metadata[target_id] = {
+                    "source": source_id,
+                    "country": country,
+                    "location": location,
+                }
+
+    return metadata
+
+
 def runtime_default_sources() -> str:
     return str(REGISTRY.get("runtime", {}).get("defaults", {}).get("job_watch_sources", ""))
 
@@ -1309,11 +1401,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--check-urls", action="store_true", help="Reserved for a future lightweight URL health check")
+    parser.add_argument("--enabled-job-source-ids", action="store_true", help="Print enabled job source IDs (comma-separated)")
+    parser.add_argument("--enabled-linkedin-source-ids", action="store_true", help="Print enabled LinkedIn source IDs (comma-separated)")
     args = parser.parse_args(argv)
+
     if args.check or args.check_urls:
         print(check_summary())
         errors, _ = validate_registry()
         return 1 if errors else 0
+
+    if args.enabled_job_source_ids:
+        sources = get_enabled_job_source_ids()
+        print(",".join(sources))
+        return 0
+
+    if args.enabled_linkedin_source_ids:
+        sources = get_enabled_linkedin_source_ids()
+        print(",".join(sources))
+        return 0
+
     parser.print_help()
     return 0
 

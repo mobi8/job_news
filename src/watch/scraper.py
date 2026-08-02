@@ -332,6 +332,70 @@ def _jobspy_source_name(site_name: str, country: str) -> str:
     raise ValueError(f"Unsupported JobSpy site: {site_name}")
 
 
+def _normalize_country(job: dict[str, Any]) -> str:
+    """Normalize job country based on multiple sources.
+
+    Priority:
+    1. Target configured country (from YAML)
+    2. Job's current valid country
+    3. Source metadata country
+    4. Location-based detection
+
+    Returns country string or empty string if unresolved.
+    """
+    # Priority 1: Target configured country from YAML
+    if job.get("target_country"):
+        return job["target_country"]
+
+    # Special cases: no country assignment
+    if job.get("country") == "Other" or job.get("source") in {"linkedin_post_spot", "linkedin_job_spot"}:
+        return "Other"
+    if job.get("source") == "linkedin_emea":
+        return "Remote"
+
+    # Priority 2: Current valid country if exists
+    existing_country = job.get("country", "").strip()
+    if existing_country and existing_country not in ("", "Other"):
+        return existing_country
+
+    # Priority 3: Source metadata country (if applicable)
+    # This can be added later if needed
+
+    # Priority 4: Location-based detection
+    location = (job.get("location") or "").lower().strip()
+    if not location:
+        return ""
+
+    # Netherlands / Amsterdam
+    if any(x in location for x in ["amsterdam", "netherlands", "dutch", "rotterdam", "utrecht", "amsterdam"]):
+        return "Netherlands"
+
+    # Australia
+    if any(x in location for x in ["australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "호주", "시드니", "멜버른"]):
+        return "Australia"
+
+    # Malta (high priority)
+    if any(x in location for x in ["malta", "valletta", "몰타", "sliema", "gzira"]):
+        return "Malta"
+
+    # Georgia (check before USA)
+    if any(x in location for x in ["미국 조지아", "us georgia", "georgia, usa", "georgia, united states"]):
+        return ""
+    if any(x in location for x in ["georgia", "조지아", "tbilisi", "트빌리시", "batumi", "바투미"]):
+        return "Georgia"
+
+    # Exclude USA/Hong Kong
+    if any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
+        return ""
+
+    # UAE
+    if any(x in location for x in ["dubai", "두바이", "united arab emirates", "uae"]):
+        return "UAE"
+
+    # Default: location exists but doesn't match any known country
+    return ""
+
+
 def _build_google_search_term(keyword: str, location: str) -> str:
     cleaned_keyword = keyword.strip()
     cleaned_location = location.strip()
@@ -926,13 +990,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         # Scrape LinkedIn and Indeed via browser probe first so richer descriptions win on dedupe.
         _console_step("Starting browser scrape pass")
         browser_linkedin_jobs = []
-        linkedin_stage_allowed = _any_source_allowed(
-            allowed_sources,
-            "linkedin_public",
-            "linkedin_emea",
-            "linkedin_georgia",
-            "linkedin_malta",
-        )
+
+        # Determine LinkedIn sources dynamically from YAML config
+        from utils.collection_config import get_enabled_linkedin_source_ids
+        enabled_linkedin_sources = get_enabled_linkedin_source_ids()
+        linkedin_stage_allowed = _any_source_allowed(allowed_sources, *enabled_linkedin_sources) if enabled_linkedin_sources else False
         if skip_linkedin_browser or not linkedin_stage_allowed:
             logger.info("Skipping LinkedIn browser phase.")
             stage_results["linkedin"] = _stage("skipped", 0)
@@ -1156,37 +1218,10 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         # Re-detect country based on location for all jobs
         # This ensures old jobs are properly classified even if they were stored with wrong country
         for job in all_jobs_annotated:
-            if job.get("country") == "Other" or job.get("source") in {"linkedin_post_spot", "linkedin_job_spot"}:
-                job["country"] = "Other"
-                continue
-            if job.get("source") == "linkedin_emea":
-                job["country"] = "Remote"
+            normalized_country = _normalize_country(job)
+            job["country"] = normalized_country
+            if job.get("source") == "linkedin_emea" or normalized_country == "Remote":
                 job["remote"] = True
-                continue
-
-            location = (job.get("location") or "").lower()
-            # Malta (high priority)
-            if "malta" in location or "valletta" in location or "몰타" in location or "sliema" in location or "gzira" in location:
-                job["country"] = "Malta"
-            # Georgia (check before USA to handle Georgia properly)
-            elif "미국 조지아" in location or "us georgia" in location or "georgia, usa" in location or "georgia, united states" in location:
-                job["country"] = ""
-            # Georgia
-            elif "georgia" in location or "조지아" in location or "tbilisi" in location or "트빌리시" in location or "batumi" in location or "바투미" in location:
-                job["country"] = "Georgia"
-            # Exclude USA/Hong Kong
-            elif any(x in location for x in ["미국", "usa", "united states", "american gaming", "ags -", "fanduel", "atlanta", "duluth", "hong kong", "홍콩"]):
-                job["country"] = ""
-            # UAE
-            elif "dubai" in location or "두바이" in location or "united arab emirates" in location or "uae" in location:
-                job["country"] = "UAE"
-            # Default: if location doesn't match any specific country, clear country field
-            # This prevents old UAE jobs from being incorrectly classified when location doesn't clearly indicate UAE
-            else:
-                # Only set to empty if location exists but doesn't match any country
-                # Preserve country only if location is completely empty
-                if location and location.strip():  # Non-empty location that didn't match any condition
-                    job["country"] = ""
 
         tracked_jobs = [job for job in all_jobs_annotated if job["qualifies"]]
         final_job_total = db.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]

@@ -173,7 +173,24 @@ if [[ -n "$PRESET_BROWSER_INDEED_BATCH_SIZE" ]]; then
 fi
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
-export JOB_WATCH_SOURCES="${JOB_WATCH_SOURCES:-jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads,linkedin_public,linkedin_emea,indeed_uae,glassdoor_uae,drjobs}"
+
+# Determine JOB_WATCH_SOURCES: external env > .env > YAML defaults
+if [[ -z "${JOB_WATCH_SOURCES:-}" ]]; then
+  # Try to get from YAML config
+  if [[ -x "${PYTHON_BIN}" ]]; then
+    YAML_SOURCES="$("${PYTHON_BIN}" -m src.utils.collection_config --enabled-job-source-ids 2>/dev/null || true)"
+    if [[ -n "${YAML_SOURCES}" ]]; then
+      export JOB_WATCH_SOURCES="${YAML_SOURCES}"
+    else
+      echo "❌ Failed to read JOB_WATCH_SOURCES from config" >&2
+      exit 1
+    fi
+  else
+    echo "❌ Python binary not available for config lookup" >&2
+    exit 1
+  fi
+fi
+
 export SKIP_LINKEDIN_BROWSER="${SKIP_LINKEDIN_BROWSER:-0}"
 export SKIP_INDEED_BROWSER="${SKIP_INDEED_BROWSER:-0}"
 export SKIP_DRJOBS_BROWSER="${SKIP_DRJOBS_BROWSER:-0}"
