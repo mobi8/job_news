@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "config" / "collection_sources.yaml"
+CONFIG_PATH = Path(os.getenv("COLLECTION_SOURCES_CONFIG_PATH") or ROOT / "config" / "collection_sources.yaml")
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,23 @@ class SearchTarget:
     exclude_terms: tuple[str, ...] = ()
     keyword_group_id: str = ""
     keyword_query: str = ""
+
+
+@dataclass(frozen=True)
+class CollectionPhase:
+    id: str
+    label: str
+    description: str
+    aliases: tuple[str, ...]
+    order: int
+    enabled: bool
+    timeout_seconds: int
+    supports_target: bool
+    telegram_visible: bool
+    writes_database: bool
+    sends_notification: bool
+    full_run_included: bool
+    execution_mode: str
 
 
 def _load_yaml(path: Path = CONFIG_PATH) -> dict[str, Any]:
@@ -61,6 +78,17 @@ def _enabled(item: dict[str, Any]) -> bool:
 
 def _sources() -> dict[str, Any]:
     return REGISTRY.get("sources", {})
+
+
+def _runtime() -> dict[str, Any]:
+    return REGISTRY.get("runtime", {})
+
+
+def _int_value(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _keyword_groups(target: dict[str, Any]) -> list[dict[str, str]]:
@@ -383,6 +411,98 @@ def runtime_default_sources() -> str:
     return str(REGISTRY.get("runtime", {}).get("defaults", {}).get("job_watch_sources", ""))
 
 
+def phase_registry() -> list[CollectionPhase]:
+    phases: list[CollectionPhase] = []
+    for item in _runtime().get("phases", []) or []:
+        if not isinstance(item, dict):
+            continue
+        phases.append(
+            CollectionPhase(
+                id=str(item.get("id") or ""),
+                label=str(item.get("label") or item.get("id") or ""),
+                description=str(item.get("description") or ""),
+                aliases=tuple(str(alias).strip().lower() for alias in item.get("aliases", []) or [] if str(alias).strip()),
+                order=_int_value(item.get("order"), 0),
+                enabled=_enabled(item),
+                timeout_seconds=_int_value(item.get("timeout_seconds"), 0),
+                supports_target=bool(item.get("supports_target", False)),
+                telegram_visible=bool(item.get("telegram_visible", False)),
+                writes_database=bool(item.get("writes_database", False)),
+                sends_notification=bool(item.get("sends_notification", False)),
+                full_run_included=bool(item.get("full_run_included", False)),
+                execution_mode=str(item.get("execution_mode") or "python"),
+            )
+        )
+    return sorted(phases, key=lambda phase: (phase.order, phase.id))
+
+
+def phase_alias_map() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for phase in phase_registry():
+        aliases[phase.id.lower()] = phase.id
+        for alias in phase.aliases:
+            aliases[alias] = phase.id
+    aliases["help"] = "help"
+    aliases["list"] = "list"
+    return aliases
+
+
+def resolve_phase_id(value: str) -> str | None:
+    return phase_alias_map().get(str(value or "").strip().lower())
+
+
+def validate_phase_registry() -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    phases = _runtime().get("phases", []) or []
+    if not isinstance(phases, list):
+        return ["runtime.phases must be a list"], warnings
+
+    seen_ids: set[str] = set()
+    seen_aliases: dict[str, str] = {}
+    seen_orders: dict[int, str] = {}
+    valid_modes = {"python", "shell", "internal"}
+    for index, item in enumerate(phases):
+        if not isinstance(item, dict):
+            errors.append(f"runtime.phases[{index}] must be a mapping")
+            continue
+        phase_id = str(item.get("id") or "").strip()
+        where = f"runtime.phases[{phase_id or index}]"
+        if not phase_id:
+            errors.append(f"{where}: missing id")
+        elif phase_id in seen_ids:
+            errors.append(f"{where}: duplicate phase id {phase_id}")
+        seen_ids.add(phase_id)
+
+        mode = str(item.get("execution_mode") or "").strip()
+        if mode not in valid_modes:
+            errors.append(f"{where}: unknown execution_mode {mode!r}")
+
+        timeout = item.get("timeout_seconds")
+        if not isinstance(timeout, int) or timeout <= 0:
+            errors.append(f"{where}: timeout_seconds must be a positive integer")
+
+        order = item.get("order")
+        if not isinstance(order, int):
+            errors.append(f"{where}: order must be an integer")
+        elif order in seen_orders:
+            warnings.append(f"runtime.phases: duplicate order {order} for {seen_orders[order]} and {phase_id}")
+        else:
+            seen_orders[order] = phase_id
+
+        for alias in item.get("aliases", []) or []:
+            key = str(alias).strip().lower()
+            if not key:
+                continue
+            if key in seen_aliases:
+                errors.append(f"{where}: duplicate alias {key!r} also used by {seen_aliases[key]}")
+            if key in seen_ids:
+                errors.append(f"{where}: alias {key!r} conflicts with a phase id")
+            seen_aliases[key] = phase_id
+
+    return errors, warnings
+
+
 def linkedin_post_filters() -> dict[str, Any]:
     return dict(_sources().get("linkedin_posts", {}).get("filters", {}))
 
@@ -399,6 +519,9 @@ def linkedin_post_location_terms_by_country() -> dict[str, list[str]]:
 def validate_registry() -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    phase_errors, phase_warnings = validate_phase_registry()
+    errors.extend(phase_errors)
+    warnings.extend(phase_warnings)
     seen_ids: set[str] = set()
     url_sources: dict[str, list[str]] = defaultdict(list)
 
@@ -490,6 +613,7 @@ def check_summary() -> str:
             "",
             "Runtime:",
             f"- LinkedIn Posts batches: {_runtime_int('linkedin_posts', 'batch_size', 5)}",
+            f"- Collection phases: {len(phase_registry())}",
         ]
     )
     if warnings:

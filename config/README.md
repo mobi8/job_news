@@ -153,10 +153,31 @@ Operational shell runners prefer `PYTHON_BIN` first, then `venv312/bin/python`, 
 Use the verified Python 3.12 environment explicitly when running collectors:
 
 ```bash
-PYTHON_BIN=/Users/lewis/Desktop/agent/venv312/bin/python ./run_collect_once.sh
+PYTHON_BIN="$PWD/venv312/bin/python" ./run_collect_once.sh
 ```
 
 The runners print the selected Python path and version at startup. Python 3.14 or newer prints a dependency compatibility warning.
+
+## Phase Runner
+
+Collection phases are listed in `runtime.phases`. The phase runner is a thin dispatcher around the existing collectors and runners.
+
+```bash
+PYTHON_BIN="$PWD/venv312/bin/python"
+$PYTHON_BIN -m src.watch.phase_runner list
+$PYTHON_BIN -m src.watch.phase_runner status
+$PYTHON_BIN -m src.watch.phase_runner run rss --target igaming_business --dry-run
+```
+
+Phase summaries are written under `outputs/phase_runs/` for real runs. Dry runs do not execute collectors or write summaries.
+
+Telegram execution commands will use these environment variables for inbound authorization:
+
+```bash
+TELEGRAM_ALLOWED_CHAT_IDS=12345,67890
+```
+
+If `TELEGRAM_ALLOWED_CHAT_IDS` is not set, `TELEGRAM_CHAT_ID` is used as the single allowed chat. If neither is set, execution-style collect commands are disabled.
 
 ## Override Priority
 

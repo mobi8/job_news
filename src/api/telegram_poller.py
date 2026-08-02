@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import sys
 import time
 import sqlite3
@@ -29,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.career_bridge import analyze, route_command, run
 from services.linkedin_spot import parse_spot_command, spot_usage, start_spot_search
+from api.telegram_auth import collect_commands_enabled, is_chat_authorized, unauthorized_message
 from utils.config import OUTPUT_DIR
 from utils.notifications import send_telegram_text
 
@@ -40,11 +42,309 @@ MAX_DESCRIPTION_CHARS = 12000
 
 # Script execution tracking
 RUNNING_SCRIPTS = set()  # Set of currently running script names
+RUNNING_COLLECT_COMMANDS = set()
 SCRIPT_NAMES = {
     "run": "./run_collect_once.sh",
     "glass": "./run_glassdoor.sh",
     "posts": "./run_linkedin_posts.sh",
 }
+
+
+def _send_collect_text(text: str, chat_id: object | None = None) -> bool:
+    """Send a /collect response to the inbound chat when possible."""
+    if chat_id is None:
+        return send_telegram_text(text)
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        return send_telegram_text(text)
+    payload = urllib.parse.urlencode({"chat_id": str(chat_id), "text": text}).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return 200 <= response.status < 300
+    except Exception as exc:
+        print(f"❌ Failed to send /collect Telegram response: {exc}")
+        return False
+
+
+def _select_collect_python_bin() -> str:
+    explicit = os.getenv("PYTHON_BIN")
+    if explicit:
+        return explicit
+
+    workdir = Path(__file__).parent.parent.parent
+    for candidate in (
+        workdir / "venv312" / "bin" / "python",
+        workdir / "venv" / "bin" / "python",
+    ):
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
+
+
+def _collect_env() -> dict[str, str]:
+    env = os.environ.copy()
+    workdir = Path(__file__).parent.parent.parent
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = str(workdir) if not existing else f"{workdir}{os.pathsep}{existing}"
+    env.setdefault("PYTHON_BIN", _select_collect_python_bin())
+    return env
+
+
+def _run_collect_subprocess(args: list[str], timeout_seconds: int) -> subprocess.CompletedProcess[str]:
+    workdir = Path(__file__).parent.parent.parent
+    return subprocess.run(
+        args,
+        cwd=str(workdir),
+        env=_collect_env(),
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=False,
+    )
+
+
+def _collect_cli_args(command: str, *extra: str) -> list[str]:
+    return [_select_collect_python_bin(), "-m", "src.watch.phase_runner", command, *extra]
+
+
+def _sanitize_collect_error(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if token:
+        text = text.replace(token, "[redacted]")
+    home = str(Path.home())
+    if home:
+        text = text.replace(home, "~")
+    text = re.sub(r"/Users/[^\s\"']+", "[local path]", text)
+    return text[:800]
+
+
+def _json_from_process_output(process: subprocess.CompletedProcess[str]) -> dict[str, object] | None:
+    output = (process.stdout or "").strip()
+    if not output:
+        return None
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        return None
+
+
+def _collect_count_lines(summary: dict[str, object]) -> list[str]:
+    counts = summary.get("counts")
+    if not isinstance(counts, dict):
+        return []
+    labels = {
+        "raw": "raw",
+        "filtered": "filtered",
+        "inserted": "inserted",
+        "exported": "exported",
+        "notified": "notified",
+        "attempted_targets": "targets",
+    }
+    parts = []
+    for key, label in labels.items():
+        value = counts.get(key)
+        if value is not None:
+            parts.append(f"{label}={value}")
+    return ["Counts: " + ", ".join(parts)] if parts else []
+
+
+def _format_collect_status(process: subprocess.CompletedProcess[str]) -> str:
+    data = _json_from_process_output(process)
+    if data is None:
+        output = _sanitize_collect_error((process.stdout or "") + (process.stderr or ""))
+        if process.returncode == 0:
+            return output or "✅ /collect 명령이 완료되었습니다."
+        return f"❌ /collect 명령 실패 (exit {process.returncode})\n{output}".strip()
+
+    active = data.get("active_runs")
+    latest = data.get("latest")
+    lines = ["📊 Collect status"]
+    if active:
+        lines.append(f"Active runs: {len(active)}")
+        for item in active if isinstance(active, list) else []:
+            if isinstance(item, dict):
+                lines.append(f"- {item.get('phase', '?')} running since {item.get('started_at', '?')}")
+    else:
+        lines.append("Active runs: 0")
+    if isinstance(latest, dict) and latest:
+        lines.append(
+            "Latest: "
+            f"{latest.get('phase', '?')} "
+            f"{latest.get('status', '?')} "
+            f"at {latest.get('completed_at') or latest.get('started_at') or '?'}"
+        )
+    elif data.get("status") == "empty":
+        lines.append("Latest: none")
+    return "\n".join(lines)
+
+
+def _format_collect_run_result(
+    phase: str,
+    target: str | None,
+    process: subprocess.CompletedProcess[str],
+    timed_out: bool = False,
+) -> str:
+    if timed_out:
+        return f"❌ /collect {phase} timed out."
+
+    data = _json_from_process_output(process)
+    if data is None:
+        output = _sanitize_collect_error((process.stdout or "") + (process.stderr or ""))
+        return f"❌ /collect {phase} failed (exit {process.returncode})\n{output}".strip()
+
+    resolved_phase = str(data.get("phase") or phase)
+    status = str(data.get("status") or "unknown")
+    if status == "invalid_target" and data.get("error") == "phase does not support --target":
+        return f"Target selection is not supported for {resolved_phase}."
+    if status == "disabled":
+        return f"⚠️ /collect {resolved_phase} is disabled."
+
+    title = {
+        "success": "✅ 완료",
+        "partial_success": "⚠️ 부분 성공",
+        "failed": "❌ 실패",
+        "timeout": "❌ 타임아웃",
+        "locked": "⚠️ 이미 실행 중",
+        "dry_run": "✅ dry-run 완료",
+    }.get(status, f"⚠️ {status}")
+
+    suffix = f" target={target}" if target else ""
+    lines = [f"{title}: /collect {resolved_phase}{suffix}"]
+    lines.extend(_collect_count_lines(data))
+    duration = data.get("duration_seconds")
+    if duration is not None:
+        lines.append(f"Duration: {duration}s")
+
+    errors = data.get("errors")
+    if isinstance(errors, list) and errors:
+        lines.append("Error: " + _sanitize_collect_error(errors[0]))
+    elif process.returncode not in (0, 75):
+        stderr = _sanitize_collect_error(process.stderr)
+        if stderr:
+            lines.append("Error: " + stderr)
+    return "\n".join(lines)
+
+
+def _collect_help_message() -> str:
+    process = _run_collect_subprocess(_collect_cli_args("help"), timeout_seconds=30)
+    output = (process.stdout or process.stderr or "").strip()
+    if process.returncode != 0:
+        return f"❌ /collect help failed\n{_sanitize_collect_error(output)}".strip()
+    return "📋 /collect help\n\n" + output[:3500]
+
+
+def _collect_list_message() -> str:
+    process = _run_collect_subprocess(_collect_cli_args("list"), timeout_seconds=30)
+    output = (process.stdout or process.stderr or "").strip()
+    if process.returncode != 0:
+        return f"❌ /collect list failed\n{_sanitize_collect_error(output)}".strip()
+    lines = ["📋 Collect phases"]
+    for raw in output.splitlines():
+        parts = raw.split("\t")
+        if len(parts) < 2:
+            continue
+        phase_id, label = parts[0], parts[1]
+        aliases = next((part.removeprefix("aliases=") for part in parts if part.startswith("aliases=")), "")
+        alias_text = f" aliases: {aliases}" if aliases else ""
+        lines.append(f"- {phase_id}: {label}{alias_text}")
+    lines.append("")
+    lines.append("Targets: rss/player support feed target id; posts supports numeric plan number.")
+    return "\n".join(lines)
+
+
+def _collect_status_message() -> str:
+    process = _run_collect_subprocess(_collect_cli_args("status"), timeout_seconds=30)
+    return _format_collect_status(process)
+
+
+def _execute_collect_phase(phase: str, target: str | None, chat_id: object | None, *, background: bool = True) -> None:
+    command_key = f"{phase}:{target or ''}"
+    if command_key in RUNNING_COLLECT_COMMANDS:
+        _send_collect_text(f"⚠️ /collect {phase} is already starting.", chat_id)
+        return
+    preflight_args = _collect_cli_args("run", phase, "--requested-by", "telegram", "--dry-run", "--no-summary")
+    if target:
+        preflight_args.extend(["--target", target])
+    try:
+        preflight = _run_collect_subprocess(preflight_args, timeout_seconds=60)
+    except subprocess.TimeoutExpired:
+        _send_collect_text(f"❌ /collect {phase} validation timed out.", chat_id)
+        return
+    preflight_data = _json_from_process_output(preflight)
+    preflight_status = str(preflight_data.get("status")) if isinstance(preflight_data, dict) else ""
+    if preflight.returncode != 0 or preflight_status in {"disabled", "failed", "invalid_target", "invalid_registry"}:
+        _send_collect_text(_format_collect_run_result(phase, target, preflight), chat_id)
+        return
+
+    RUNNING_COLLECT_COMMANDS.add(command_key)
+    suffix = f" {target}" if target else ""
+    _send_collect_text(f"▶️ /collect {phase}{suffix} 시작됨... ⏳", chat_id)
+
+    def run_and_report() -> None:
+        try:
+            args = _collect_cli_args("run", phase, "--requested-by", "telegram")
+            if target:
+                args.extend(["--target", target])
+            timeout_seconds = int(os.getenv("TELEGRAM_COLLECT_TIMEOUT_SECONDS", "10800"))
+            try:
+                process = _run_collect_subprocess(args, timeout_seconds=timeout_seconds)
+                _send_collect_text(_format_collect_run_result(phase, target, process), chat_id)
+            except subprocess.TimeoutExpired:
+                _send_collect_text(_format_collect_run_result(phase, target, subprocess.CompletedProcess(args, 124), True), chat_id)
+        except Exception as exc:
+            _send_collect_text(f"❌ /collect {phase} 오류: {_sanitize_collect_error(exc)}", chat_id)
+        finally:
+            RUNNING_COLLECT_COMMANDS.discard(command_key)
+
+    if background:
+        threading.Thread(target=run_and_report, daemon=True).start()
+    else:
+        run_and_report()
+
+
+def _handle_collect_command(text: str, chat_id: object | None, *, background: bool = True) -> None:
+    if not collect_commands_enabled():
+        _send_collect_text("수집 실행 명령이 비활성화되어 있습니다.", chat_id)
+        return
+    if not is_chat_authorized(chat_id):
+        _send_collect_text(unauthorized_message(), chat_id)
+        return
+
+    parts = text.strip().split()
+    args = parts[1:]
+    if not args or args[0].lower() == "help":
+        if len(args) > 1:
+            _send_collect_text("Usage: /collect help", chat_id)
+            return
+        _send_collect_text(_collect_help_message(), chat_id)
+        return
+    action = args[0].lower()
+    if action == "list":
+        if len(args) > 1:
+            _send_collect_text("Usage: /collect list", chat_id)
+            return
+        _send_collect_text(_collect_list_message(), chat_id)
+        return
+    if action == "status":
+        if len(args) > 1:
+            _send_collect_text("Usage: /collect status", chat_id)
+            return
+        _send_collect_text(_collect_status_message(), chat_id)
+        return
+    if len(args) > 2:
+        _send_collect_text("Usage: /collect <phase> [target]", chat_id)
+        return
+    target = args[1] if len(args) == 2 else None
+    _execute_collect_phase(action, target, chat_id, background=background)
 
 
 def _clean_script_log(output: str, limit: int = 5) -> list[str]:
@@ -1043,7 +1343,7 @@ def handle_reddit_request(text: str) -> None:
         send_telegram_text(f"'{query}' 관련 Reddit 포스트가 없습니다.")
 
 
-def handle_message(text: str) -> None:
+def handle_message(text: str, chat_id: object | None = None) -> None:
     """Process incoming message and send response"""
     if not text:
         return
@@ -1052,9 +1352,18 @@ def handle_message(text: str) -> None:
     if text.startswith("/"):
         cmd = text.lstrip("/").lower().split()[0]
 
+        if cmd == "collect":
+            _handle_collect_command(text, chat_id)
+            return
+
         if cmd in ("help", "commands"):
             help_text = (
                 "📋 사용 가능한 명령어:\n\n"
+                "/collect help — phase별 수집 실행 도움말\n"
+                "/collect list — 실행 가능한 phase와 target 확인\n"
+                "/collect status — 현재/최근 phase 실행 상태 확인\n"
+                "/collect rss [target] — RSS 수집 실행\n"
+                "/collect posts [plan_number] — LinkedIn 포스트 plan 실행\n\n"
                 "/run — 전체 수집 실행\n"
                 "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"
                 "  ⏱️ 소요시간: 약 2-3분 | 결과: 새 공고 개수\n\n"
@@ -1281,10 +1590,11 @@ def poll_messages() -> None:
                 msg = update.get("message", {})
                 text = msg.get("text", "").strip()
                 user = msg.get("from", {}).get("first_name", "User")
+                chat_id = msg.get("chat", {}).get("id")
 
                 if text:
                     print(f"📨 {user}: {text}")
-                    handle_message(text)
+                    handle_message(text, chat_id=chat_id)
 
                 offset = update.get("update_id", 0) + 1
 

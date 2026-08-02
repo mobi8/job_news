@@ -1119,6 +1119,211 @@ topics:
     - valuation
 # Runtime defaults from YAML. Environment variables still take precedence.
 runtime:
+  phases:
+  - id: all
+    label: Full Collection
+    description: Run the existing full collection pipeline.
+    aliases:
+    - collect
+    - run
+    order: 10
+    enabled: true
+    timeout_seconds: 10800
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: false
+    execution_mode: shell
+  - id: fixed
+    label: Fixed Job Pages
+    description: Collect configured fixed and explicit job pages.
+    aliases:
+    - pages
+    - job_pages
+    order: 20
+    enabled: true
+    timeout_seconds: 300
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: drjobs
+    label: DrJobs
+    description: Collect configured DrJobs browser targets.
+    aliases:
+    - dr
+    order: 30
+    enabled: true
+    timeout_seconds: 420
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: linkedin
+    label: LinkedIn Jobs
+    description: Collect configured LinkedIn job targets.
+    aliases:
+    - li
+    - linkedin_jobs
+    order: 40
+    enabled: true
+    timeout_seconds: 900
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: indeed
+    label: Indeed Browser
+    description: Collect configured Indeed browser targets.
+    aliases:
+    - indeed_browser
+    order: 50
+    enabled: true
+    timeout_seconds: 600
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: jobspy
+    label: JobSpy
+    description: Collect configured JobSpy targets.
+    aliases:
+    - spy
+    - indeed_jobspy
+    order: 60
+    enabled: true
+    timeout_seconds: 900
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: glassdoor
+    label: Glassdoor
+    description: Collect configured Glassdoor browserless targets.
+    aliases:
+    - glass
+    order: 70
+    enabled: true
+    timeout_seconds: 900
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: shell
+  - id: rss
+    label: RSS Feeds
+    description: Collect configured industry RSS feeds.
+    aliases:
+    - news
+    order: 80
+    enabled: true
+    timeout_seconds: 180
+    supports_target: true
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: player
+    label: Player Feeds
+    description: Collect configured player RSS feeds.
+    aliases:
+    - players
+    - player_feeds
+    order: 90
+    enabled: true
+    timeout_seconds: 180
+    supports_target: true
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: telegram
+    label: Telegram Channels
+    description: Collect configured public Telegram channels.
+    aliases:
+    - tg
+    - channels
+    order: 100
+    enabled: true
+    timeout_seconds: 180
+    supports_target: false
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
+  - id: posts
+    label: LinkedIn Posts
+    description: Collect configured LinkedIn post search plans.
+    aliases:
+    - linkedin_posts
+    - post
+    order: 110
+    enabled: true
+    timeout_seconds: 5400
+    supports_target: true
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: shell
+  - id: queue
+    label: Queue Export
+    description: Export high-scoring jobs to the career-ops queue.
+    aliases:
+    - export
+    - queue_export
+    order: 120
+    enabled: true
+    timeout_seconds: 120
+    supports_target: false
+    telegram_visible: true
+    writes_database: false
+    sends_notification: false
+    full_run_included: true
+    execution_mode: python
+  - id: dashboard
+    label: Dashboard Data
+    description: Refresh or report dashboard data outputs.
+    aliases:
+    - dash
+    order: 130
+    enabled: true
+    timeout_seconds: 120
+    supports_target: false
+    telegram_visible: true
+    writes_database: false
+    sends_notification: false
+    full_run_included: true
+    execution_mode: python
+  - id: notifications
+    label: Notifications
+    description: Report notification readiness and recent run notification metadata.
+    aliases:
+    - notify
+    order: 140
+    enabled: true
+    timeout_seconds: 60
+    supports_target: false
+    telegram_visible: true
+    writes_database: false
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
   defaults:
     job_watch_sources: jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads,linkedin_public,linkedin_emea,indeed_uae,glassdoor_uae,drjobs
   linkedin_jobs:
