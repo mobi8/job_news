@@ -786,7 +786,6 @@ sources:
       source: linkedin_amsterdam
       country: Netherlands
       location: Amsterdam, Netherlands
-      geo_id: '104268996'
       keyword_groups:
       - id: payments
         query: payment operations OR payments engineer OR crypto payments OR fintech netherlands OR payment product manager
@@ -797,7 +796,6 @@ sources:
       source: linkedin_amsterdam
       country: Netherlands
       location: Amsterdam, Netherlands
-      geo_id: '104268996'
       keyword_groups:
       - id: settlement
         query: custody operations OR asset custody OR settlement operations OR vault operations
@@ -808,7 +806,6 @@ sources:
       source: linkedin_amsterdam
       country: Netherlands
       location: Amsterdam, Netherlands
-      geo_id: '104268996'
       keyword_groups:
       - id: settlement
         query: settlement operations OR trading operations OR exchange operations
@@ -819,7 +816,6 @@ sources:
       source: linkedin_amsterdam
       country: Netherlands
       location: Amsterdam, Netherlands
-      geo_id: '104268996'
       keyword_groups:
       - id: product
         query: product manager OR product owner OR delivery manager OR product operations
@@ -830,7 +826,6 @@ sources:
       source: linkedin_amsterdam
       country: Netherlands
       location: Amsterdam, Netherlands
-      geo_id: '104268996'
       keyword_groups:
       - id: igaming
         query: igaming operations OR gaming operations OR casino operations
