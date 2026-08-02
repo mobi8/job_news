@@ -182,6 +182,18 @@ source_metadata:
   group: LinkedIn
   country: Other
   aliases: []
+- id: linkedin_amsterdam
+  label: LinkedIn Amsterdam
+  kind: jobs
+  group: LinkedIn
+  country: Netherlands
+  aliases: []
+- id: linkedin_australia
+  label: LinkedIn Australia
+  kind: jobs
+  group: LinkedIn
+  country: Australia
+  aliases: []
 - id: google_uae
   label: Google UAE
   kind: jobs
@@ -423,6 +435,11 @@ sources:
       - linkedin_emea_game_dev
       - linkedin_emea_game_studio
       - linkedin_emea_backlog
+      - linkedin_remote_payments
+      - linkedin_remote_custody
+      - linkedin_remote_settlement
+      - linkedin_remote_product
+      - linkedin_remote_igaming
       keyword_groups:
       - id: crypto
         label: Crypto
@@ -437,6 +454,76 @@ sources:
         label: Backlog
         keyword_group_ids:
         - backlog
+      - id: payments
+        label: Payments
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        keyword_group_ids:
+        - product
+      - id: settlement
+        label: Settlement
+        keyword_group_ids:
+        - settlement
+    - id: amsterdam
+      label: Amsterdam
+      aliases:
+      - linkedin_amsterdam
+      - netherlands
+      country: Netherlands
+      target_ids:
+      - linkedin_amsterdam_payments
+      - linkedin_amsterdam_custody
+      - linkedin_amsterdam_settlement
+      - linkedin_amsterdam_product
+      - linkedin_amsterdam_igaming
+      keyword_groups:
+      - id: payments
+        label: Payments
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        keyword_group_ids:
+        - product
+      - id: settlement
+        label: Settlement
+        keyword_group_ids:
+        - settlement
+      - id: igaming
+        label: iGaming
+        keyword_group_ids:
+        - igaming
+    - id: australia
+      label: Australia
+      aliases:
+      - linkedin_australia
+      - au
+      country: Australia
+      target_ids:
+      - linkedin_australia_payments
+      - linkedin_australia_custody
+      - linkedin_australia_settlement
+      - linkedin_australia_product
+      - linkedin_australia_igaming
+      keyword_groups:
+      - id: payments
+        label: Payments
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        keyword_group_ids:
+        - product
+      - id: settlement
+        label: Settlement
+        keyword_group_ids:
+        - settlement
+      - id: igaming
+        label: iGaming
+        keyword_group_ids:
+        - igaming
     targets:
     - id: linkedin_company_42167861_emea
       enabled: true
@@ -489,7 +576,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: crypto_payment
-        query: crypto payment OR stablecoin payment OR crypto payments OR neobanking
+        query: crypto payment OR stablecoin payment OR crypto payments OR neobanking OR crypto payment operations OR payment operations manager
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_web3_wallet
@@ -499,7 +586,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: web3_wallet
-        query: web3 OR stablecoin OR crypto OR wallet OR neobanking
+        query: wallet operations OR custody operations OR wallet specialist OR digital asset custody OR vault management
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_regulation
@@ -541,7 +628,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: igaming
-        query: igaming
+        query: igaming OR gaming operations OR casino operations OR sportsbook operations OR gaming compliance
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_crypto_product
@@ -561,7 +648,7 @@ sources:
       location: United Arab Emirates
       keyword_groups:
       - id: custody_game
-        query: custody OR digital asset OR digital assets OR digital asset custody OR stable coin OR game OR gaming
+        query: digital asset custody OR asset custody OR settlement operations OR treasury management OR cold storage OR vault operations
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_casino_resort
@@ -581,7 +668,7 @@ sources:
       location: United Arab Emirates
       keyword_groups:
       - id: exchanges
-        query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+        query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc OR exchange operations OR settlement operations OR trading operations
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_payments_engineer
@@ -591,7 +678,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: payments_engineer
-        query: payments engineer OR payments developer OR crypto payments OR stablecoin
+        query: payments engineer OR payments developer OR crypto payments OR stablecoin OR payment product manager OR fintech delivery manager
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_sales
@@ -601,7 +688,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: sales
-        query: sales manager OR business development OR account manager
+        query: partner operations OR client operations manager OR account manager operations OR business development manager
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_wallet_ops
@@ -621,7 +708,7 @@ sources:
       location: Dubai, United Arab Emirates
       keyword_groups:
       - id: mobile_game
-        query: mobile game OR game developer OR unity OR unreal OR game engine OR DTC
+        query: mobile game OR game developer OR unity OR unreal OR game producer OR game product manager OR live operations OR game operations
       url:
         builder: linkedin_jobs
     - id: linkedin_uae_game_studio
@@ -631,7 +718,172 @@ sources:
       location: United Arab Emirates
       keyword_groups:
       - id: game_studio
-        query: game studio OR indie game OR game design OR game artist OR DTC
+        query: game studio OR game design OR game producer OR publishing operations OR game product operations OR studio operations manager
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_remote_payments
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: payments
+        query: payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_remote_custody
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: settlement
+        query: custody operations OR asset custody OR settlement operations OR treasury management OR vault operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_remote_settlement
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: settlement
+        query: settlement operations OR trading operations OR exchange operations OR brokerage operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_remote_product
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: product
+        query: product manager OR product owner OR delivery manager OR project manager fintech OR product operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_remote_igaming
+      enabled: true
+      source: linkedin_emea
+      country: Remote
+      location: EMEA
+      geo_id: '92000000'
+      remote: true
+      keyword_groups:
+      - id: igaming
+        query: igaming operations OR gaming operations OR casino operations OR compliance gaming OR live ops
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_amsterdam_payments
+      enabled: true
+      source: linkedin_amsterdam
+      country: Netherlands
+      location: Amsterdam, Netherlands
+      geo_id: '104268996'
+      keyword_groups:
+      - id: payments
+        query: payment operations OR payments engineer OR crypto payments OR fintech netherlands OR payment product manager
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_amsterdam_custody
+      enabled: true
+      source: linkedin_amsterdam
+      country: Netherlands
+      location: Amsterdam, Netherlands
+      geo_id: '104268996'
+      keyword_groups:
+      - id: settlement
+        query: custody operations OR asset custody OR settlement operations OR vault operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_amsterdam_settlement
+      enabled: true
+      source: linkedin_amsterdam
+      country: Netherlands
+      location: Amsterdam, Netherlands
+      geo_id: '104268996'
+      keyword_groups:
+      - id: settlement
+        query: settlement operations OR trading operations OR exchange operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_amsterdam_product
+      enabled: true
+      source: linkedin_amsterdam
+      country: Netherlands
+      location: Amsterdam, Netherlands
+      geo_id: '104268996'
+      keyword_groups:
+      - id: product
+        query: product manager OR product owner OR delivery manager OR product operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_amsterdam_igaming
+      enabled: true
+      source: linkedin_amsterdam
+      country: Netherlands
+      location: Amsterdam, Netherlands
+      geo_id: '104268996'
+      keyword_groups:
+      - id: igaming
+        query: igaming operations OR gaming operations OR casino operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_australia_payments
+      enabled: true
+      source: linkedin_australia
+      country: Australia
+      location: Sydney, Australia
+      keyword_groups:
+      - id: payments
+        query: payment operations OR payments engineer OR crypto payments OR fintech australia OR payment product manager
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_australia_custody
+      enabled: true
+      source: linkedin_australia
+      country: Australia
+      location: Sydney, Australia
+      keyword_groups:
+      - id: settlement
+        query: custody operations OR asset custody OR settlement operations OR vault operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_australia_settlement
+      enabled: true
+      source: linkedin_australia
+      country: Australia
+      location: Sydney, Australia
+      keyword_groups:
+      - id: settlement
+        query: settlement operations OR trading operations OR exchange operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_australia_product
+      enabled: true
+      source: linkedin_australia
+      country: Australia
+      location: Sydney, Australia
+      keyword_groups:
+      - id: product
+        query: product manager OR product owner OR delivery manager OR product operations
+      url:
+        builder: linkedin_jobs
+    - id: linkedin_australia_igaming
+      enabled: true
+      source: linkedin_australia
+      country: Australia
+      location: Sydney, Australia
+      keyword_groups:
+      - id: igaming
+        query: igaming operations OR gaming operations OR casino operations
       url:
         builder: linkedin_jobs
   # ========================================================================
@@ -702,17 +954,15 @@ sources:
       - id: korean
         query: korean
       - id: payments
-        query: payment OR crypto OR igaming OR neobanking OR backlog
+        query: payment operations OR crypto payments OR payments engineer OR payment product manager
+      - id: settlement
+        query: settlement operations OR custody operations OR asset custody OR trading operations
+      - id: product
+        query: product manager OR product owner OR product operations OR delivery manager
+      - id: igaming
+        query: igaming operations OR gaming operations OR casino operations OR compliance gaming
       - id: regulation
         query: adgm OR fsra OR vara
-      - id: backlog
-        query: backlog
-      - id: crypto_product
-        query: crypto product manager OR product owner OR neobank OR digital asset OR stable coin OR backlog
-      - id: custody_game
-        query: custody OR digital asset OR digital assets OR digital asset custody OR stable coin OR game OR gaming
-      - id: casino_resort
-        query: casino OR gaming resort OR wynn OR al marjan OR IT product manager
       - id: exchanges
         query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
       url:
@@ -774,10 +1024,15 @@ sources:
     - crypto
     - igaming
     - payment
+    - payment operations
     - wallet
+    - custody
     - digital asset
+    - settlement
     - product
+    - product manager
     - backlog
+    - compliance
     explicit_urls: []
   # ========================================================================
   # drjobs: DrJobs Browser Search Targets
@@ -838,12 +1093,17 @@ sources:
         - igaming
     keywords:
     - igaming
+    - gaming operations
     - crypto
     - digital asset
     - exchange
     - custody
+    - settlement
     - wallet
+    - payment operations
+    - product manager
     - backlog
+    - compliance
     explicit_urls:
     - https://drjobs.ae/igaming-jobs
   # ========================================================================
@@ -991,6 +1251,22 @@ sources:
     - id: game
       query: game
       domain: game
+    - id: payments
+      query: payment operations OR payments engineer OR payment product
+      domain: payments
+      aliases:
+      - payment
+    - id: custody
+      query: custody OR asset custody OR settlement
+      domain: custody_wallet
+    - id: product_ops
+      query: product manager OR product operations OR delivery manager
+      domain: product_delivery
+      aliases:
+      - product
+    - id: compliance
+      query: compliance OR risk management OR regulatory
+      domain: compliance_risk
     locations:
     - id: posts_uae
       enabled: true
@@ -1189,7 +1465,7 @@ sources:
       company: robert walters
       country: UAE
       location: Dubai, United Arab Emirates
-      keyword_query: Robert Walters crypto OR web3 OR payments OR backlog
+      keyword_query: Robert Walters crypto OR web3 OR payments OR payment operations OR custody OR settlement OR product manager OR backlog
       url:
         builder: linkedin_jobs
     - id: recruiter_michael_page_uae
@@ -1200,7 +1476,7 @@ sources:
       company: michael page
       country: UAE
       location: Dubai, United Arab Emirates
-      keyword_query: Michael Page crypto OR payments OR product OR backlog
+      keyword_query: Michael Page crypto OR payments OR payment operations OR product OR product operations OR delivery OR backlog
       url:
         builder: linkedin_jobs
     - id: recruiter_hays_uae
@@ -1211,7 +1487,7 @@ sources:
       company: hays
       country: UAE
       location: Dubai, United Arab Emirates
-      keyword_query: Hays crypto OR fintech OR payments OR backlog
+      keyword_query: Hays crypto OR fintech OR payments OR payment operations OR compliance OR custody OR backlog
       url:
         builder: linkedin_jobs
     - id: recruiter_crypto_recruit_uae
@@ -1222,7 +1498,7 @@ sources:
       company: crypto recruit
       country: UAE
       location: Dubai, United Arab Emirates
-      keyword_query: Crypto Recruit web3 OR crypto OR backlog
+      keyword_query: Crypto Recruit web3 OR crypto OR payments OR custody OR settlement OR product manager OR backlog
       url:
         builder: linkedin_jobs
   # ========================================================================
@@ -1997,7 +2273,7 @@ runtime:
     workers: 1
   linkedin_posts:
     batch_size: 2
-    max_plans: 96
+    max_plans: 200
     scroll_rounds: 2
     timeout_seconds: 900
     total_timeout_seconds: 5400
