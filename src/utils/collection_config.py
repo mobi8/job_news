@@ -374,61 +374,61 @@ def build_glassdoor_search_targets() -> list[SearchTarget]:
     config = _sources().get("glassdoor", {})
     if not config.get("enabled", True):
         return []
-    target = {
-        "id": "glassdoor_uae",
-        "source": config.get("source", "glassdoor_uae"),
-        "country": config.get("country", "UAE"),
-        "location": config.get("country", "UAE"),
-    }
-    groups: list[dict[str, str]] = []
-    urls = []
-    for index, url in enumerate(config.get("explicit_urls") or [], start=1):
-        urls.append(str(url))
-        groups.append({"id": f"explicit_{index}", "query": str(url)})
-    for keyword in config.get("keywords", []):
-        urls.append(build_glassdoor_uae_url(keyword))
-        groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
-    return _filter_search_targets(
-        "glassdoor",
-        [
-            _search_target(url=url, target={**target, "id": f"glassdoor_{idx}"}, keyword_group=groups[idx - 1])
-            for idx, url in enumerate(urls, 1)
-        ],
-    )
+    targets: list[SearchTarget] = []
+    for target in config.get("targets", []):
+        if not _enabled(target):
+            continue
+        groups: list[dict[str, str]] = []
+        urls = []
+        for index, url in enumerate(target.get("explicit_urls") or [], start=1):
+            urls.append(str(url))
+            groups.append({"id": f"explicit_{index}", "query": str(url)})
+        for keyword in target.get("keywords", []):
+            urls.append(build_glassdoor_uae_url(keyword))
+            groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
+        for idx, url in enumerate(urls, 1):
+            targets.append(
+                _search_target(
+                    url=url,
+                    target={**target, "id": f"{target.get('id', 'glassdoor')}_{idx}"},
+                    keyword_group=groups[idx - 1],
+                )
+            )
+    return _filter_search_targets("glassdoor", targets)
 
 
 def build_drjobs_search_targets() -> list[SearchTarget]:
     config = _sources().get("drjobs", {})
     if not config.get("enabled", True):
         return []
-    target = {
-        "id": "drjobs",
-        "source": config.get("source", "drjobs"),
-        "country": config.get("country", "UAE"),
-        "location": config.get("country", "UAE"),
-    }
-    urls: list[str] = []
-    seen: set[str] = set()
-    groups: list[dict[str, str]] = []
-    for url in config.get("explicit_urls", []):
-        if url not in seen:
-            urls.append(url)
-            seen.add(url)
-            slug = str(url).rstrip("/").split("/")[-1].removesuffix("-jobs")
-            groups.append({"id": _keyword_id(slug), "query": slug.replace("-", " ")})
-    for keyword in config.get("keywords", []):
-        url = build_drjobs_url(keyword)
-        if url not in seen:
-            urls.append(url)
-            seen.add(url)
-            groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
-    return _filter_search_targets(
-        "drjobs",
-        [
-            _search_target(url=url, target={**target, "id": f"drjobs_{idx}"}, keyword_group=groups[idx - 1])
-            for idx, url in enumerate(urls, 1)
-        ],
-    )
+    targets: list[SearchTarget] = []
+    for target in config.get("targets", []):
+        if not _enabled(target):
+            continue
+        urls: list[str] = []
+        seen: set[str] = set()
+        groups: list[dict[str, str]] = []
+        for url in target.get("explicit_urls", []):
+            if url not in seen:
+                urls.append(url)
+                seen.add(url)
+                slug = str(url).rstrip("/").split("/")[-1].removesuffix("-jobs")
+                groups.append({"id": _keyword_id(slug), "query": slug.replace("-", " ")})
+        for keyword in target.get("keywords", []):
+            url = build_drjobs_url(keyword)
+            if url not in seen:
+                urls.append(url)
+                seen.add(url)
+                groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
+        for idx, url in enumerate(urls, 1):
+            targets.append(
+                _search_target(
+                    url=url,
+                    target={**target, "id": f"{target.get('id', 'drjobs')}_{idx}"},
+                    keyword_group=groups[idx - 1],
+                )
+            )
+    return _filter_search_targets("drjobs", targets)
 
 
 def build_linkedin_post_plans() -> list[dict[str, Any]]:

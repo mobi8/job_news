@@ -996,44 +996,28 @@ sources:
     enabled: true
     type: generated_search
     fetch_method: browserless
-    source: glassdoor_uae
-    country: UAE
-    url_builder: glassdoor_uae
-    target_groups:
-    - id: uae
-      label: UAE
-      aliases:
-      - glassdoor_uae
+    targets:
+    - id: glassdoor_uae
+      enabled: true
+      source: glassdoor_uae
       country: UAE
-      keyword_groups:
-      - id: crypto
-        label: Crypto
-        keyword_group_ids:
-        - crypto
-      - id: payments
-        label: Payments
-        aliases:
-        - payment
-        keyword_group_ids:
-        - payment
-      - id: product
-        label: Product
-        keyword_group_ids:
-        - product
-    keywords:
-    - crypto
-    - igaming
-    - payment
-    - payment operations
-    - wallet
-    - custody
-    - digital asset
-    - settlement
-    - product
-    - product manager
-    - backlog
-    - compliance
-    explicit_urls: []
+      location: UAE
+      region: uae
+      url_builder: glassdoor_uae
+      keywords:
+      - crypto
+      - igaming
+      - payment
+      - payment operations
+      - wallet
+      - custody
+      - digital asset
+      - settlement
+      - product
+      - product manager
+      - backlog
+      - compliance
+      explicit_urls: []
   # ========================================================================
   # drjobs: DrJobs Browser Search Targets
   # ========================================================================
@@ -1063,49 +1047,29 @@ sources:
     enabled: true
     type: generated_search
     fetch_method: browser
-    source: drjobs
-    country: UAE
-    url_builder: drjobs
-    target_groups:
-    - id: uae
-      label: UAE
-      aliases:
-      - drjobs_uae
+    targets:
+    - id: drjobs_uae
+      enabled: true
+      source: drjobs
       country: UAE
-      keyword_groups:
-      - id: crypto
-        label: Crypto
-        keyword_group_ids:
-        - crypto
-        - digital_asset
-        - exchange
-        - custody
-        - wallet
-      - id: payments
-        label: Payments
-        aliases:
-        - payment
-        keyword_group_ids:
-        - wallet
-      - id: igaming
-        label: iGaming
-        keyword_group_ids:
-        - igaming
-    keywords:
-    - igaming
-    - gaming operations
-    - crypto
-    - digital asset
-    - exchange
-    - custody
-    - settlement
-    - wallet
-    - payment operations
-    - product manager
-    - backlog
-    - compliance
-    explicit_urls:
-    - https://drjobs.ae/igaming-jobs
+      location: UAE
+      region: uae
+      url_builder: drjobs
+      keywords:
+      - igaming
+      - gaming operations
+      - crypto
+      - digital asset
+      - exchange
+      - custody
+      - settlement
+      - wallet
+      - payment operations
+      - product manager
+      - backlog
+      - compliance
+      explicit_urls:
+      - https://drjobs.ae/igaming-jobs
   # ========================================================================
   # jobspy: JobSpy Library Targets
   # ========================================================================
