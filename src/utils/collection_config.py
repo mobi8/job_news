@@ -1198,6 +1198,123 @@ def linkedin_post_location_terms_by_country() -> dict[str, list[str]]:
     }
 
 
+def get_enabled_job_source_ids() -> list[str]:
+    """Get all enabled job source IDs from YAML config (news sources excluded).
+
+    Handles both dict sources (linkedin_jobs) and list sources (job_pages, recruiters).
+    """
+    news_sources = {"rss", "player"}  # News-only sources to exclude
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for source_key, source_config in (_sources() or {}).items():
+        if source_key.startswith("telegram"):
+            continue  # Telegram channels are not job sources
+        if source_key in news_sources:
+            continue  # Skip news-only sources
+
+        # Handle list-based sources (job_pages, recruiters)
+        if isinstance(source_config, list):
+            for item in source_config:
+                if isinstance(item, dict) and _enabled(item):
+                    source_id = item.get("source", item.get("id", ""))
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
+            continue
+
+        # Handle dict-based sources
+        if not isinstance(source_config, dict):
+            continue
+        if not _enabled(source_config):
+            continue
+
+        # For sources with targets (LinkedIn, Indeed, etc.), collect enabled target source IDs
+        targets = source_config.get("targets", [])
+        if targets:
+            for target in targets:
+                if isinstance(target, dict) and _enabled(target):
+                    source_id = target.get("source")
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
+        else:
+            # For flat dict sources, use source field or key
+            source_id = source_config.get("source", source_key)
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_enabled_linkedin_source_ids() -> list[str]:
+    """Get all enabled LinkedIn source IDs from YAML config."""
+    linkedin_config = _sources().get("linkedin_jobs", {})
+    if not isinstance(linkedin_config, dict):
+        return []
+
+    seen: set[str] = set()
+    result: list[str] = []
+
+    targets = linkedin_config.get("targets", [])
+    if not targets:
+        return []
+
+    for target in targets:
+        if isinstance(target, dict) and _enabled(target):
+            source_id = target.get("source")
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_collection_target_metadata() -> dict[str, dict[str, str]]:
+    """Get target metadata mapping (target_id -> {source, country, location})."""
+    metadata: dict[str, dict[str, str]] = {}
+
+    for source_key, source_config in (_sources() or {}).items():
+        if not isinstance(source_config, dict) or not _enabled(source_config):
+            continue
+
+        targets = source_config.get("targets", [])
+        if not targets:
+            continue
+
+        for target in targets:
+            if not isinstance(target, dict) or not _enabled(target):
+                continue
+
+            target_id = target.get("id", "")
+            if not target_id:
+                continue
+
+            source_id = target.get("source", "")
+            country = target.get("country", "")
+            location = target.get("location", "")
+            if source_id:
+                metadata[target_id] = {
+                    "source": source_id,
+                    "country": country,
+                    "location": location,
+                }
+
+    return metadata
+
+
+def get_source_metadata_by_id(source_id: str) -> dict[str, Any] | None:
+    """Get source metadata by ID."""
+    source_id = str(source_id or "").strip()
+    if not source_id:
+        return None
+    for item in source_metadata():
+        if str(item.get("id") or "") == source_id:
+            return item
+    return None
+
+
 def validate_registry() -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
