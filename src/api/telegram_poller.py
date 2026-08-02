@@ -329,6 +329,212 @@ def _execute_collect_phase(
         run_and_report()
 
 
+def _handle_update_command(chat_id: object | None) -> None:
+    """Handle /update command: git pull, validate config, restart poller."""
+    if not is_chat_authorized(chat_id):
+        _send_collect_text(unauthorized_message(), chat_id)
+        return
+
+    workdir = Path(__file__).parent.parent.parent
+    lock_path = workdir / "outputs" / "telegram_update.lock"
+    update_log = "/tmp/jobwatch_update.log"
+    update_error = "/tmp/jobwatch_update.error.log"
+
+    # Check and acquire lock
+    if lock_path.exists():
+        try:
+            lock_data = json.loads(lock_path.read_text())
+            lock_pid = lock_data.get("pid")
+            if lock_pid and _process_exists(lock_pid):
+                _send_collect_text("⚠️ 업데이트가 이미 진행 중입니다.", chat_id)
+                return
+        except Exception:
+            pass
+        # Stale lock, remove it
+        lock_path.unlink(missing_ok=True)
+
+    # Create lock
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_data = {"pid": os.getpid(), "started_at": datetime.now(timezone.utc).isoformat()}
+        lock_path.write_text(json.dumps(lock_data))
+    except Exception as e:
+        _send_collect_text(f"❌ 업데이트 실패\nStage: lock\nReason: {_sanitize_collect_error(str(e))}", chat_id)
+        return
+
+    try:
+        # Verify git repo and branch
+        try:
+            repo_check = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                cwd=str(workdir),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if repo_check.returncode != 0:
+                raise RuntimeError("not a git repository")
+        except Exception as e:
+            _send_collect_text(f"❌ 업데이트 실패\nStage: git check\nReason: {_sanitize_collect_error(str(e))}", chat_id)
+            return
+
+        # Check current branch
+        branch_check = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        current_branch = (branch_check.stdout or "").strip()
+        if current_branch != "main":
+            _send_collect_text(
+                f"❌ 업데이트 실패\nStage: branch check\nReason: main 브랜치가 아님 ({current_branch})",
+                chat_id,
+            )
+            return
+
+        # Check for dirty working tree (tracked files only)
+        status_check = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if status_check.stdout.strip():
+            _send_collect_text(
+                "❌ 업데이트 실패\nStage: working tree\nReason: tracked 파일 변경 있음",
+                chat_id,
+            )
+            return
+
+        # Get current commit hash
+        current_hash = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
+
+        # Fetch and pull
+        fetch_result = subprocess.run(
+            ["git", "fetch", "origin", "main"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if fetch_result.returncode != 0:
+            _send_collect_text(
+                f"❌ 업데이트 실패\nStage: git fetch\nReason: {_sanitize_collect_error(fetch_result.stderr)}",
+                chat_id,
+            )
+            return
+
+        pull_result = subprocess.run(
+            ["git", "pull", "--ff-only", "origin", "main"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if pull_result.returncode != 0:
+            _send_collect_text(
+                f"❌ 업데이트 실패\nStage: git pull\nReason: {_sanitize_collect_error(pull_result.stderr)}",
+                chat_id,
+            )
+            return
+
+        # Get new commit hash
+        new_hash = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
+
+        # Validate config
+        python_bin = _select_collect_python_bin()
+        config_check = subprocess.run(
+            [python_bin, "-m", "src.utils.collection_config", "--check"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=_collect_env(),
+        )
+        if config_check.returncode != 0:
+            _send_collect_text(
+                f"❌ 업데이트 실패\nStage: config validation\nReason: {_sanitize_collect_error(config_check.stderr)}",
+                chat_id,
+            )
+            return
+
+        # Prepare response message
+        if current_hash == new_hash:
+            message = (
+                "✅ 이미 최신 상태입니다.\n"
+                f"Branch: main\n"
+                f"Commit: {current_hash}\n"
+                "Config: valid\n"
+                "Poller restart: scheduled"
+            )
+        else:
+            message = (
+                "✅ 업데이트 완료\n"
+                f"Branch: main\n"
+                f"Commit: {current_hash} → {new_hash}\n"
+                "Config: valid\n"
+                "Poller restart: scheduled"
+            )
+
+        # Send response FIRST
+        _send_collect_text(message, chat_id)
+
+        # THEN schedule detached restart in background
+        _schedule_detached_poller_restart()
+
+    finally:
+        # Always release lock
+        lock_path.unlink(missing_ok=True)
+
+
+def _process_exists(pid: int) -> bool:
+    """Check if a process with given PID exists."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _schedule_detached_poller_restart() -> None:
+    """Schedule poller restart in detached subprocess."""
+    try:
+        workdir = Path(__file__).parent.parent.parent
+        script_path = workdir / "scripts" / "update_poller_restart.sh"
+
+        if not script_path.exists():
+            print(f"❌ Restart script not found: {script_path}")
+            return
+
+        # Run in detached subprocess
+        # Use Popen with preexec_fn to detach (Unix only) or subprocess for cross-platform
+        subprocess.Popen(
+            [str(script_path)],
+            cwd=str(workdir),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print(f"[{datetime.now(timezone.utc).isoformat()}] Scheduled detached poller restart")
+    except Exception as e:
+        print(f"❌ Failed to schedule poller restart: {e}")
+
+
 def _handle_collect_command(text: str, chat_id: object | None, *, background: bool = True) -> None:
     if not collect_commands_enabled():
         _send_collect_text("수집 실행 명령이 비활성화되어 있습니다.", chat_id)
@@ -376,6 +582,7 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
 def _telegram_help_text() -> str:
     return (
         "📋 사용 가능한 명령어:\n\n"
+        "/update — main 업데이트, 설정 검증, poller 재시작\n\n"
         "/collect — phase 단위 수집 실행\n"
         "/collect list — 실행 가능한 phase 목록\n"
         "/collect status — 현재 실행 상태 확인\n"
@@ -1411,6 +1618,10 @@ def handle_message(text: str, chat_id: object | None = None) -> None:
 
         if cmd == "collect":
             _handle_collect_command(text, chat_id)
+            return
+
+        if cmd == "update":
+            _handle_update_command(chat_id)
             return
 
         if cmd in ("help", "commands"):
