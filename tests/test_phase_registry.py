@@ -14,8 +14,9 @@ def test_phase_registry_contains_required_phases():
         "linkedin",
         "indeed",
         "jobspy",
-        "glassdoor",
-        "rss",
+            "glassdoor",
+            "recruiters",
+            "rss",
         "player",
         "telegram",
         "posts",
@@ -48,8 +49,18 @@ def test_enabled_phases_have_handlers():
 
 def test_target_support_matches_current_safe_handlers():
     target_support = {phase.id: phase.supports_target for phase in phase_registry()}
-    assert target_support["rss"] is True
-    assert target_support["player"] is True
-    assert target_support["posts"] is True
-    for phase_id in ["fixed", "drjobs", "linkedin", "indeed", "jobspy", "glassdoor", "telegram"]:
+    for phase_id in [
+        "fixed",
+        "drjobs",
+        "linkedin",
+        "indeed",
+        "jobspy",
+        "glassdoor",
+        "recruiters",
+        "rss",
+        "player",
+        "posts",
+    ]:
+        assert target_support[phase_id] is True
+    for phase_id in ["all", "telegram", "queue", "dashboard", "notifications"]:
         assert target_support[phase_id] is False

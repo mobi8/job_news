@@ -46,7 +46,7 @@ def test_collect_list_uses_phase_runner_subprocess(monkeypatch):
         return subprocess.CompletedProcess(
             args,
             0,
-            stdout="rss\tRSS Feeds\torder=80\tenabled=True\taliases=news\n",
+            stdout="rss\nselector ✓\nkeyword -\n",
             stderr="",
         )
 
@@ -55,8 +55,54 @@ def test_collect_list_uses_phase_runner_subprocess(monkeypatch):
     telegram_poller._handle_collect_command("/collect list", chat_id="111", background=False)
 
     assert calls and calls[0][1:4] == ["-m", "src.watch.phase_runner", "list"]
-    assert "rss: RSS Feeds" in messages[0][0]
-    assert "aliases: news" in messages[0][0]
+    assert "📋 /collect list" in messages[0][0]
+    assert "rss\nselector ✓" in messages[0][0]
+
+
+def test_collect_list_phase_selector_subprocess(monkeypatch):
+    messages = _capture_messages(monkeypatch)
+    calls = []
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
+
+    def fake_run(args, timeout_seconds):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="- payments: Payments\n", stderr="")
+
+    monkeypatch.setattr(telegram_poller, "_run_collect_subprocess", fake_run)
+
+    telegram_poller._handle_collect_command("/collect list linkedin uae", chat_id="111", background=False)
+
+    assert calls[0][-3:] == ["list", "linkedin", "uae"]
+    assert "payments" in messages[0][0]
+
+
+def test_collect_list_rejects_extra_arguments(monkeypatch):
+    messages = _capture_messages(monkeypatch)
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
+
+    telegram_poller._handle_collect_command("/collect list one two three", chat_id="111", background=False)
+
+    assert messages[-1][0] == "Usage: /collect list [phase] [selector]"
+
+
+def test_collect_list_html_escape_title(monkeypatch):
+    messages = _capture_messages(monkeypatch)
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
+
+    def fake_run(args, timeout_seconds):
+        return subprocess.CompletedProcess(args, 0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(telegram_poller, "_run_collect_subprocess", fake_run)
+
+    telegram_poller._handle_collect_command("/collect list <bad&phase>", chat_id="111", background=False)
+
+    assert "&lt;bad&amp;phase&gt;" in messages[0][0]
+
+
+def test_collect_chunking(monkeypatch):
+    messages = _capture_messages(monkeypatch)
+    telegram_poller._send_collect_chunks("a\n" + ("b" * 3600), chat_id="111", limit=100)
+    assert len(messages) == 2
 
 
 def test_collect_run_alias_target_subprocess_args(monkeypatch):
@@ -96,6 +142,36 @@ def test_collect_run_alias_target_subprocess_args(monkeypatch):
     assert calls[1][-2:] == ["--target", "igaming_business"]
 
 
+def test_collect_run_selector_subselector_args(monkeypatch):
+    messages = _capture_messages(monkeypatch)
+    calls = []
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
+
+    def fake_run(args, timeout_seconds):
+        calls.append(args)
+        payload = {
+            "phase": "linkedin",
+            "status": "dry_run" if "--dry-run" in args else "success",
+            "counts": {"attempted_targets": 2},
+            "errors": [],
+            "resolved_selector": {
+                "selector": "uae",
+                "subselector": "payments",
+                "keyword_group_id": "payments",
+            },
+        }
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(telegram_poller, "_run_collect_subprocess", fake_run)
+
+    telegram_poller._handle_collect_command("/collect linkedin uae payments", chat_id="111", background=False)
+
+    assert any("시작됨" in message for message, _ in messages)
+    assert len(calls) == 2
+    assert calls[0][-4:] == ["--target", "uae", "--subselector", "payments"]
+    assert calls[1][-4:] == ["--target", "uae", "--subselector", "payments"]
+
+
 def test_collect_unsupported_target_message(monkeypatch):
     messages = _capture_messages(monkeypatch)
     monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
@@ -131,9 +207,9 @@ def test_collect_rejects_extra_arguments(monkeypatch):
     messages = _capture_messages(monkeypatch)
     monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "111")
 
-    telegram_poller._handle_collect_command("/collect rss one two", chat_id="111", background=False)
+    telegram_poller._handle_collect_command("/collect rss one two three", chat_id="111", background=False)
 
-    assert messages[-1][0] == "Usage: /collect <phase> [target]"
+    assert messages[-1][0] == "Usage: /collect <phase> [selector] [subselector]"
 
 
 def test_help_and_commands_share_collect_help(monkeypatch):
@@ -151,9 +227,10 @@ def test_help_and_commands_share_collect_help(monkeypatch):
     assert "/collect status — 현재 실행 상태 확인" in help_text
     assert "/collect help — 상세 사용법" in help_text
     assert "/collect &lt;phase&gt; — 특정 phase 실행" in help_text
-    assert "/collect &lt;phase&gt; &lt;target&gt; — target 지원 phase만 특정 target 실행" in help_text
-    assert "Target 지원: rss, player, posts" in help_text
-    assert "Target 미지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, dashboard, telegram, notifications, queue" in help_text
+    assert "/collect &lt;phase&gt; &lt;selector&gt; — target group 실행" in help_text
+    assert "/collect &lt;phase&gt; &lt;selector&gt; &lt;subselector&gt; — keyword/role 범위 실행" in help_text
+    assert "Target 지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, recruiters, rss, player, posts" in help_text
+    assert "Target 미지원: dashboard, telegram, notifications, queue, all" in help_text
     assert "Example: /collect rss | /collect posts 1 | /collect status" in help_text
     assert "/run — 전체 수집 실행" in help_text
     assert "/glass — Glassdoor 수집" in help_text

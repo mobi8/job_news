@@ -248,6 +248,85 @@ sources:
     enabled: true
     type: generated_search
     fetch_method: browser
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - linkedin_uae
+      - united_arab_emirates
+      country: UAE
+      target_ids:
+      - linkedin_uae_crypto_payment
+      - linkedin_uae_web3_wallet
+      - linkedin_uae_regulation
+      - linkedin_uae_backlog_dubai
+      - linkedin_uae_igaming
+      - linkedin_uae_crypto_product
+      - linkedin_uae_custody_game
+      - linkedin_uae_casino_resort
+      - linkedin_uae_exchanges
+      - linkedin_uae_payments_engineer
+      - linkedin_uae_sales
+      - linkedin_uae_wallet_ops
+      - linkedin_uae_mobile_game
+      - linkedin_uae_game_studio
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        aliases:
+        - web3
+        keyword_group_ids:
+        - crypto_payment
+        - web3_wallet
+        - crypto_product
+        - custody_game
+        - exchanges
+        - wallet_ops
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - crypto_payment
+        - payments_engineer
+      - id: product
+        label: Product
+        aliases:
+        - product_manager
+        - product-manager
+        keyword_group_ids:
+        - crypto_product
+      - id: igaming
+        label: iGaming
+        keyword_group_ids:
+        - igaming
+        - casino_resort
+    - id: remote
+      label: Remote / EMEA
+      aliases:
+      - emea
+      - linkedin_emea
+      country: Remote
+      target_ids:
+      - linkedin_company_42167861_emea
+      - linkedin_emea_crypto
+      - linkedin_emea_game_dev
+      - linkedin_emea_game_studio
+      - linkedin_emea_backlog
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - crypto
+      - id: game
+        label: Game
+        keyword_group_ids:
+        - game_dev
+        - game_studio
+      - id: backlog
+        label: Backlog
+        keyword_group_ids:
+        - backlog
     targets:
     - id: linkedin_company_42167861_emea
       enabled: true
@@ -451,6 +530,36 @@ sources:
     enabled: true
     type: generated_search
     fetch_method: browser
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - indeed_uae
+      - united_arab_emirates
+      country: UAE
+      target_ids:
+      - indeed_uae
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - payments
+        - crypto_product
+        - custody_game
+        - exchanges
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        aliases:
+        - product_manager
+        - product-manager
+        keyword_group_ids:
+        - crypto_product
     targets:
     - id: indeed_uae
       enabled: true
@@ -487,6 +596,27 @@ sources:
     source: glassdoor_uae
     country: UAE
     url_builder: glassdoor_uae
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - glassdoor_uae
+      country: UAE
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - crypto
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - payment
+      - id: product
+        label: Product
+        keyword_group_ids:
+        - product
     keywords:
     - crypto
     - igaming
@@ -504,6 +634,31 @@ sources:
     source: drjobs
     country: UAE
     url_builder: drjobs
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - drjobs_uae
+      country: UAE
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - crypto
+        - digital_asset
+        - exchange
+        - custody
+        - wallet
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - wallet
+      - id: igaming
+        label: iGaming
+        keyword_group_ids:
+        - igaming
     keywords:
     - igaming
     - crypto
@@ -519,6 +674,35 @@ sources:
     enabled: true
     type: jobspy
     fetch_method: library
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - jobspy_uae
+      country: UAE
+      target_ids:
+      - jobspy_uae_indeed
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - payments
+        - crypto_product
+        - custody_game
+        - exchanges
+      - id: product-manager
+        label: Product Manager
+        aliases:
+        - product
+        - product_manager
+        keyword_group_ids:
+        - crypto_product
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - payments
     targets:
     - id: jobspy_uae_indeed
       enabled: true
@@ -551,6 +735,9 @@ sources:
     - id: crypto
       query: crypto
       domain: crypto_payments
+      aliases:
+      - payments
+      - payment
     - id: igaming
       query: igaming
       domain: igaming
@@ -563,6 +750,10 @@ sources:
     - id: backlog
       query: backlog
       domain: backlog
+      aliases:
+      - product
+      - product_manager
+      - product-manager
     - id: game
       query: game
       domain: game
@@ -572,6 +763,9 @@ sources:
       country: UAE
       store_country: UAE
       label: UAE
+      aliases:
+      - uae
+      - linkedin_posts_uae
       query_location: in UAE
       location_terms:
       - uae
@@ -584,6 +778,9 @@ sources:
       country: Remote
       store_country: Remote
       label: MENA Remote
+      aliases:
+      - remote
+      - mena
       query_location: remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman
       location_terms:
       - remote
@@ -602,6 +799,8 @@ sources:
       country: Amsterdam
       store_country: Amsterdam
       label: Amsterdam
+      aliases:
+      - amsterdam
       query_location: in Amsterdam Netherlands
       location_terms:
       - amsterdam
@@ -613,6 +812,9 @@ sources:
       country: Australia
       store_country: Australia
       label: Australia
+      aliases:
+      - australia
+      - au
       query_location: in Australia
       location_terms:
       - australia
@@ -627,6 +829,8 @@ sources:
       country: Malta
       store_country: Malta
       label: Malta
+      aliases:
+      - malta
       query_location: in Malta
       location_terms:
       - malta
@@ -674,6 +878,41 @@ sources:
   # Recruiter-oriented LinkedIn searches and company watch list.
   recruiters:
     enabled: true
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - recruiters_uae
+      country: UAE
+      target_ids:
+      - recruiter_robert_walters_uae
+      - recruiter_michael_page_uae
+      - recruiter_hays_uae
+      - recruiter_crypto_recruit_uae
+      keyword_groups:
+      - id: fintech
+        label: Fintech
+        target_ids:
+        - recruiter_hays_uae
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        target_ids:
+        - recruiter_robert_walters_uae
+        - recruiter_michael_page_uae
+      - id: crypto
+        label: Crypto
+        target_ids:
+        - recruiter_robert_walters_uae
+        - recruiter_crypto_recruit_uae
+      - id: robert_walters
+        label: Robert Walters
+        aliases:
+        - robert-walters
+        - robert
+        target_ids:
+        - recruiter_robert_walters_uae
     companies:
     - robert walters
     - michael page
@@ -1144,7 +1383,7 @@ runtime:
     order: 20
     enabled: true
     timeout_seconds: 300
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
@@ -1158,7 +1397,7 @@ runtime:
     order: 30
     enabled: true
     timeout_seconds: 420
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
@@ -1173,7 +1412,7 @@ runtime:
     order: 40
     enabled: true
     timeout_seconds: 900
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
@@ -1187,7 +1426,7 @@ runtime:
     order: 50
     enabled: true
     timeout_seconds: 600
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
@@ -1202,7 +1441,7 @@ runtime:
     order: 60
     enabled: true
     timeout_seconds: 900
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
@@ -1216,12 +1455,27 @@ runtime:
     order: 70
     enabled: true
     timeout_seconds: 900
-    supports_target: false
+    supports_target: true
     telegram_visible: true
     writes_database: true
     sends_notification: true
     full_run_included: true
     execution_mode: shell
+  - id: recruiters
+    label: Recruiter LinkedIn Searches
+    description: Collect configured recruiter LinkedIn search targets.
+    aliases:
+    - recruiter
+    - rec
+    order: 75
+    enabled: true
+    timeout_seconds: 600
+    supports_target: true
+    telegram_visible: true
+    writes_database: true
+    sends_notification: true
+    full_run_included: true
+    execution_mode: python
   - id: rss
     label: RSS Feeds
     description: Collect configured industry RSS feeds.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import urllib.parse
@@ -22,10 +23,13 @@ class SearchTarget:
     source: str
     country: str
     location: str
+    region: str = ""
     location_terms: tuple[str, ...] = ()
     exclude_terms: tuple[str, ...] = ()
     keyword_group_id: str = ""
     keyword_query: str = ""
+    company: str = ""
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -43,6 +47,39 @@ class CollectionPhase:
     sends_notification: bool
     full_run_included: bool
     execution_mode: str
+
+
+@dataclass(frozen=True)
+class SelectorCandidate:
+    phase: str
+    target_id: str
+    label: str
+    source: str
+    country: str
+    region: str
+    url: str = ""
+    player: str = ""
+    company: str = ""
+    category: str = ""
+    aliases: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SelectorResolution:
+    phase: str
+    selector: str
+    status: str
+    match_kind: str = ""
+    targets: tuple[SelectorCandidate, ...] = ()
+    candidates: tuple[str, ...] = ()
+    message: str = ""
+    target_group_id: str = ""
+    target_group_label: str = ""
+    subselector: str = ""
+    keyword_group_id: str = ""
+    keyword_group_label: str = ""
+    keyword_group_ids: tuple[str, ...] = ()
+    keyword_queries: tuple[str, ...] = ()
 
 
 def _load_yaml(path: Path = CONFIG_PATH) -> dict[str, Any]:
@@ -76,6 +113,67 @@ def _enabled(item: dict[str, Any]) -> bool:
     return bool(item.get("enabled", True))
 
 
+def _normalize_selector(value: Any) -> str:
+    return "_".join(str(value or "").strip().lower().replace("-", "_").split())
+
+
+def _target_filter() -> dict[str, Any] | None:
+    raw = os.getenv("COLLECTION_TARGET_FILTER_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _target_filter_phase() -> str:
+    payload = _target_filter() or {}
+    return str(payload.get("phase") or "")
+
+
+def target_filter_keyword_queries(default: list[str]) -> list[str]:
+    payload = _target_filter()
+    if not payload:
+        return default
+    queries = [str(item) for item in payload.get("keyword_queries", []) or [] if str(item).strip()]
+    return queries or default
+
+
+def _filter_search_targets(phase: str, targets: list["SearchTarget"]) -> list["SearchTarget"]:
+    payload = _target_filter()
+    if not payload:
+        return targets
+    active_phase = str(payload.get("phase") or "")
+    if active_phase != phase:
+        return [] if active_phase in {"linkedin", "recruiters"} and phase in {"linkedin", "recruiters"} else targets
+    target_ids = {str(item) for item in payload.get("target_ids", []) or []}
+    urls = {str(item) for item in payload.get("urls", []) or []}
+    keyword_group_ids = {str(item) for item in payload.get("keyword_group_ids", []) or []}
+    keyword_queries = {str(item) for item in payload.get("keyword_queries", []) or []}
+    if not target_ids and not urls and not keyword_group_ids and not keyword_queries:
+        return targets
+    return [
+        target
+        for target in targets
+        if (not target_ids or target.target_id in target_ids)
+        and (not urls or target.url in urls)
+        and (not keyword_group_ids or target.keyword_group_id in keyword_group_ids)
+        and (not keyword_queries or target.keyword_query in keyword_queries)
+    ]
+
+
+def _filter_dict_targets(phase: str, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    payload = _target_filter()
+    if not payload or str(payload.get("phase") or "") != phase:
+        return targets
+    target_ids = {str(item) for item in payload.get("target_ids", []) or []}
+    if not target_ids:
+        return targets
+    return [target for target in targets if str(target.get("id") or "") in target_ids]
+
+
 def _sources() -> dict[str, Any]:
     return REGISTRY.get("sources", {})
 
@@ -96,6 +194,10 @@ def _keyword_groups(target: dict[str, Any]) -> list[dict[str, str]]:
     if isinstance(groups, list):
         return [group for group in groups if isinstance(group, dict) and group.get("query")]
     return []
+
+
+def _keyword_id(value: Any) -> str:
+    return _normalize_selector(value).strip("_")
 
 
 def _url_config(item: dict[str, Any]) -> dict[str, Any]:
@@ -170,16 +272,21 @@ def _search_target(
         target_id=str(target.get("id") or ""),
         source=str(target.get("source") or ""),
         country=str(target.get("country") or ""),
+        region=str(target.get("region") or ""),
         location=str(target.get("location") or target.get("display_location") or ""),
         location_terms=_location_terms(target),
         exclude_terms=_exclude_terms(target),
         keyword_group_id=str((keyword_group or {}).get("id") or ""),
         keyword_query=str((keyword_group or {}).get("query") or target.get("keyword_query") or ""),
+        company=str(target.get("company") or ""),
+        aliases=tuple(str(alias) for alias in target.get("aliases", []) or [] if str(alias).strip()),
     )
 
 
 def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTarget]:
     targets: list[SearchTarget] = []
+    if not include_recruiters and _target_filter_phase() == "recruiters":
+        return []
     source_config = _sources().get("linkedin_jobs", {})
     if source_config.get("enabled", True):
         for target in source_config.get("targets", []):
@@ -217,17 +324,21 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                     remote=bool(target.get("remote")),
                 )
                 targets.append(_search_target(url=url, target=target))
-    return targets
+    if include_recruiters:
+        return targets
+    return _filter_search_targets("linkedin", targets)
 
 
 def build_recruiter_search_targets() -> list[SearchTarget]:
+    if _target_filter_phase() == "linkedin":
+        return []
     all_targets = build_linkedin_job_targets(include_recruiters=True)
     recruiter_ids = {
         str(target.get("id"))
         for target in (_sources().get("recruiters", {}).get("targets") or [])
         if _enabled(target)
     }
-    return [target for target in all_targets if target.target_id in recruiter_ids]
+    return _filter_search_targets("recruiters", [target for target in all_targets if target.target_id in recruiter_ids])
 
 
 def build_indeed_search_targets() -> list[SearchTarget]:
@@ -256,7 +367,7 @@ def build_indeed_search_targets() -> list[SearchTarget]:
                     keyword_group=group,
                 )
             )
-    return targets
+    return _filter_search_targets("indeed", targets)
 
 
 def build_glassdoor_search_targets() -> list[SearchTarget]:
@@ -269,9 +380,21 @@ def build_glassdoor_search_targets() -> list[SearchTarget]:
         "country": config.get("country", "UAE"),
         "location": config.get("country", "UAE"),
     }
-    urls = list(config.get("explicit_urls") or [])
-    urls.extend(build_glassdoor_uae_url(keyword) for keyword in config.get("keywords", []))
-    return [_search_target(url=url, target={**target, "id": f"glassdoor_{idx}"}) for idx, url in enumerate(urls, 1)]
+    groups: list[dict[str, str]] = []
+    urls = []
+    for index, url in enumerate(config.get("explicit_urls") or [], start=1):
+        urls.append(str(url))
+        groups.append({"id": f"explicit_{index}", "query": str(url)})
+    for keyword in config.get("keywords", []):
+        urls.append(build_glassdoor_uae_url(keyword))
+        groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
+    return _filter_search_targets(
+        "glassdoor",
+        [
+            _search_target(url=url, target={**target, "id": f"glassdoor_{idx}"}, keyword_group=groups[idx - 1])
+            for idx, url in enumerate(urls, 1)
+        ],
+    )
 
 
 def build_drjobs_search_targets() -> list[SearchTarget]:
@@ -286,16 +409,26 @@ def build_drjobs_search_targets() -> list[SearchTarget]:
     }
     urls: list[str] = []
     seen: set[str] = set()
+    groups: list[dict[str, str]] = []
     for url in config.get("explicit_urls", []):
         if url not in seen:
             urls.append(url)
             seen.add(url)
+            slug = str(url).rstrip("/").split("/")[-1].removesuffix("-jobs")
+            groups.append({"id": _keyword_id(slug), "query": slug.replace("-", " ")})
     for keyword in config.get("keywords", []):
         url = build_drjobs_url(keyword)
         if url not in seen:
             urls.append(url)
             seen.add(url)
-    return [_search_target(url=url, target={**target, "id": f"drjobs_{idx}"}) for idx, url in enumerate(urls, 1)]
+            groups.append({"id": _keyword_id(keyword), "query": str(keyword)})
+    return _filter_search_targets(
+        "drjobs",
+        [
+            _search_target(url=url, target={**target, "id": f"drjobs_{idx}"}, keyword_group=groups[idx - 1])
+            for idx, url in enumerate(urls, 1)
+        ],
+    )
 
 
 def build_linkedin_post_plans() -> list[dict[str, Any]]:
@@ -311,6 +444,9 @@ def build_linkedin_post_plans() -> list[dict[str, Any]]:
                 plans.append(
                     {
                         "category": lead.get("category", "hiring_post"),
+                        "location_id": location.get("id"),
+                        "role_id": role.get("id"),
+                        "lead_id": lead.get("id"),
                         "domain": role.get("domain", role.get("id", "")),
                         "country": location.get("country"),
                         "store_country": location.get("store_country", location.get("country")),
@@ -320,19 +456,32 @@ def build_linkedin_post_plans() -> list[dict[str, Any]]:
                         "query": f"{lead.get('query')} {role.get('query')} {location.get('query_location')}",
                     }
                 )
+    return _filter_post_plans(plans)
+
+
+def _filter_post_plans(plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    payload = _target_filter()
+    if not payload or str(payload.get("phase") or "") != "posts":
+        return plans
+    location_ids = {str(item) for item in payload.get("target_ids", []) or []}
+    role_ids = {str(item) for item in payload.get("keyword_group_ids", []) or []}
+    if location_ids:
+        plans = [plan for plan in plans if str(plan.get("location_id") or "") in location_ids]
+    if role_ids:
+        plans = [plan for plan in plans if str(plan.get("role_id") or plan.get("domain") or "") in role_ids]
     return plans
 
 
 def enabled_job_pages() -> list[dict[str, Any]]:
-    return [item for item in _sources().get("job_pages", []) if _enabled(item)]
+    return _filter_dict_targets("fixed", [item for item in _sources().get("job_pages", []) if _enabled(item)])
 
 
 def enabled_news_feeds() -> list[dict[str, Any]]:
-    return [item for item in _sources().get("news_feeds", []) if _enabled(item)]
+    return _filter_dict_targets("rss", [item for item in _sources().get("news_feeds", []) if _enabled(item)])
 
 
 def enabled_player_feeds() -> list[dict[str, Any]]:
-    return [item for item in _sources().get("player_feeds", []) if _enabled(item)]
+    return _filter_dict_targets("player", [item for item in _sources().get("player_feeds", []) if _enabled(item)])
 
 
 def source_metadata() -> list[dict[str, Any]]:
@@ -386,14 +535,547 @@ def target_metadata_by_url(targets: list[SearchTarget]) -> dict[str, dict[str, A
             "target_id": target.target_id,
             "source": target.source,
             "country": target.country,
+            "region": target.region,
             "location": target.location,
             "location_terms": list(target.location_terms),
             "exclude_terms": list(target.exclude_terms),
             "keyword_group_id": target.keyword_group_id,
             "keyword_query": target.keyword_query,
+            "company": target.company,
+            "aliases": list(target.aliases),
         }
         for target in targets
     }
+
+
+def _source_aliases(source: str) -> tuple[str, ...]:
+    aliases = []
+    source_key = str(source or "")
+    for item in REGISTRY.get("source_metadata", []) or []:
+        if str(item.get("id") or "") == source_key:
+            aliases.extend(str(alias) for alias in item.get("aliases", []) or [])
+    return tuple(alias for alias in aliases if alias)
+
+
+def _candidate_from_search_target(phase: str, target: SearchTarget) -> SelectorCandidate:
+    aliases = (*target.aliases, *_source_aliases(target.source))
+    return SelectorCandidate(
+        phase=phase,
+        target_id=target.target_id,
+        label=target.target_id,
+        source=target.source,
+        country=target.country,
+        region=target.region,
+        url=target.url,
+        company=target.company,
+        aliases=aliases,
+    )
+
+
+def _candidate_from_mapping(phase: str, item: dict[str, Any]) -> SelectorCandidate:
+    source = str(item.get("source") or "")
+    return SelectorCandidate(
+        phase=phase,
+        target_id=str(item.get("id") or source or item.get("label") or ""),
+        label=str(item.get("label") or item.get("company") or item.get("player") or item.get("id") or source or ""),
+        source=source,
+        country=str(item.get("country") or ""),
+        region=str(item.get("region") or ""),
+        url=str(item.get("url") or ""),
+        player=str(item.get("player") or ""),
+        company=str(item.get("company") or ""),
+        category=str(item.get("category") or item.get("parser") or ""),
+        aliases=tuple(str(alias) for alias in item.get("aliases", []) or []) + _source_aliases(source),
+    )
+
+
+def _phase_source_config(phase: str) -> dict[str, Any]:
+    sources = _sources()
+    mapping = {
+        "linkedin": "linkedin_jobs",
+        "indeed": "indeed",
+        "jobspy": "jobspy",
+        "glassdoor": "glassdoor",
+        "drjobs": "drjobs",
+        "posts": "linkedin_posts",
+        "recruiters": "recruiters",
+    }
+    value = sources.get(mapping.get(phase, ""), {})
+    return value if isinstance(value, dict) else {}
+
+
+def _target_groups_for_phase(phase: str) -> list[dict[str, Any]]:
+    groups = _phase_source_config(phase).get("target_groups") or []
+    return [group for group in groups if isinstance(group, dict) and _enabled(group)]
+
+
+def _target_group_values(group: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        str(value)
+        for value in [
+            group.get("id"),
+            group.get("label"),
+            group.get("country"),
+            group.get("region"),
+            group.get("source"),
+            group.get("site"),
+            *(group.get("aliases", []) or []),
+        ]
+        if str(value or "").strip()
+    )
+
+
+def _targets_for_group(group: dict[str, Any], candidates: list[SelectorCandidate]) -> list[SelectorCandidate]:
+    target_ids = {str(item) for item in group.get("target_ids", []) or []}
+    sources = {str(item) for item in group.get("sources", []) or []}
+    country = str(group.get("country") or "")
+    region = str(group.get("region") or "")
+    if target_ids:
+        return [candidate for candidate in candidates if candidate.target_id in target_ids]
+    matched = candidates
+    if sources:
+        matched = [candidate for candidate in matched if candidate.source in sources]
+    if country:
+        matched = [candidate for candidate in matched if _normalize_selector(candidate.country) == _normalize_selector(country)]
+    if region:
+        matched = [candidate for candidate in matched if _normalize_selector(candidate.region) == _normalize_selector(region)]
+    return matched
+
+
+def _resolve_target_group(phase: str, selector: str, candidates: list[SelectorCandidate]) -> tuple[dict[str, Any] | None, list[SelectorCandidate]]:
+    needle = _normalize_selector(selector)
+    for group in _target_groups_for_phase(phase):
+        if _normalize_selector(group.get("id")) == needle:
+            return group, _targets_for_group(group, candidates)
+    for group in _target_groups_for_phase(phase):
+        aliases = [group.get("label"), *(group.get("aliases", []) or [])]
+        if any(_normalize_selector(value) == needle for value in aliases if value):
+            return group, _targets_for_group(group, candidates)
+    return None, []
+
+
+def _keyword_group_values(group: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        str(value)
+        for value in [
+            group.get("id"),
+            group.get("label"),
+            group.get("name"),
+            *(group.get("aliases", []) or []),
+        ]
+        if str(value or "").strip()
+    )
+
+
+def _keyword_groups_for_selection(phase: str, target_group: dict[str, Any] | None, targets: list[SelectorCandidate]) -> list[dict[str, Any]]:
+    configured = (target_group or {}).get("keyword_groups") or []
+    if configured:
+        return [group for group in configured if isinstance(group, dict) and _enabled(group)]
+    if phase in {"linkedin", "indeed", "glassdoor", "drjobs"}:
+        groups: dict[str, dict[str, Any]] = {}
+        for target in targets:
+            metadata = target_metadata_by_url(_search_targets_for_phase(phase)).get(target.url, {})
+            group_id = str(metadata.get("keyword_group_id") or "")
+            query = str(metadata.get("keyword_query") or "")
+            if group_id and group_id not in groups:
+                groups[group_id] = {"id": group_id, "query": query}
+        return list(groups.values())
+    if phase == "posts":
+        roles = _phase_source_config("posts").get("roles") or []
+        return [role for role in roles if isinstance(role, dict)]
+    if phase == "recruiters":
+        groups = []
+        for target in targets:
+            if target.company:
+                groups.append({"id": _keyword_id(target.company), "label": target.company, "target_ids": [target.target_id]})
+            query = target_metadata_by_url(_search_targets_for_phase("recruiters")).get(target.url, {}).get("keyword_query")
+            if query:
+                for token in str(query).replace("OR", " ").split():
+                    if len(token) >= 4:
+                        groups.append({"id": _keyword_id(token), "label": token, "target_ids": [target.target_id]})
+        return groups
+    return []
+
+
+def _search_targets_for_phase(phase: str) -> list[SearchTarget]:
+    if phase == "linkedin":
+        return build_linkedin_job_targets(include_recruiters=False)
+    if phase == "recruiters":
+        return build_recruiter_search_targets()
+    if phase == "indeed":
+        return build_indeed_search_targets()
+    if phase == "glassdoor":
+        return build_glassdoor_search_targets()
+    if phase == "drjobs":
+        return build_drjobs_search_targets()
+    return []
+
+
+def _keyword_group_payload(
+    phase: str,
+    keyword_group: dict[str, Any],
+    targets: list[SelectorCandidate],
+) -> tuple[list[SelectorCandidate], tuple[str, ...], tuple[str, ...]]:
+    target_ids = {str(item) for item in keyword_group.get("target_ids", []) or []}
+    keyword_group_ids = {str(item) for item in keyword_group.get("keyword_group_ids", []) or []}
+    queries = [str(item) for item in keyword_group.get("keyword_queries", []) or [] if str(item).strip()]
+    if keyword_group.get("query"):
+        queries.append(str(keyword_group.get("query")))
+    if phase == "posts":
+        role_ids = {str(keyword_group.get("id") or ""), str(keyword_group.get("domain") or "")}
+        return targets, tuple(item for item in role_ids if item), tuple(queries)
+    if target_ids:
+        targets = [target for target in targets if target.target_id in target_ids]
+    if phase == "jobspy" and keyword_group_ids:
+        for target in _phase_source_config("indeed").get("targets", []) or []:
+            for group in target.get("keyword_groups", []) or []:
+                if isinstance(group, dict) and str(group.get("id") or "") in keyword_group_ids and group.get("query"):
+                    queries.append(str(group.get("query")))
+    if keyword_group_ids:
+        search_targets = [
+            target
+            for target in _search_targets_for_phase(phase)
+            if target.target_id in {candidate.target_id for candidate in targets}
+            and target.keyword_group_id in keyword_group_ids
+        ]
+        if search_targets:
+            urls = {target.url for target in search_targets}
+            targets = [target for target in targets if target.url in urls]
+            queries.extend(target.keyword_query for target in search_targets if target.keyword_query)
+    return targets, tuple(keyword_group_ids or [str(keyword_group.get("id") or "")]), tuple(dict.fromkeys(queries))
+
+
+def _resolve_keyword_group(
+    phase: str,
+    subselector: str,
+    target_group: dict[str, Any] | None,
+    targets: list[SelectorCandidate],
+) -> tuple[dict[str, Any] | None, list[SelectorCandidate], tuple[str, ...], tuple[str, ...], str]:
+    groups = _keyword_groups_for_selection(phase, target_group, targets)
+    needle = _normalize_selector(subselector)
+    for kind in ("exact", "partial"):
+        matches = []
+        for group in groups:
+            values = _keyword_group_values(group)
+            if kind == "exact" and any(_normalize_selector(value) == needle for value in values):
+                matches.append(group)
+            elif kind == "partial" and any(needle and needle in _normalize_selector(value) for value in values):
+                matches.append(group)
+        unique = {_normalize_selector(group.get("id") or group.get("label")) for group in matches}
+        if len(unique) == 1 and matches:
+            selected = matches[0]
+            filtered_targets, keyword_ids, queries = _keyword_group_payload(phase, selected, targets)
+            return selected, filtered_targets, keyword_ids, queries, kind
+        if len(unique) > 1:
+            return None, [], (), (), "ambiguous"
+    return None, [], (), (), "unknown"
+
+
+def selector_candidates_for_phase(phase: str) -> list[SelectorCandidate]:
+    phase = str(phase or "").strip().lower()
+    if phase == "linkedin":
+        return [_candidate_from_search_target("linkedin", target) for target in build_linkedin_job_targets(include_recruiters=False)]
+    if phase == "recruiters":
+        return [_candidate_from_search_target("recruiters", target) for target in build_recruiter_search_targets()]
+    if phase == "indeed":
+        return [_candidate_from_search_target("indeed", target) for target in build_indeed_search_targets()]
+    if phase == "glassdoor":
+        return [_candidate_from_search_target("glassdoor", target) for target in build_glassdoor_search_targets()]
+    if phase == "drjobs":
+        return [_candidate_from_search_target("drjobs", target) for target in build_drjobs_search_targets()]
+    if phase == "jobspy":
+        return [_candidate_from_mapping("jobspy", target) for target in JOBSPY_COUNTRY_PLANS]
+    if phase == "fixed":
+        return [_candidate_from_mapping("fixed", target) for target in enabled_job_pages()]
+    if phase == "rss":
+        return [_candidate_from_mapping("rss", target) for target in enabled_news_feeds()]
+    if phase == "player":
+        return [_candidate_from_mapping("player", target) for target in enabled_player_feeds()]
+    if phase == "posts":
+        locations = _phase_source_config("posts").get("locations") or []
+        return [
+            _candidate_from_mapping(
+                "posts",
+                {
+                    **location,
+                    "source": _phase_source_config("posts").get("source", "linkedin_post"),
+                    "id": location.get("id"),
+                    "url": "",
+                },
+            )
+            for location in locations
+            if isinstance(location, dict) and _enabled(location)
+        ]
+    return []
+
+
+def _resolution_options(candidate: SelectorCandidate) -> dict[str, tuple[str, ...]]:
+    return {
+        "target_id": (candidate.target_id,),
+        "alias": candidate.aliases,
+        "country": (candidate.country,),
+        "region": (candidate.region,),
+        "source": (candidate.source, candidate.player, candidate.company, candidate.category),
+    }
+
+
+def _candidate_labels(candidates: list[SelectorCandidate]) -> tuple[str, ...]:
+    labels = []
+    seen = set()
+    for candidate in candidates:
+        label = candidate.target_id or candidate.label or candidate.source
+        if label and label not in seen:
+            labels.append(label)
+            seen.add(label)
+    return tuple(labels[:12])
+
+
+def _matching_by_kind(candidates: list[SelectorCandidate], selector: str, kind: str) -> list[SelectorCandidate]:
+    needle = _normalize_selector(selector)
+    matched: list[SelectorCandidate] = []
+    for candidate in candidates:
+        values = _resolution_options(candidate).get(kind, ())
+        if any(_normalize_selector(value) == needle for value in values if value):
+            matched.append(candidate)
+    return matched
+
+
+def _keyword_group_labels(groups: list[dict[str, Any]]) -> tuple[str, ...]:
+    labels = []
+    seen = set()
+    for group in groups:
+        label = str(group.get("id") or group.get("label") or group.get("name") or "")
+        if label and label not in seen:
+            labels.append(label)
+            seen.add(label)
+    return tuple(labels[:12])
+
+
+def selector_phase_ids() -> set[str]:
+    return {
+        "fixed",
+        "drjobs",
+        "linkedin",
+        "indeed",
+        "jobspy",
+        "glassdoor",
+        "rss",
+        "player",
+        "posts",
+        "recruiters",
+    }
+
+
+def keyword_phase_ids() -> set[str]:
+    return {"linkedin", "indeed", "jobspy", "glassdoor", "drjobs", "posts", "recruiters"}
+
+
+def _discovery_url_count(phase: str, targets: list[SelectorCandidate], keyword_groups: list[dict[str, Any]] | None = None) -> int:
+    if phase == "posts":
+        posts_config = _phase_source_config("posts")
+        leads = [lead for lead in posts_config.get("leads", []) or [] if isinstance(lead, dict)]
+        roles = keyword_groups or [role for role in posts_config.get("roles", []) or [] if isinstance(role, dict)]
+        return len(targets) * len(roles) * len(leads)
+    urls = {target.url for target in targets if target.url}
+    return len(urls) or len(targets)
+
+
+def discovery_target_groups(phase: str) -> tuple[str, list[dict[str, Any]]]:
+    phase = str(phase or "").strip().lower()
+    candidates = selector_candidates_for_phase(phase)
+    if not candidates:
+        return "empty", []
+    configured = _target_groups_for_phase(phase)
+    groups: list[dict[str, Any]] = []
+    for group in configured:
+        targets = _targets_for_group(group, candidates)
+        keywords = _keyword_groups_for_selection(phase, group, targets)
+        groups.append(
+            {
+                "id": str(group.get("id") or ""),
+                "label": str(group.get("label") or group.get("id") or ""),
+                "aliases": [str(alias) for alias in group.get("aliases", []) or []],
+                "target_count": len({target.target_id for target in targets}),
+                "url_count": _discovery_url_count(phase, targets, keywords),
+                "keyword_count": len(keywords),
+            }
+        )
+    if groups:
+        return "ok", groups
+
+    by_id: dict[str, list[SelectorCandidate]] = {}
+    for candidate in candidates:
+        by_id.setdefault(candidate.target_id, []).append(candidate)
+    for target_id, items in by_id.items():
+        first = items[0]
+        label = first.label or target_id
+        groups.append(
+            {
+                "id": target_id,
+                "label": label,
+                "aliases": list(first.aliases),
+                "target_count": 1,
+                "url_count": _discovery_url_count(phase, items),
+                "keyword_count": 0,
+            }
+        )
+    return "ok", groups
+
+
+def discovery_keyword_groups(phase: str, selector: str) -> tuple[str, list[dict[str, Any]], tuple[str, ...], str]:
+    phase = str(phase or "").strip().lower()
+    selector = str(selector or "").strip()
+    candidates = selector_candidates_for_phase(phase)
+    group, targets = _resolve_target_group(phase, selector, candidates)
+    if not targets:
+        resolution = resolve_selector(phase, selector)
+        if resolution.status != "matched":
+            _, groups = discovery_target_groups(phase)
+            group_candidates = tuple(str(group.get("id") or group.get("label") or "") for group in groups if group.get("id") or group.get("label"))
+            return resolution.status, [], group_candidates or resolution.candidates, resolution.message
+        targets = list(resolution.targets)
+    keywords = _keyword_groups_for_selection(phase, group, targets)
+    rows = []
+    for keyword in keywords:
+        rows.append(
+            {
+                "id": str(keyword.get("id") or keyword.get("domain") or keyword.get("label") or ""),
+                "label": str(keyword.get("label") or keyword.get("id") or keyword.get("domain") or ""),
+                "aliases": [str(alias) for alias in keyword.get("aliases", []) or []],
+            }
+        )
+    return "ok" if rows else "empty", rows, (), ""
+
+
+def resolve_selector(phase: str, selector: str, subselector: str | None = None) -> SelectorResolution:
+    phase = str(phase or "").strip().lower()
+    selector = str(selector or "").strip()
+    subselector = str(subselector or "").strip()
+    candidates = selector_candidates_for_phase(phase)
+    if not selector:
+        return SelectorResolution(phase=phase, selector=selector, status="all", targets=tuple(candidates))
+    if not candidates:
+        return SelectorResolution(
+            phase=phase,
+            selector=selector,
+            status="unknown",
+            candidates=(),
+            message=f"phase has no selectable targets: {phase}",
+        )
+
+    selected_group: dict[str, Any] | None = None
+    matched: list[SelectorCandidate] = []
+    match_kind = ""
+    for kind in ("target_id", "alias"):
+        matched = _matching_by_kind(candidates, selector, kind)
+        if matched:
+            match_kind = kind
+            break
+    if not matched:
+        selected_group, matched = _resolve_target_group(phase, selector, candidates)
+        if matched:
+            match_kind = "target_group"
+    if not matched:
+        for kind in ("country", "region", "source"):
+            matched = _matching_by_kind(candidates, selector, kind)
+            if matched:
+                match_kind = kind
+                break
+
+    if matched:
+        if subselector:
+            keyword_group, keyword_targets, keyword_ids, keyword_queries, keyword_match_kind = _resolve_keyword_group(
+                phase,
+                subselector,
+                selected_group,
+                matched,
+            )
+            if not keyword_group:
+                groups = _keyword_groups_for_selection(phase, selected_group, matched)
+                status = "ambiguous" if keyword_match_kind == "ambiguous" else "unknown"
+                return SelectorResolution(
+                    phase=phase,
+                    selector=selector,
+                    status=status,
+                    match_kind=match_kind,
+                    targets=tuple(matched),
+                    candidates=_keyword_group_labels(groups),
+                    message=f"{status} subselector: {subselector}",
+                    target_group_id=str((selected_group or {}).get("id") or selector),
+                    target_group_label=str((selected_group or {}).get("label") or (selected_group or {}).get("id") or selector),
+                    subselector=subselector,
+                )
+            matched = keyword_targets
+            return SelectorResolution(
+                phase=phase,
+                selector=selector,
+                status="matched",
+                match_kind=match_kind,
+                targets=tuple(matched),
+                candidates=_candidate_labels(matched),
+                target_group_id=str((selected_group or {}).get("id") or selector),
+                target_group_label=str((selected_group or {}).get("label") or (selected_group or {}).get("id") or selector),
+                subselector=subselector,
+                keyword_group_id=str(keyword_group.get("id") or ""),
+                keyword_group_label=str(keyword_group.get("label") or keyword_group.get("id") or ""),
+                keyword_group_ids=keyword_ids,
+                keyword_queries=keyword_queries,
+            )
+        return SelectorResolution(
+            phase=phase,
+            selector=selector,
+            status="matched",
+            match_kind=match_kind,
+            targets=tuple(matched),
+            candidates=_candidate_labels(matched),
+            target_group_id=str((selected_group or {}).get("id") or (selector if match_kind in {"country", "region", "source"} else "")),
+            target_group_label=str((selected_group or {}).get("label") or (selected_group or {}).get("id") or (selector if match_kind in {"country", "region", "source"} else "")),
+        )
+
+    needle = _normalize_selector(selector)
+    partial: list[SelectorCandidate] = []
+    for candidate in candidates:
+        values = (
+            candidate.target_id,
+            candidate.label,
+            candidate.source,
+            candidate.country,
+            candidate.region,
+            candidate.player,
+            candidate.company,
+            candidate.category,
+            *candidate.aliases,
+        )
+        if any(needle and needle in _normalize_selector(value) for value in values if value):
+            partial.append(candidate)
+    unique_targets = {candidate.target_id for candidate in partial}
+    if len(unique_targets) == 1:
+        return SelectorResolution(
+            phase=phase,
+            selector=selector,
+            status="matched",
+            match_kind="partial",
+            targets=tuple(partial),
+            candidates=_candidate_labels(partial),
+            target_group_id=selector,
+            target_group_label=selector,
+        )
+    if partial:
+        return SelectorResolution(
+            phase=phase,
+            selector=selector,
+            status="ambiguous",
+            match_kind="partial",
+            candidates=_candidate_labels(partial),
+            message=f"ambiguous selector: {selector}",
+        )
+    return SelectorResolution(
+        phase=phase,
+        selector=selector,
+        status="unknown",
+        candidates=_candidate_labels(candidates),
+        message=f"unknown selector: {selector}",
+    )
 
 
 def _runtime_int(section: str, key: str, default: int, env_name: str | None = None) -> int:
@@ -641,12 +1323,13 @@ if __name__ == "__main__":
 
 
 JOB_PAGES = enabled_job_pages()
-JOBVITE_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "jobvite_pragmaticplay")
-SMARTRECRUITMENT_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "smartrecruitment")
-IGAMING_RECRUITMENT_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "igamingrecruitment")
-IGAMINGHUNT_BAMBOOHR_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "igaminghunt_bamboohr")
-JOBRAPIDO_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "jobrapido_uae")
-JOBLEADS_URL = next(item["url"] for item in JOB_PAGES if item["source"] == "jobleads")
+_ALL_JOB_PAGES = [item for item in _sources().get("job_pages", []) if _enabled(item)]
+JOBVITE_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "jobvite_pragmaticplay")
+SMARTRECRUITMENT_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "smartrecruitment")
+IGAMING_RECRUITMENT_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "igamingrecruitment")
+IGAMINGHUNT_BAMBOOHR_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "igaminghunt_bamboohr")
+JOBRAPIDO_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "jobrapido_uae")
+JOBLEADS_URL = next(item["url"] for item in _ALL_JOB_PAGES if item["source"] == "jobleads")
 TELEGRAM_CHANNELS = [item for item in _sources().get("telegram_channels", []) if _enabled(item)]
 
 LINKEDIN_JOB_TARGETS = build_linkedin_job_targets(include_recruiters=False)
@@ -678,7 +1361,7 @@ INDEED_SEARCH_KEYWORDS = list(REGISTRY.get("keyword_groups", {}).get("indeed", [
 GLASSDOOR_SEARCH_KEYWORDS = list(INDEED_SEARCH_KEYWORDS)
 GOOGLE_SEARCH_KEYWORDS = list(REGISTRY.get("keyword_groups", {}).get("google", []))
 SEARCH_KEYWORDS = LINKEDIN_SEARCH_KEYWORDS
-JOBSPY_COUNTRY_PLANS = [item for item in _sources().get("jobspy", {}).get("targets", []) if _enabled(item)]
+JOBSPY_COUNTRY_PLANS = _filter_dict_targets("jobspy", [item for item in _sources().get("jobspy", {}).get("targets", []) if _enabled(item)])
 RECRUITER_COMPANIES = list(_sources().get("recruiters", {}).get("companies", []))
 NEWS_TOPICS = list(REGISTRY.get("topics", {}).get("news", []))
 FOCUS_LOCATION_TERMS = list(REGISTRY.get("filters", {}).get("focus_location_terms", []))

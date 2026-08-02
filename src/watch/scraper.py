@@ -75,6 +75,7 @@ from utils.collection_config import (
     INDEED_SEARCH_KEYWORDS,
     JOBSPY_COUNTRY_PLANS,
     LINKEDIN_SEARCH_KEYWORDS,
+    target_filter_keyword_queries,
 )
 from utils.models import JobPosting
 from utils.db import Database
@@ -649,7 +650,7 @@ def _process_jobspy_country(
         existing_fingerprints=existing_fingerprints,
         now_iso=now_iso,
         site_name="indeed",
-        keywords=INDEED_SEARCH_KEYWORDS,
+        keywords=target_filter_keyword_queries(INDEED_SEARCH_KEYWORDS),
         source=plan.get("source") or plan.get("indeed_source") or _jobspy_source_name("indeed", country),
         country=country,
         location=plan.get("location") or plan.get("indeed_location"),

@@ -2,6 +2,7 @@
 """Telegram bot message poller - runs independently to handle incoming messages"""
 
 import json
+import html
 import os
 import re
 import sys
@@ -70,6 +71,20 @@ def _send_collect_text(text: str, chat_id: object | None = None) -> bool:
     except Exception as exc:
         print(f"❌ Failed to send /collect Telegram response: {exc}")
         return False
+
+
+def _send_collect_chunks(text: str, chat_id: object | None = None, *, limit: int = 3500) -> None:
+    lines = str(text or "").splitlines() or [""]
+    chunk = ""
+    for line in lines:
+        next_chunk = f"{chunk}\n{line}" if chunk else line
+        if len(next_chunk) > limit and chunk:
+            _send_collect_text(chunk, chat_id)
+            chunk = line
+        else:
+            chunk = next_chunk
+    if chunk:
+        _send_collect_text(chunk, chat_id)
 
 
 def _select_collect_python_bin() -> str:
@@ -239,26 +254,16 @@ def _collect_help_message() -> str:
     output = (process.stdout or process.stderr or "").strip()
     if process.returncode != 0:
         return f"❌ /collect help failed\n{_sanitize_collect_error(output)}".strip()
-    return "📋 /collect help\n\n" + output[:3500]
+    return "📋 /collect help\n\n" + html.escape(output[:3500])
 
 
-def _collect_list_message() -> str:
-    process = _run_collect_subprocess(_collect_cli_args("list"), timeout_seconds=30)
+def _collect_list_message(*args: str) -> str:
+    process = _run_collect_subprocess(_collect_cli_args("list", *args), timeout_seconds=30)
     output = (process.stdout or process.stderr or "").strip()
     if process.returncode != 0:
         return f"❌ /collect list failed\n{_sanitize_collect_error(output)}".strip()
-    lines = ["📋 Collect phases"]
-    for raw in output.splitlines():
-        parts = raw.split("\t")
-        if len(parts) < 2:
-            continue
-        phase_id, label = parts[0], parts[1]
-        aliases = next((part.removeprefix("aliases=") for part in parts if part.startswith("aliases=")), "")
-        alias_text = f" aliases: {aliases}" if aliases else ""
-        lines.append(f"- {phase_id}: {label}{alias_text}")
-    lines.append("")
-    lines.append("Targets: rss/player support feed target id; posts supports numeric plan number.")
-    return "\n".join(lines)
+    title = " ".join(["/collect", "list", *args]).strip()
+    return f"📋 {html.escape(title)}\n\n{html.escape(output[:12000])}"
 
 
 def _collect_status_message() -> str:
@@ -266,14 +271,23 @@ def _collect_status_message() -> str:
     return _format_collect_status(process)
 
 
-def _execute_collect_phase(phase: str, target: str | None, chat_id: object | None, *, background: bool = True) -> None:
-    command_key = f"{phase}:{target or ''}"
+def _execute_collect_phase(
+    phase: str,
+    target: str | None,
+    chat_id: object | None,
+    *,
+    subselector: str | None = None,
+    background: bool = True,
+) -> None:
+    command_key = f"{phase}:{target or ''}:{subselector or ''}"
     if command_key in RUNNING_COLLECT_COMMANDS:
         _send_collect_text(f"⚠️ /collect {phase} is already starting.", chat_id)
         return
     preflight_args = _collect_cli_args("run", phase, "--requested-by", "telegram", "--dry-run", "--no-summary")
     if target:
         preflight_args.extend(["--target", target])
+    if subselector:
+        preflight_args.extend(["--subselector", subselector])
     try:
         preflight = _run_collect_subprocess(preflight_args, timeout_seconds=60)
     except subprocess.TimeoutExpired:
@@ -287,6 +301,8 @@ def _execute_collect_phase(phase: str, target: str | None, chat_id: object | Non
 
     RUNNING_COLLECT_COMMANDS.add(command_key)
     suffix = f" {target}" if target else ""
+    if subselector:
+        suffix = f"{suffix} {subselector}"
     _send_collect_text(f"▶️ /collect {phase}{suffix} 시작됨... ⏳", chat_id)
 
     def run_and_report() -> None:
@@ -294,6 +310,8 @@ def _execute_collect_phase(phase: str, target: str | None, chat_id: object | Non
             args = _collect_cli_args("run", phase, "--requested-by", "telegram")
             if target:
                 args.extend(["--target", target])
+            if subselector:
+                args.extend(["--subselector", subselector])
             timeout_seconds = int(os.getenv("TELEGRAM_COLLECT_TIMEOUT_SECONDS", "10800"))
             try:
                 process = _run_collect_subprocess(args, timeout_seconds=timeout_seconds)
@@ -329,10 +347,10 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
         return
     action = args[0].lower()
     if action == "list":
-        if len(args) > 1:
-            _send_collect_text("Usage: /collect list", chat_id)
+        if len(args) > 3:
+            _send_collect_text("Usage: /collect list [phase] [selector]", chat_id)
             return
-        _send_collect_text(_collect_list_message(), chat_id)
+        _send_collect_chunks(_collect_list_message(*args[1:]), chat_id)
         return
     if action == "status":
         if len(args) > 1:
@@ -340,11 +358,14 @@ def _handle_collect_command(text: str, chat_id: object | None, *, background: bo
             return
         _send_collect_text(_collect_status_message(), chat_id)
         return
-    if len(args) > 2:
-        _send_collect_text("Usage: /collect <phase> [target]", chat_id)
+    if len(args) > 3:
+        _send_collect_text("Usage: /collect <phase> [selector] [subselector]", chat_id)
         return
     target = args[1] if len(args) == 2 else None
-    _execute_collect_phase(action, target, chat_id, background=background)
+    if len(args) == 3:
+        target = args[1]
+    subselector = args[2] if len(args) == 3 else None
+    _execute_collect_phase(action, target, chat_id, subselector=subselector, background=background)
 
 
 def _telegram_help_text() -> str:
@@ -355,9 +376,10 @@ def _telegram_help_text() -> str:
         "/collect status — 현재 실행 상태 확인\n"
         "/collect help — 상세 사용법\n"
         "/collect &lt;phase&gt; — 특정 phase 실행\n"
-        "/collect &lt;phase&gt; &lt;target&gt; — target 지원 phase만 특정 target 실행\n"
-        "  Target 지원: rss, player, posts\n"
-        "  Target 미지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, dashboard, telegram, notifications, queue\n"
+        "/collect &lt;phase&gt; &lt;selector&gt; — target group 실행\n"
+        "/collect &lt;phase&gt; &lt;selector&gt; &lt;subselector&gt; — keyword/role 범위 실행\n"
+        "  Target 지원: linkedin, indeed, glassdoor, drjobs, jobspy, fixed, recruiters, rss, player, posts\n"
+        "  Target 미지원: dashboard, telegram, notifications, queue, all\n"
         "  Example: /collect rss | /collect posts 1 | /collect status\n\n"
         "/run — 전체 수집 실행\n"
         "  🔍 API + 브라우저 수집 (LinkedIn, Indeed, 구인 사이트 등)\n"

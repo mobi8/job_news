@@ -23,10 +23,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from services.queue_exporter import export_high_scoring_jobs
 from utils.collection_config import (
     CollectionPhase,
+    SelectorResolution,
     NEWS_RSS_FEEDS,
     PLAYER_RSS_FEEDS,
+    REGISTRY,
+    discovery_keyword_groups,
+    discovery_target_groups,
+    keyword_phase_ids,
     phase_registry,
     resolve_phase_id,
+    resolve_selector,
+    selector_phase_ids,
     validate_registry,
 )
 from utils.config import DB_PATH, OUTPUT_DIR
@@ -301,9 +308,112 @@ def _run_subprocess(
 FIXED_SOURCES = "jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads"
 LINKEDIN_SOURCES = "linkedin_public,linkedin_emea,linkedin_georgia,linkedin_malta"
 INDEED_SOURCES = "indeed_uae,indeed_georgia,indeed_malta"
+SELECTOR_PHASES = {"fixed", "drjobs", "linkedin", "indeed", "jobspy", "glassdoor", "rss", "player", "posts", "recruiters"}
 
 
-def _scraper_env_for_phase(phase_id: str, target: str | None = None) -> dict[str, str]:
+def _selector_target_ids(selection: SelectorResolution | None) -> list[str]:
+    if not selection:
+        return []
+    seen: set[str] = set()
+    ids: list[str] = []
+    for target in selection.targets:
+        if target.target_id and target.target_id not in seen:
+            ids.append(target.target_id)
+            seen.add(target.target_id)
+    return ids
+
+
+def _selector_urls(selection: SelectorResolution | None) -> list[str]:
+    if not selection:
+        return []
+    seen: set[str] = set()
+    urls: list[str] = []
+    for target in selection.targets:
+        if target.url and target.url not in seen:
+            urls.append(target.url)
+            seen.add(target.url)
+    return urls
+
+
+def _selector_sources(selection: SelectorResolution | None) -> list[str]:
+    if not selection:
+        return []
+    seen: set[str] = set()
+    sources: list[str] = []
+    for target in selection.targets:
+        if target.source and target.source not in seen:
+            sources.append(target.source)
+            seen.add(target.source)
+    return sources
+
+
+def _selector_countries(selection: SelectorResolution | None) -> list[str]:
+    if not selection:
+        return []
+    seen: set[str] = set()
+    countries: list[str] = []
+    for target in selection.targets:
+        if target.country and target.country not in seen:
+            countries.append(target.country)
+            seen.add(target.country)
+    return countries
+
+
+def _selector_url_count(selection: SelectorResolution | None) -> int:
+    if not selection:
+        return 0
+    if selection.phase == "posts":
+        posts_config = (REGISTRY.get("sources", {}) or {}).get("linkedin_posts", {}) or {}
+        roles = [role for role in posts_config.get("roles", []) or [] if isinstance(role, dict)]
+        leads = [lead for lead in posts_config.get("leads", []) or [] if isinstance(lead, dict)]
+        role_ids = set(selection.keyword_group_ids)
+        if role_ids:
+            roles = [
+                role
+                for role in roles
+                if str(role.get("id") or "") in role_ids or str(role.get("domain") or "") in role_ids
+            ]
+        return max(1, len(selection.targets)) * len(roles) * len(leads)
+    return len(_selector_urls(selection)) or len(selection.targets)
+
+
+def _selector_filter_env(selection: SelectorResolution | None) -> dict[str, str]:
+    if not selection:
+        return {}
+    payload = {
+        "phase": selection.phase,
+        "selector": selection.selector,
+        "match_kind": selection.match_kind,
+        "target_ids": _selector_target_ids(selection),
+        "urls": _selector_urls(selection),
+        "keyword_group_ids": list(selection.keyword_group_ids),
+        "keyword_queries": list(selection.keyword_queries),
+    }
+    return {"COLLECTION_TARGET_FILTER_JSON": json.dumps(payload, ensure_ascii=False, sort_keys=True)}
+
+
+def _format_resolution(selection: SelectorResolution | None, phase: CollectionPhase) -> str:
+    if not selection:
+        return ""
+    return "\n".join(
+        [
+            f"Resolved Phase : {phase.id}",
+            f"Resolved Target Group : {selection.target_group_id or selection.selector}",
+            f"Resolved Keyword Group : {selection.keyword_group_id or '-'}",
+            f"Resolved Targets : {len(_selector_target_ids(selection))}",
+            f"Resolved URL Count : {_selector_url_count(selection)}",
+            f"Country : {', '.join(_selector_countries(selection)) or '-'}",
+            f"Source : {', '.join(_selector_sources(selection)) or '-'}",
+            "Running...",
+        ]
+    )
+
+
+def _scraper_env_for_phase(
+    phase_id: str,
+    target: str | None = None,
+    selection: SelectorResolution | None = None,
+) -> dict[str, str]:
     env = {
         "SKIP_NEWS": "1",
         "SKIP_LINKEDIN_BROWSER": "1",
@@ -314,28 +424,39 @@ def _scraper_env_for_phase(phase_id: str, target: str | None = None) -> dict[str
     }
     if target:
         env["PHASE_TARGET"] = target
+    env.update(_selector_filter_env(selection))
+    selected_sources = ",".join(_selector_sources(selection))
     if phase_id == "fixed":
-        env["JOB_WATCH_SOURCES"] = target or FIXED_SOURCES
+        env["JOB_WATCH_SOURCES"] = selected_sources or FIXED_SOURCES
     elif phase_id == "drjobs":
-        env["JOB_WATCH_SOURCES"] = target or "drjobs"
+        env["JOB_WATCH_SOURCES"] = selected_sources or "drjobs"
         env["SKIP_DRJOBS_BROWSER"] = "0"
     elif phase_id == "linkedin":
-        env["JOB_WATCH_SOURCES"] = target or LINKEDIN_SOURCES
+        env["JOB_WATCH_SOURCES"] = selected_sources or LINKEDIN_SOURCES
         env["SKIP_LINKEDIN_BROWSER"] = "0"
     elif phase_id == "indeed":
-        env["JOB_WATCH_SOURCES"] = target or INDEED_SOURCES
+        env["JOB_WATCH_SOURCES"] = selected_sources or INDEED_SOURCES
         env["SKIP_INDEED_BROWSER"] = "0"
     elif phase_id == "jobspy":
-        env["JOB_WATCH_SOURCES"] = target or INDEED_SOURCES
+        env["JOB_WATCH_SOURCES"] = selected_sources or INDEED_SOURCES
         env["SKIP_JOBSPY"] = "0"
+    elif phase_id == "recruiters":
+        env["JOB_WATCH_SOURCES"] = selected_sources or "linkedin_public"
+        env["SKIP_LINKEDIN_BROWSER"] = "0"
     return env
 
 
-def _run_scraper_phase(phase: CollectionPhase, *, target: str | None, dry_run: bool) -> dict[str, Any]:
+def _run_scraper_phase(
+    phase: CollectionPhase,
+    *,
+    target: str | None,
+    dry_run: bool,
+    selection: SelectorResolution | None = None,
+) -> dict[str, Any]:
     return _run_subprocess(
         phase,
         [sys.executable, "src/watch/scraper.py", "collect"],
-        env_updates=_scraper_env_for_phase(phase.id, target),
+        env_updates=_scraper_env_for_phase(phase.id, target, selection),
         dry_run=dry_run,
     )
 
@@ -344,21 +465,36 @@ def _run_all(phase: CollectionPhase, *, target: str | None, dry_run: bool) -> di
     return _run_subprocess(phase, ["/bin/bash", "run_collect_once.sh"], env_updates={}, dry_run=dry_run)
 
 
-def _run_glassdoor(phase: CollectionPhase, *, target: str | None, dry_run: bool) -> dict[str, Any]:
+def _run_glassdoor(
+    phase: CollectionPhase,
+    *,
+    target: str | None,
+    dry_run: bool,
+    selection: SelectorResolution | None = None,
+) -> dict[str, Any]:
     updates = {"PHASE_TARGET": target} if target else {}
+    updates.update(_selector_filter_env(selection))
     return _run_subprocess(phase, ["/bin/bash", "run_glassdoor.sh"], env_updates=updates, dry_run=dry_run)
 
 
-def _run_posts(phase: CollectionPhase, *, target: str | None, dry_run: bool) -> dict[str, Any]:
+def _run_posts(
+    phase: CollectionPhase,
+    *,
+    target: str | None,
+    dry_run: bool,
+    selection: SelectorResolution | None = None,
+) -> dict[str, Any]:
     updates: dict[str, str] = {}
     command = ["/bin/bash", "run_linkedin_posts.sh"]
     if target:
+        updates["PHASE_TARGET"] = target
+    updates.update(_selector_filter_env(selection))
+    if target and not selection:
         if not target.isdigit() or int(target) <= 0:
             summary = _base_summary(phase, target=target, dry_run=dry_run)
             summary["status"] = "failed"
             summary["errors"].append("posts --target currently supports a positive plan number only")
             return summary
-        updates["PHASE_TARGET"] = target
         command.extend([target, str(int(target))])
     return _run_subprocess(phase, command, env_updates=updates, dry_run=dry_run)
 
@@ -377,7 +513,10 @@ def _matching_feeds(feeds: list[dict[str, Any]], target: str | None) -> list[dic
 
 def _run_feed_phase(phase: CollectionPhase, *, target: str | None, dry_run: bool) -> dict[str, Any]:
     summary = _base_summary(phase, target=target, dry_run=dry_run)
-    feeds = _matching_feeds(NEWS_RSS_FEEDS if phase.id == "rss" else PLAYER_RSS_FEEDS, target)
+    feeds = NEWS_RSS_FEEDS if phase.id == "rss" else PLAYER_RSS_FEEDS
+    if target:
+        target_ids = set(_selector_target_ids(resolve_selector(phase.id, target)))
+        feeds = [feed for feed in feeds if str(feed.get("id") or "") in target_ids] if target_ids else []
     summary["targets"] = [{"id": feed.get("id"), "source": feed.get("source"), "url": feed.get("url")} for feed in feeds]
     if target and not feeds:
         summary["status"] = "failed"
@@ -453,19 +592,24 @@ def _run_notifications(phase: CollectionPhase, *, target: str | None, dry_run: b
 Handler = Callable[[CollectionPhase], dict[str, Any]]
 
 
-def _handlers(target: str | None, dry_run: bool) -> dict[str, Callable[[CollectionPhase], dict[str, Any]]]:
+def _handlers(
+    target: str | None,
+    dry_run: bool,
+    selection: SelectorResolution | None = None,
+) -> dict[str, Callable[[CollectionPhase], dict[str, Any]]]:
     return {
         "all": lambda phase: _run_all(phase, target=target, dry_run=dry_run),
-        "fixed": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run),
-        "drjobs": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run),
-        "linkedin": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run),
-        "indeed": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run),
-        "jobspy": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run),
-        "glassdoor": lambda phase: _run_glassdoor(phase, target=target, dry_run=dry_run),
+        "fixed": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
+        "drjobs": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
+        "linkedin": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
+        "indeed": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
+        "jobspy": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
+        "glassdoor": lambda phase: _run_glassdoor(phase, target=target, dry_run=dry_run, selection=selection),
         "rss": lambda phase: _run_feed_phase(phase, target=target, dry_run=dry_run),
         "player": lambda phase: _run_feed_phase(phase, target=target, dry_run=dry_run),
         "telegram": lambda phase: _run_telegram(phase, target=target, dry_run=dry_run),
-        "posts": lambda phase: _run_posts(phase, target=target, dry_run=dry_run),
+        "posts": lambda phase: _run_posts(phase, target=target, dry_run=dry_run, selection=selection),
+        "recruiters": lambda phase: _run_scraper_phase(phase, target=target, dry_run=dry_run, selection=selection),
         "queue": lambda phase: _run_queue(phase, target=target, dry_run=dry_run),
         "dashboard": lambda phase: _run_dashboard(phase, target=target, dry_run=dry_run),
         "notifications": lambda phase: _run_notifications(phase, target=target, dry_run=dry_run),
@@ -475,7 +619,7 @@ def _handlers(target: str | None, dry_run: bool) -> dict[str, Callable[[Collecti
 def validate_phase_handlers() -> tuple[list[str], list[str]]:
     handlers = _handlers(target=None, dry_run=True)
     errors: list[str] = []
-    target_resolvers = {"rss", "player", "posts"}
+    target_resolvers = {"fixed", "drjobs", "linkedin", "indeed", "jobspy", "glassdoor", "rss", "player", "posts", "recruiters"}
     for phase in phase_registry():
         if phase.enabled and phase.id not in handlers:
             errors.append(f"runtime.phases[{phase.id}]: enabled phase has no execution handler")
@@ -488,27 +632,104 @@ def _phase_by_id(phase_id: str) -> CollectionPhase | None:
     return next((phase for phase in phase_registry() if phase.id == phase_id), None)
 
 
-def list_phases() -> int:
+def _suggest_phase(value: str) -> str:
+    candidates = sorted({phase.id for phase in phase_registry()} | set(alias for phase in phase_registry() for alias in phase.aliases))
+    suggestion = difflib.get_close_matches(value, candidates, n=1)
+    return suggestion[0] if suggestion else ""
+
+
+def list_phases(phase_name: str | None = None, selector: str | None = None) -> int:
+    if phase_name:
+        resolved = resolve_phase_id(phase_name)
+        if not resolved or resolved in {"help", "list"}:
+            suggestion = _suggest_phase(phase_name)
+            suffix = f" Did you mean '{suggestion}'?" if suggestion else ""
+            print(f"Unknown phase: {phase_name}.{suffix}")
+            print("Available phases: " + ", ".join(phase.id for phase in phase_registry() if phase.telegram_visible))
+            return 2
+        phase = _phase_by_id(resolved)
+        if not phase:
+            print(f"Unknown phase: {phase_name}")
+            return 2
+        if not phase.supports_target:
+            print(f"{phase.id}\nselector -\nkeyword -")
+            return 0
+        if selector:
+            status, keywords, candidates, message = discovery_keyword_groups(phase.id, selector)
+            if status != "ok":
+                print(message or f"No keyword groups found for {phase.id} {selector}.")
+                if candidates:
+                    print("Candidates: " + ", ".join(candidates))
+                return 2 if status in {"unknown", "ambiguous"} else 0
+            print(f"{phase.id} {selector} keyword groups")
+            for keyword in keywords:
+                aliases = keyword.get("aliases") or []
+                alias_text = f" aliases: {', '.join(aliases)}" if aliases else ""
+                print(f"- {keyword.get('id')}: {keyword.get('label')}{alias_text}")
+            return 0
+        status, groups = discovery_target_groups(phase.id)
+        if status != "ok":
+            print(f"{phase.id}\nNo selectable target groups.")
+            return 0
+        print(f"{phase.id} target groups")
+        for group in groups:
+            aliases = group.get("aliases") or []
+            alias_text = f" aliases: {', '.join(aliases)}" if aliases else ""
+            print(f"- {group.get('label') or group.get('id')}{alias_text}")
+            print(f"  Targets: {group.get('target_count')}")
+            print(f"  URLs: {group.get('url_count')}")
+            if phase.id in keyword_phase_ids():
+                print(f"  Keywords: {group.get('keyword_count')}")
+        return 0
+
     for phase in phase_registry():
-        aliases = ",".join(phase.aliases)
-        print(f"{phase.id}\t{phase.label}\torder={phase.order}\tenabled={phase.enabled}\taliases={aliases}")
+        if not phase.telegram_visible:
+            continue
+        selector = "✓" if phase.id in selector_phase_ids() and phase.supports_target else "-"
+        keyword = "✓" if phase.id in keyword_phase_ids() and phase.supports_target else "-"
+        print(f"{phase.id} - {phase.label}")
+        print(f"selector {selector}")
+        if selector == "✓":
+            print(f"keyword {keyword}")
     return 0
 
 
 def show_help() -> int:
     lines = [
-        "Usage:",
-        "  python -m src.watch.phase_runner list",
-        "  python -m src.watch.phase_runner status",
-        "  python -m src.watch.phase_runner run <phase> [--target TARGET] [--dry-run]",
+        "Phase 전체",
+        "/collect <phase>",
         "",
-        "Visible phases:",
+        "Target Group",
+        "/collect <phase> <selector>",
+        "",
+        "Keyword Group",
+        "/collect <phase> <selector> <subselector>",
+        "",
+        "RSS",
+        "/collect rss <feed_id>",
+        "",
+        "Posts",
+        "/collect posts <location> <role>",
+        "",
+        "Examples",
     ]
+    examples = []
     for phase in phase_registry():
-        if not phase.telegram_visible:
-            continue
-        aliases = f" aliases: {', '.join(phase.aliases)}" if phase.aliases else ""
-        lines.append(f"  {phase.id:<14} {phase.label}{aliases}")
+        if phase.id in {"linkedin", "indeed", "rss", "posts"} and phase.telegram_visible:
+            status, groups = discovery_target_groups(phase.id)
+            if status != "ok" or not groups:
+                continue
+            aliases = groups[0].get("aliases") or []
+            selector = aliases[0] if aliases else groups[0]["id"]
+            if phase.id == "rss":
+                examples.append(f"/collect {phase.id} {selector}")
+                continue
+            kw_status, keywords, _, _ = discovery_keyword_groups(phase.id, selector)
+            if kw_status == "ok" and keywords:
+                examples.append(f"/collect {phase.id} {selector} {keywords[0]['id']}")
+            else:
+                examples.append(f"/collect {phase.id} {selector}")
+    lines.extend(examples[:6])
     print("\n".join(lines))
     return 0
 
@@ -534,7 +755,14 @@ def show_status() -> int:
     return 0
 
 
-def run_phase(phase_name: str, *, target: str | None, dry_run: bool, write_summary: bool = True) -> int:
+def run_phase(
+    phase_name: str,
+    *,
+    target: str | None,
+    subselector: str | None = None,
+    dry_run: bool,
+    write_summary: bool = True,
+) -> int:
     registry_errors, registry_warnings = validate_registry()
     handler_errors, _ = validate_phase_handlers()
     errors = [*registry_errors, *handler_errors]
@@ -563,10 +791,52 @@ def run_phase(phase_name: str, *, target: str | None, dry_run: bool, write_summa
     if target and not phase.supports_target:
         print(json.dumps({"phase": phase.id, "status": "invalid_target", "error": "phase does not support --target"}, ensure_ascii=False, indent=2))
         return 2
+    selection: SelectorResolution | None = None
+    if subselector and not target:
+        print(json.dumps({"phase": phase.id, "status": "invalid_target", "error": "subselector requires selector"}, ensure_ascii=False, indent=2))
+        return 2
+    if subselector and phase.id in {"rss", "player", "fixed"}:
+        print(json.dumps({"phase": phase.id, "status": "invalid_target", "error": "phase does not support subselector"}, ensure_ascii=False, indent=2))
+        return 2
+    if target and phase.id in SELECTOR_PHASES and not (phase.id == "posts" and target.isdigit() and not subselector):
+        selection = resolve_selector(phase.id, target, subselector)
+        if selection.status != "matched":
+            print(
+                json.dumps(
+                    {
+                        "phase": phase.id,
+                        "target": target,
+                        "subselector": subselector,
+                        "status": "invalid_target",
+                        "error": selection.message or f"target not found: {target}",
+                        "candidates": list(selection.candidates),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 2
+        print(_format_resolution(selection, phase), file=sys.stderr)
+    elif not target and phase.id == "recruiters":
+        selection = resolve_selector(phase.id, "")
 
     started = time.time()
     if dry_run:
-        summary = _handlers(target=target, dry_run=True)[phase.id](phase)
+        summary = _handlers(target=target, dry_run=True, selection=selection)[phase.id](phase)
+        if selection:
+            summary["resolved_selector"] = {
+                "selector": selection.selector,
+                "subselector": selection.subselector,
+                "match_kind": selection.match_kind,
+                "target_group_id": selection.target_group_id,
+                "keyword_group_id": selection.keyword_group_id,
+                "target_ids": _selector_target_ids(selection),
+                "url_count": _selector_url_count(selection),
+                "countries": _selector_countries(selection),
+                "sources": _selector_sources(selection),
+                "keyword_group_ids": list(selection.keyword_group_ids),
+            }
+            summary["counts"]["attempted_targets"] = len(_selector_target_ids(selection))
         if summary.get("completed_at") is None:
             _finish_summary(summary, str(summary.get("status") or "dry_run"), started)
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=_json_default))
@@ -588,9 +858,23 @@ def run_phase(phase_name: str, *, target: str | None, dry_run: bool, write_summa
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=_json_default))
         return 75
     try:
-        summary = _handlers(target=target, dry_run=False)[phase.id](phase)
+        summary = _handlers(target=target, dry_run=False, selection=selection)[phase.id](phase)
         summary["run_id"] = pre_summary["run_id"]
         summary["requested_by"] = pre_summary["requested_by"]
+        if selection:
+            summary["resolved_selector"] = {
+                "selector": selection.selector,
+                "subselector": selection.subselector,
+                "match_kind": selection.match_kind,
+                "target_group_id": selection.target_group_id,
+                "keyword_group_id": selection.keyword_group_id,
+                "target_ids": _selector_target_ids(selection),
+                "url_count": _selector_url_count(selection),
+                "countries": _selector_countries(selection),
+                "sources": _selector_sources(selection),
+                "keyword_group_ids": list(selection.keyword_group_ids),
+            }
+            summary["counts"]["attempted_targets"] = len(_selector_target_ids(selection))
         if summary.get("completed_at") is None:
             _finish_summary(summary, str(summary.get("status") or "success"), started)
         if write_summary:
@@ -605,11 +889,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="phase_runner")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("help")
-    sub.add_parser("list")
+    list_parser = sub.add_parser("list")
+    list_parser.add_argument("phase", nargs="?")
+    list_parser.add_argument("selector", nargs="?")
     sub.add_parser("status")
     run_parser = sub.add_parser("run")
     run_parser.add_argument("phase")
     run_parser.add_argument("--target")
+    run_parser.add_argument("--subselector")
     run_parser.add_argument("--requested-by")
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--no-summary", action="store_true")
@@ -618,13 +905,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "help":
         return show_help()
     if args.command == "list":
-        return list_phases()
+        return list_phases(args.phase, args.selector)
     if args.command == "status":
         return show_status()
     if args.command == "run":
         if args.requested_by:
             os.environ["PHASE_REQUESTED_BY"] = args.requested_by
-        return run_phase(args.phase, target=args.target, dry_run=args.dry_run, write_summary=not args.no_summary)
+        return run_phase(args.phase, target=args.target, subselector=args.subselector, dry_run=args.dry_run, write_summary=not args.no_summary)
     return 2
 
 
