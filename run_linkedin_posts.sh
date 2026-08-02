@@ -37,6 +37,31 @@ log_python_bin() {
   fi
 }
 
+select_node_bin() {
+  if [[ -n "${NODE_BIN:-}" ]]; then
+    if [[ -x "${NODE_BIN}" ]]; then
+      return 0
+    fi
+    if command -v "${NODE_BIN}" >/dev/null 2>&1; then
+      NODE_BIN="$(command -v "${NODE_BIN}")"
+      return 0
+    fi
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    NODE_BIN="$(command -v node)"
+  elif [[ -x "${HOME}/.nvm/versions/node/current/bin/node" ]]; then
+    NODE_BIN="${HOME}/.nvm/versions/node/current/bin/node"
+  elif [[ -x "/opt/homebrew/bin/node" ]]; then
+    NODE_BIN="/opt/homebrew/bin/node"
+  elif [[ -x "/usr/local/bin/node" ]]; then
+    NODE_BIN="/usr/local/bin/node"
+  else
+    echo "Node executable not found. Please set NODE_BIN or install Node.js." >&2
+    exit 1
+  fi
+}
+
 select_python_bin
 
 cd "${WORKDIR}"
@@ -50,7 +75,10 @@ if [[ -f "${WORKDIR}/.env" ]]; then
 fi
 select_python_bin
 log_python_bin
+select_node_bin
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
+export NODE_BIN
+export JOBHUNT_NODE_BIN="${NODE_BIN}"
 
 if [[ "${1:-}" == "spot" ]]; then
   export LINKEDIN_POST_MAX_PLANS="${LINKEDIN_POST_MAX_PLANS:-8}"

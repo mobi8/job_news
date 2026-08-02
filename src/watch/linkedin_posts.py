@@ -38,7 +38,50 @@ from utils.config import (  # noqa: E402
     OUTPUT_DIR,
 )
 
-NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
+def _resolve_node_bin() -> str:
+    """Resolve Node executable path from multiple sources."""
+    candidates = [
+        os.getenv("JOBHUNT_NODE_BIN"),
+        os.getenv("NODE_BIN"),
+    ]
+
+    # Check explicit env vars first
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+
+    # Check PATH
+    try:
+        result = subprocess.run(["which", "node"], capture_output=True, text=True, timeout=2)
+        if result.returncode == 0 and result.stdout.strip():
+            node_path = result.stdout.strip()
+            if os.path.isfile(node_path) and os.access(node_path, os.X_OK):
+                return node_path
+    except Exception:
+        pass
+
+    # Check common installation paths
+    nvm_node = Path.home() / ".nvm" / "versions" / "node" / "current" / "bin" / "node"
+    if nvm_node.exists():
+        return str(nvm_node)
+
+    homebrew_node = Path("/opt/homebrew/bin/node")
+    if homebrew_node.exists():
+        return str(homebrew_node)
+
+    usrlocal_node = Path("/usr/local/bin/node")
+    if usrlocal_node.exists():
+        return str(usrlocal_node)
+
+    # Fallback: fail with clear error
+    error_msg = (
+        "Node executable not found. Please set NODE_BIN or JOBHUNT_NODE_BIN environment variable. "
+        "Checked: PATH, NVM, /opt/homebrew/bin/node, /usr/local/bin/node"
+    )
+    print(f"ERROR: {error_msg}", file=sys.stderr, flush=True)
+    sys.exit(1)
+
+NODE_BIN = _resolve_node_bin()
 ACTIVE_LINKEDIN_POSTS_PROFILE_DIR = Path(
     os.getenv("LINKEDIN_POSTS_PROFILE_DIR") or str(LINKEDIN_POSTS_PROFILE_DIR)
 ).resolve()

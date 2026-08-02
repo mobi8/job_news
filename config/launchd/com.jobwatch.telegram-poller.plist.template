@@ -31,6 +31,10 @@
   <dict>
     <key>PYTHONUNBUFFERED</key>
     <string>1</string>
+    <key>NODE_BIN</key>
+    <string>__NODE_BIN_PATH__</string>
+    <key>JOBHUNT_NODE_BIN</key>
+    <string>__NODE_BIN_PATH__</string>
   </dict>
 
   <key>StandardOutPath</key>

@@ -19,12 +19,34 @@ if [[ ! -f "${PLIST_TEMPLATE}" ]]; then
   exit 1
 fi
 
+# Resolve Node binary
+resolve_node_bin() {
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+  elif [[ -x "${HOME}/.nvm/versions/node/current/bin/node" ]]; then
+    echo "${HOME}/.nvm/versions/node/current/bin/node"
+  elif [[ -x "/opt/homebrew/bin/node" ]]; then
+    echo "/opt/homebrew/bin/node"
+  elif [[ -x "/usr/local/bin/node" ]]; then
+    echo "/usr/local/bin/node"
+  else
+    echo "node not found" >&2
+    return 1
+  fi
+}
+
+NODE_BIN="$(resolve_node_bin)" || {
+  echo "ERROR: Node executable not found. Please install Node.js or set PATH." >&2
+  exit 1
+}
+
 echo "Installing ${LABEL}"
 echo "  Python: ${PYTHON_BIN}"
+echo "  Node: ${NODE_BIN}"
 echo "  Script: ${POLLER_SCRIPT}"
 
 mkdir -p "${HOME}/Library/LaunchAgents"
-cp "${PLIST_TEMPLATE}" "${PLIST_DEST}"
+sed "s|__NODE_BIN_PATH__|${NODE_BIN}|g" "${PLIST_TEMPLATE}" > "${PLIST_DEST}"
 plutil -lint "${PLIST_DEST}"
 
 echo "Stopping existing launchd service if present..."
