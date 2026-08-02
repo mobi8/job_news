@@ -5,8 +5,6 @@ WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
 START_WORKERS=0
 JOBS_DIR="${WORKDIR}/outputs"
-VENV_DIR="${WORKDIR}/venv"
-VENV_PYTHON_VERSION_FILE="${VENV_DIR}/.python-version"
 PYTHON_BIN="${PYTHON_BIN:-}"
 
 UVICORN_PID=""
@@ -53,107 +51,64 @@ trap startup_cleanup EXIT INT TERM
 
 select_python() {
   if [[ -n "${PYTHON_BIN}" ]]; then
-    if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-      echo "  ✖ PYTHON_BIN not found: ${PYTHON_BIN}"
-      exit 1
-    fi
-    return 0
-  fi
-
-  for candidate in python3.12 python3.11 python3.13 python3; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-      PYTHON_BIN="$(command -v "$candidate")"
+    if [[ -x "${PYTHON_BIN}" ]]; then
       return 0
     fi
-  done
+    if command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v "${PYTHON_BIN}")"
+      return 0
+    fi
+    echo "  ✖ PYTHON_BIN not found or not executable: ${PYTHON_BIN}"
+    exit 1
+  fi
 
-  echo "  ✖ No usable python3 found"
-  exit 1
+  if [[ -x "${WORKDIR}/venv312/bin/python" ]]; then
+    PYTHON_BIN="${WORKDIR}/venv312/bin/python"
+  elif [[ -x "${WORKDIR}/venv/bin/python" ]]; then
+    PYTHON_BIN="${WORKDIR}/venv/bin/python"
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+  else
+    echo "  ✖ No usable python3 found"
+    exit 1
+  fi
 }
 
-select_python
-SELECTED_PYTHON_VERSION="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-echo "Using Python ${SELECTED_PYTHON_VERSION}: ${PYTHON_BIN}"
-
-# Setup venv with corruption detection
-venv_needs_rebuild=0
-if [[ ! -d "${VENV_DIR}" ]]; then
-  venv_needs_rebuild=1
-else
-  if [[ -f "${VENV_PYTHON_VERSION_FILE}" ]]; then
-    existing_python_version="$(cat "${VENV_PYTHON_VERSION_FILE}")"
-  else
-    shopt -s nullglob
-    existing_python_dirs=("${VENV_DIR}"/lib/python3.*)
-    shopt -u nullglob
-    existing_python_version="$(basename "${existing_python_dirs[0]:-unknown}" | sed 's/^python//')"
+log_python_bin() {
+  local version
+  version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')"
+  echo "Using Python: ${PYTHON_BIN} (${version})"
+  if "${PYTHON_BIN}" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else 1)'; then
+    echo "WARNING: Python ${version} may be incompatible with current pinned dependencies; Python 3.12 is the verified runtime."
   fi
-  if [[ "${existing_python_version}" != "${SELECTED_PYTHON_VERSION}" ]]; then
-    echo "  ⚠ venv uses Python ${existing_python_version}; rebuilding with ${SELECTED_PYTHON_VERSION}..."
-    rm -rf "${VENV_DIR}"
-    venv_needs_rebuild=1
+}
+
+verify_python_runtime() {
+  if ! "${PYTHON_BIN}" -c 'import sys, yaml; print(f"Runtime Python: {sys.executable}"); print(f"PyYAML: {yaml.__version__}")'; then
+    echo "  ✖ PyYAML is required. Install dependencies for the selected Python:"
+    echo "    ${PYTHON_BIN} -m pip install -r requirements.txt"
+    exit 1
   fi
-
-  # Test if venv is structurally valid without importing Python modules during boot.
-  if [[ $venv_needs_rebuild -eq 0 ]] && [[ ! -x "${VENV_DIR}/bin/python3" ]]; then
-    echo "  ⚠ venv is corrupted (python broken), rebuilding..."
-    rm -rf "${VENV_DIR}"
-    venv_needs_rebuild=1
-  fi
-fi
-
-if [[ $venv_needs_rebuild -eq 1 ]]; then
-  echo "Creating Python virtual environment..."
-  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
-  echo "${SELECTED_PYTHON_VERSION}" > "${VENV_PYTHON_VERSION_FILE}"
-fi
-
-# Activate venv
-source "${VENV_DIR}/bin/activate"
+}
 
 install_requirements() {
-  local site_packages
-  shopt -s nullglob
-  local site_package_dirs=("${VENV_DIR}"/lib/python*/site-packages)
-  shopt -u nullglob
-  site_packages="${site_package_dirs[0]:-}"
-  if [[ -n "${site_packages}" \
-    && -f "${site_packages}/bs4/__init__.py" \
-    && -f "${site_packages}/fastapi/__init__.py" \
-    && -f "${site_packages}/requests/__init__.py" \
-    && -f "${site_packages}/urllib3/exceptions.py" \
-    && -f "${site_packages}/certifi/__init__.py" \
-    && -f "${site_packages}/charset_normalizer/__init__.py" \
-    && -f "${site_packages}/idna/__init__.py" \
-    && -f "${site_packages}/uvicorn/__init__.py" ]]; then
+  if "${PYTHON_BIN}" -c 'import bs4, fastapi, requests, urllib3, certifi, charset_normalizer, idna, uvicorn, yaml' >/dev/null 2>&1; then
     echo "Dependencies already available ✓"
     return 0
   fi
-  echo "Ensuring dependencies are installed..."
-  python -m pip install -q \
-    "fastapi>=0.115.0" \
-    "jinja2>=3.0" \
-    "uvicorn>=0.24.0" \
-    "requests>=2.31.0" \
-    "beautifulsoup4>=4.12.0"
+
+  echo "Ensuring dependencies are installed for ${PYTHON_BIN}..."
+  "${PYTHON_BIN}" -m pip install -q -r "${WORKDIR}/requirements.txt"
 }
 
-rebuild_venv() {
-  echo "  ⚠ rebuilding Python virtual environment..."
-  rm -rf "${VENV_DIR}"
-  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
-  echo "${SELECTED_PYTHON_VERSION}" > "${VENV_PYTHON_VERSION_FILE}"
-  source "${VENV_DIR}/bin/activate"
-}
+select_python
+log_python_bin
 
 if ! install_requirements; then
-  echo "  ⚠ dependency install failed, rebuilding venv and retrying..."
-  rebuild_venv
-  if ! install_requirements; then
-    echo "  ✖ dependency install failed after venv rebuild"
-    exit 1
-  fi
+  echo "  ✖ dependency install failed for selected Python: ${PYTHON_BIN}"
+  exit 1
 fi
+verify_python_runtime
 
 export PYTHONPATH="${WORKDIR}/src:${PYTHONPATH:-}"
 
@@ -210,7 +165,9 @@ kill_matching_processes() {
 }
 
 # Clean up only dashboard-owned API/frontend processes before starting fresh.
+kill_matching_processes "backend" "src/api/simple_server.py"
 kill_matching_processes "backend" "uvicorn src.api.app:app"
+kill_matching_processes "frontend" "static_frontend_server.py"
 kill_matching_processes "frontend" "frontend/.bin/vite"
 kill_matching_processes "frontend wrapper" "node_modules/.bin/vite"
 
@@ -240,9 +197,10 @@ fi
 cd "${WORKDIR}"
 BACKEND_LOG="/tmp/job_watch_backend.log"
 : > "${BACKEND_LOG}"
-python src/api/simple_server.py > "${BACKEND_LOG}" 2>&1 &
+"${PYTHON_BIN}" src/api/simple_server.py > "${BACKEND_LOG}" 2>&1 &
 UVICORN_PID=$!
 echo "  Backend started (PID: $UVICORN_PID)"
+echo "  Backend Python: $("${PYTHON_BIN}" -c 'import sys; print(sys.executable)')"
 
 echo "  Waiting for backend API..."
 backend_ready=0
@@ -309,7 +267,7 @@ else
   echo "  Frontend bundle is current ✓"
 fi
 
-python "${WORKDIR}/src/api/static_frontend_server.py" --dist "${FRONTEND_DIR}/dist" --port 4173 > "${FRONTEND_LOG}" 2>&1 &
+"${PYTHON_BIN}" "${WORKDIR}/src/api/static_frontend_server.py" --dist "${FRONTEND_DIR}/dist" --port 4173 > "${FRONTEND_LOG}" 2>&1 &
 VITE_PID=$!
 echo "  Frontend started (PID: $VITE_PID)"
 

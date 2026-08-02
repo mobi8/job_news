@@ -365,6 +365,7 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", 8000), Handler)
     print("Job Watch API running on http://127.0.0.1:8000", flush=True)
+    print(f"Backend sys.executable: {sys.executable}", flush=True)
     server.serve_forever()
 
 
