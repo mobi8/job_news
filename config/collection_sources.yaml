@@ -3,11 +3,53 @@
 # This is the single user-managed source of truth for job/news collection targets.
 # Keep scoring rules, parser logic, and complex regex in Python code.
 #
+# Key concepts:
+# - This file is the SOURCE OF TRUTH for external collection sources. All runtime collection
+#   behavior depends on settings here.
+# - Validation: `venv312/bin/python -m src.utils.collection_config --check` (run after edits)
+# - `enabled: false` means this source/target will be skipped during collection runs.
+# - Selector resolution priority: phase > target_id > keyword_group_id > alias
+#   (When referencing a target via Telegram, CLI, or API, the system searches in this order.)
+# - target_groups: organize multiple target_ids into logical groups (e.g., "uae", "remote").
+# - keyword_groups: define search queries for a target (each keyword_group generates one URL/plan).
+#   Difference: target_groups are organizational; keyword_groups are functional (they create URLs).
+# - To add a new country/region: add source_metadata entry, then add targets pointing to its id.
+# - URL builder types:
+#   * generated_search: code builds URL from template (e.g., location + keywords -> LinkedIn URL).
+#   * explicit_url/fixed_page: URL is hardcoded; modify only if upstream site structure changes.
+#   * generated_plans: multiple lead/role/location combinations are multiplied to create search plans.
+# - Environment variable priority: env > YAML > code default
+#   (e.g., batch size can be overridden with env var, but YAML is the default.)
+#
 # Minimal edit examples:
 # - Disable one target: set `enabled: false`.
 # - Add one Indeed keyword: append `{id: new_topic, query: "new topic"}` under the target's `keyword_groups`.
 # - Add one RSS feed: append an item under `sources.news_feeds` with `id`, `source`, `label`, `url`, and `parser: rss`.
 version: 1
+
+# ============================================================================
+# source_metadata: Labels, Aliases, and Country Registration
+# ============================================================================
+# Controls how sources appear in dashboards, APIs, and frontend filters.
+# Every source referenced elsewhere (id, in targets, or in recruiters.companies)
+# should have a matching source_metadata entry.
+#
+# Key fields:
+# - id: unique identifier (referenced by targets via `source` field).
+# - label: display name for dashboards and UI.
+# - aliases: alternative names for programmatic reference (e.g., /jobs linkedin works via alias).
+# - country: primary country/region this source serves (used for filtering and display).
+# - group: logical grouping for UI organization (Job Pages, LinkedIn, Indeed, etc.).
+# - kind: type of content (jobs, news, etc.).
+#
+# Common mistakes:
+# - Adding a target with a source id that has no source_metadata entry.
+# - Changing a source id without updating all targets that reference it.
+#
+# Example: To add a new Indeed country (Singapore):
+# - Create source_metadata entry with unique id (e.g., indeed_singapore).
+# - Add target under sources.indeed.targets pointing to this id.
+# - Add keyword_groups to the target with search queries.
 
 # Dashboard/API labels, aliases, country overrides, and frontend filter metadata.
 source_metadata:
@@ -184,6 +226,30 @@ source_metadata:
   country: Remote
   aliases: []
 sources:
+  # ========================================================================
+  # job_pages: Fixed Job Listing Pages
+  # ========================================================================
+  # Fixed pages for static job board URLs (e.g., company careers pages, ATS systems).
+  # These URLs do NOT change based on keywords or locations.
+  # Modify URL only if the upstream site structure changes.
+  #
+  # Fields:
+  # - id: unique identifier.
+  # - enabled: set to false to skip this page during collection.
+  # - type: fixed_page for static URLs; explicit_url for one-time URLs.
+  # - fetch_method: http (simple) or browser (JavaScript-heavy sites).
+  # - source: links to source_metadata.id (provides label, country, aliases).
+  # - url: exact URL to fetch; keep as-is unless site changes.
+  # - parser: parser name (jobvite, smartrecruiters, bamboohr, etc.).
+  # - country: regional label (used for filtering and metadata).
+  #
+  # Do not modify:
+  # - id (tracked in database)
+  # - url (unless you know the site changed)
+  # - parser (changing breaks data extraction)
+  #
+  # Generated count check: 6 pages total (if any enabled).
+
   # Fixed or explicit job pages. Keep URL strings exact unless the upstream site changes.
   job_pages:
   - id: pragmatic_jobvite
@@ -241,6 +307,50 @@ sources:
     parser: jobleads
     country: UAE
   telegram_channels: []
+
+  # ========================================================================
+  # linkedin_jobs: LinkedIn Job Search Targets
+  # ========================================================================
+  # Browser-based LinkedIn job searches with generated URLs.
+  # URL is built from location, geo_id, remote flag, and keyword queries.
+  # Use `explicit_override` only to preserve exact LinkedIn URLs (rare).
+  #
+  # Structure:
+  # - target_groups: organize target_ids by country/region (e.g., "uae", "remote").
+  #   Each target_group has:
+  #   * id: internal name for CLI/API reference.
+  #   * aliases: alternative names (e.g., linkedin_uae works via alias).
+  #   * target_ids: list of target ids in this group.
+  #   * keyword_groups: organizes keyword_group_ids by category (crypto, payments, etc.)
+  #     (Note: keyword_groups here link to ids; actual queries are in targets.keyword_groups)
+  # - targets: actual search configurations that generate URLs.
+  #   Each target has:
+  #   * id: unique identifier.
+  #   * source: links to source_metadata.id.
+  #   * country: regional label.
+  #   * location: geographic location string (e.g., "Dubai, United Arab Emirates").
+  #   * geo_id: LinkedIn geo ID (e.g., '90009603' for Dubai). Refine search geographically.
+  #   * remote: true if this is remote work; adds parameter to URL.
+  #   * keyword_groups: list of queries that generate URLs.
+  #     Each keyword_group has:
+  #     - id: unique within this target.
+  #     - query: search keywords (use OR for alternatives; URL-encoded automatically).
+  #   * url.builder: "linkedin_jobs" to generate URL from location/geo_id/keywords.
+  #   * url.explicit_override: (optional) hardcoded URL (bypasses builder; rarely used).
+  #
+  # Do not modify:
+  # - id (tracked in database)
+  # - query strings (unless you want different results; see URL in browser first)
+  # - target_id references in target_groups (must match target.id exactly)
+  #
+  # Generated count check: 19 LinkedIn URLs (if all targets enabled).
+  #
+  # Example: To add LinkedIn Singapore crypto target:
+  # 1. Add target with id: linkedin_singapore_crypto, source: linkedin_singapore
+  # 2. Set location: "Singapore", geo_id: your_geo_id
+  # 3. Add keyword_groups: [{id: crypto, query: "crypto OR web3 OR payments"}]
+  # 4. Set url.builder: linkedin_jobs
+  # 5. Add target_id to appropriate target_group, or create new target_group.
 
   # LinkedIn job searches. Generated targets use `builder: linkedin_jobs`;
   # targets with `explicit_override` preserve that URL exactly.
@@ -524,6 +634,25 @@ sources:
         query: game studio OR indie game OR game design OR game artist OR DTC
       url:
         builder: linkedin_jobs
+  # ========================================================================
+  # indeed: Indeed Job Search Targets
+  # ========================================================================
+  # Browser-based Indeed job searches (like linkedin_jobs, but domain-based).
+  # URL structure: https://{domain}/jobs?q={query}&l={location}&sort={sort}
+  #
+  # Key fields (see linkedin_jobs for target_groups/keyword_groups structure):
+  # - domain: Indeed regional domain (ae.indeed.com, sg.indeed.com, etc.)
+  # - indeed_country: country name for Indeed's site (e.g., "United Arab Emirates")
+  # - location: city/region used in URL (e.g., "dubai", "singapore")
+  # - sort: sort order (date, relevance, etc.)
+  #
+  # Do not modify:
+  # - id (tracked in database)
+  # - domain (wrong domain breaks collection)
+  # - query strings without testing
+  #
+  # Generated count check: 8 Indeed URLs (if all targets enabled).
+
   # Indeed browser searches. `domain`, `location`, and `keyword_groups.query`
   # build the final URL; metadata below is carried with every generated URL.
   indeed:
@@ -588,6 +717,30 @@ sources:
         query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
       url:
         builder: indeed
+  # ========================================================================
+  # glassdoor: Glassdoor Browserless Search Targets
+  # ========================================================================
+  # Browserless (no Selenium/browser) Glassdoor searches.
+  # Each keyword generates a URL via slug conversion (e.g., "digital asset" -> "digital-asset").
+  #
+  # Structure:
+  # - source: which source_metadata id to use for this entire section.
+  # - country: default country for all searches.
+  # - url_builder: "glassdoor_uae" (can be extended for other regions).
+  # - target_groups: organize keywords by category (crypto, payments, product, etc.).
+  #   Each target_group.keyword_groups lists keyword_group_ids (references to `keywords` section).
+  # - keywords: list of search terms (each generates one Glassdoor URL).
+  # - explicit_urls: (optional) hardcoded URLs that bypass keyword builder.
+  #
+  # URL structure: https://www.glassdoor.com/Job/{slug}-jobs-SRCH_IN6_KO0,{length}.htm
+  # (slug is keyword lowercased and space-replaced with dash)
+  #
+  # Do not modify:
+  # - id (these are auto-generated)
+  # - keyword list without testing the resulting URLs in a browser
+  #
+  # Generated count check: 7 Glassdoor URLs (if all keywords enabled).
+
   # Browserless Glassdoor searches. Keywords are converted with the Glassdoor UAE URL builder.
   glassdoor:
     enabled: true
@@ -626,6 +779,30 @@ sources:
     - product
     - backlog
     explicit_urls: []
+  # ========================================================================
+  # drjobs: DrJobs Browser Search Targets
+  # ========================================================================
+  # Browser-based DrJobs (UAE job board) searches.
+  # Keywords are converted to URL slugs (e.g., "igaming" -> /igaming-jobs).
+  #
+  # Structure:
+  # - source: which source_metadata id to use.
+  # - country: default country (UAE).
+  # - url_builder: "drjobs" (converts keywords to /keyword-jobs URLs).
+  # - target_groups: organize keywords by category.
+  #   Each target_group.keyword_groups lists keyword_group_ids.
+  # - keywords: list of search terms (each generates one DrJobs URL).
+  # - explicit_urls: (optional) hardcoded URLs that bypass keyword builder.
+  #
+  # URL structure: https://drjobs.ae/{slug}-jobs
+  # (slug is keyword lowercased, first part before " OR ", special chars removed)
+  #
+  # Do not modify:
+  # - id (auto-generated per keyword)
+  # - keyword list without testing the resulting URLs
+  #
+  # Generated count check: 7 DrJobs URLs (if all keywords enabled).
+
   # DrJobs browser searches. Explicit URLs are preserved; keywords generate `/keyword-jobs` URLs.
   drjobs:
     enabled: true
@@ -669,6 +846,32 @@ sources:
     - backlog
     explicit_urls:
     - https://drjobs.ae/igaming-jobs
+  # ========================================================================
+  # jobspy: JobSpy Library Targets
+  # ========================================================================
+  # JobSpy is a multi-site job aggregator library. Use this for quick
+  # multi-country job searches without separate web scraping infrastructure.
+  #
+  # Structure:
+  # - target_groups: organize target_ids by country.
+  #   Each target_group.keyword_groups links keyword_group_ids to categories.
+  # - targets: JobSpy configurations.
+  #   Each target has:
+  #   * id: unique identifier.
+  #   * site: job board to scrape (indeed, linkedin, etc.).
+  #   * source: links to source_metadata.id.
+  #   * country: regional label.
+  #   * location: city/region name.
+  #   * indeed_country: (for Indeed site) country name for JobSpy.
+  #   * keywords_from: reference to another source's keyword_groups
+  #     (e.g., "indeed" means use keywords from sources.indeed.targets).
+  #
+  # Do not modify:
+  # - site (determines which job board to scrape)
+  # - keywords_from without ensuring target exists in that source
+  #
+  # Generated count check: 1 JobSpy target (if enabled).
+
   # JobSpy library targets. Enable/disable by target instead of hard-coding a country guard.
   jobspy:
     enabled: true
@@ -712,6 +915,37 @@ sources:
       location: Dubai, United Arab Emirates
       indeed_country: United Arab Emirates
       keywords_from: indeed
+  # ========================================================================
+  # linkedin_posts: LinkedIn Post Search Plans
+  # ========================================================================
+  # LinkedIn post discovery (hiring posts, job alerts, recruiter updates).
+  # Plan count = enabled_locations * roles * leads (4 * 6 * 5 = 120 if all enabled).
+  #
+  # Structure: Multiplies 3 dimensions:
+  # - leads: hiring intent keywords (hire, hiring, job alert, etc.)
+  # - roles: job domains (crypto, igaming, game, etc.)
+  # - locations: geographic regions (UAE, MENA Remote, Amsterdam, Australia, Malta)
+  # Each combination creates one search plan.
+  #
+  # Key fields in locations (most important to get right):
+  # - query_location: text for LinkedIn search (e.g., "in UAE", "remote MENA OR...")
+  # - location_terms: keywords that verify post mentions this location (filtering accuracy depends on this)
+  # - enabled: set to false to exclude location from plan generation
+  # - category: applies to leads (hiring_post, job_post, recruiter_post)
+  #
+  # Do not modify:
+  # - query_location without testing in LinkedIn search
+  # - location_terms (too broad = false positives, too narrow = missed posts)
+  # - category values (affects downstream filtering)
+  #
+  # Generated count check: 120 LinkedIn post plans (if all enabled).
+  #
+  # To add a new location (e.g., Singapore):
+  # 1. Add under locations: id, enabled, country, label, query_location, location_terms
+  # 2. Set query_location to search phrase used in LinkedIn
+  # 3. Add location_terms with keywords that distinguish posts for this location
+  # 4. Plan count will be: (current_locations + 1) * 6 roles * 5 leads
+
   # LinkedIn post search plans. Count = enabled locations * roles * leads.
   linkedin_posts:
     enabled: true
@@ -875,6 +1109,25 @@ sources:
       - business development
       - wallet
       - backlog
+  # ========================================================================
+  # recruiters: Recruiter LinkedIn Search Targets
+  # ========================================================================
+  # Focused LinkedIn searches for specific recruiter/agency company pages.
+  # Like linkedin_jobs, but filtered to individual recruiter companies.
+  #
+  # Key differences:
+  # - companies: list of recruiter names to monitor (string references)
+  # - target.company: name of recruiter (must match companies list)
+  # - target.keyword_query: search keywords specific to this recruiter
+  #   (e.g., "Robert Walters crypto OR web3 OR payments")
+  # - See linkedin_jobs for target_groups and keyword_groups structure
+  #
+  # Do not modify:
+  # - id (referenced in database and target_groups)
+  # - company name without updating both here and in companies list
+  #
+  # Generated count check: 4 recruiter targets (currently all enabled).
+
   # Recruiter-oriented LinkedIn searches and company watch list.
   recruiters:
     enabled: true
@@ -972,6 +1225,30 @@ sources:
       keyword_query: Crypto Recruit web3 OR crypto OR backlog
       url:
         builder: linkedin_jobs
+  # ========================================================================
+  # news_feeds: Industry News RSS Feeds
+  # ========================================================================
+  # RSS feed sources for news/industry articles (not job postings).
+  # Used for competitive intelligence, regulatory news, market trends.
+  #
+  # Fields:
+  # - id: unique identifier.
+  # - enabled: set to false to skip this feed during collection.
+  # - type: "rss" (parsers may differ, but type is always rss).
+  # - fetch_method: "http" (standard for RSS).
+  # - source: links to source_metadata.id (should be "rss_{category}").
+  # - label: display name.
+  # - category: topic area (igaming, fintech, crypto, payments, games, etc.).
+  # - url: exact RSS feed URL. Keep as-is; if feed moves, update this.
+  # - parser: "rss" (standard parser for all feeds).
+  #
+  # Do not modify:
+  # - id (tracked in database)
+  # - url (unless feed host moved; test in browser first)
+  # - category (affects downstream filtering and dashboard organization)
+  #
+  # Generated count check: 13 RSS feeds (if all enabled).
+
   # News RSS feeds. Keep feed URLs exact.
   news_feeds:
   - id: igaming_business
@@ -1091,6 +1368,35 @@ sources:
     category: games
     url: https://www.gamesindustry.biz/feed
     parser: rss
+  # ========================================================================
+  # player_feeds: Company/Player RSS Feeds
+  # ========================================================================
+  # RSS feeds from specific companies or industry players (e.g., Pragmatic Play).
+  # Used to track company announcements, job postings, corporate news.
+  #
+  # Fields:
+  # - id: unique identifier.
+  # - enabled: set to false to skip this feed.
+  # - type: "rss".
+  # - fetch_method: "http".
+  # - source: links to source_metadata.id (should be "rss_player_{company}").
+  # - label: display name.
+  # - player: company/player name (used for filtering and organization).
+  # - category: type of content (iGaming, fintech, etc.).
+  # - url: exact RSS feed URL.
+  # - parser: "rss".
+  #
+  # Difference from news_feeds:
+  # - news_feeds: third-party industry news sources
+  # - player_feeds: first-party company announcements and official channels
+  #
+  # Do not modify:
+  # - id (tracked in database)
+  # - player (used for filtering in dashboards)
+  # - url (unless feed host moved)
+  #
+  # Generated count check: 1 player feed (if enabled).
+
   # Player/company RSS feeds. Keep feed URLs exact.
   player_feeds:
   - id: pragmatic_play_official
@@ -1103,6 +1409,24 @@ sources:
     category: iGaming
     url: https://www.pragmaticplay.com/news/feed/
     parser: rss
+# ============================================================================
+# keyword_groups: Global Keyword Lists (Compatibility Layer)
+# ============================================================================
+# Shared keyword/query lists used by scoring, filtering, and external consumers.
+# These are referenced by search sources via keyword_group_ids.
+#
+# Structure:
+# - Each key (linkedin, indeed, google) is a source type.
+# - Values are lists of keywords/queries that apply to that source.
+# - Quoted strings ("crypto payment") are literals; unquoted are partial matches.
+#
+# Note: These are GLOBAL defaults. Individual targets can override with custom queries
+# in their keyword_groups.query fields.
+#
+# Do not modify keyword lists without understanding downstream impact:
+# - Used for filtering, scoring, and dashboard organization.
+# - Changes affect what content is classified and matched.
+
 # Compatibility keyword groups used by non-source-specific consumers.
 keyword_groups:
   linkedin:
@@ -1166,6 +1490,30 @@ keyword_groups:
   - binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
   - crypto OR web3 OR blockchain OR payment OR neobanking OR backlog
   - mobile game OR game developer OR unity OR unreal OR game engine OR game studio OR indie game OR game design OR game artist OR DTC
+# ============================================================================
+# filters: Shared Location and Domain Filtering Terms
+# ============================================================================
+# Term lists used for filtering, scoring, and matching content to geographic/domain categories.
+#
+# Sections:
+# - focus_location_terms: keywords for primary regions (Dubai, UAE, Georgia, Malta, etc.).
+#   Used to identify job postings and content targeting these regions.
+#   Includes Korean translations for regional offices.
+# - remote_gcc_location_terms: keywords for GCC region + Georgia (for "Remote" filtering).
+#   Covers broader MENA region when content is remote-friendly.
+# - focus_domain_terms: industry keywords (crypto, web3, fintech, igaming, etc.).
+#   Used to classify content by domain (payments, custody, exchanges, casinos, games, etc.).
+#
+# Usage:
+# - LinkedIn post filtering: uses location_terms to verify a post mentions the target location.
+# - Scoring: domain_terms increase match scores for relevant roles.
+# - Dashboard organization: filters content by these categories.
+#
+# Do not modify term lists without considering:
+# - Filtering impact (changes affect what content is matched).
+# - False positives (too broad terms) vs. false negatives (too narrow terms).
+# - Non-English terms (Korean translations are intentional; other languages can be added).
+
 # Shared location/domain filters used by scoring and LinkedIn post filtering.
 filters:
   focus_location_terms:
@@ -1257,6 +1605,29 @@ filters:
   - htx
   - crypto.com
   - mexc
+# ============================================================================
+# topics: News Topic Classification Keywords
+# ============================================================================
+# Keywords used to automatically classify news articles into business topics.
+# (Not used for job matching; this is for news/article categorization only.)
+#
+# Structure:
+# - news: list of topic categories
+#   Each topic has:
+#   * key: machine-readable topic id (regulation_license, igaming_market, etc.).
+#   * label_ko: Korean display name (for localization).
+#   * keywords: list of terms that signal this topic in article text.
+#
+# Usage:
+# - News ingestion pipeline uses these keywords to categorize RSS articles.
+# - Topics are used for dashboard filtering, reporting, and trend analysis.
+# - Not part of job posting matching.
+#
+# Do not modify topic keywords without testing against sample articles:
+# - Too narrow keywords: articles won't be classified.
+# - Too broad keywords: false positives for unrelated articles.
+# - Adding new topics: requires dashboard + reporting updates (Python code).
+
 # News topic classifier keywords. This is configuration, not scoring code.
 topics:
   news:
@@ -1356,6 +1727,43 @@ topics:
     - series B
     - IPO
     - valuation
+# ============================================================================
+# runtime: Collection Phase Definitions and Runtime Configuration
+# ============================================================================
+# Defines collection phases (phases are collection tasks that can be run
+# individually or as part of a pipeline) and runtime defaults.
+#
+# Phases section:
+# Each phase (all, fixed, drjobs, linkedin, indeed, jobspy, glassdoor,
+# recruiters, rss, player, telegram, posts, queue, dashboard, notifications):
+# - id: phase identifier (used in CLI: `./run_collect.sh <phase>`).
+# - label: human-readable phase name (for Telegram, dashboard, CLI output).
+# - description: brief description of what the phase does.
+# - aliases: alternative names for CLI/Telegram (e.g., "linkedin_jobs" for "linkedin").
+# - order: execution order in full pipeline (10, 20, 30, ...).
+# - enabled: if false, this phase is skipped during full runs; can still run manually.
+# - timeout_seconds: max time allowed for this phase before timeout.
+# - supports_target: if true, can specify individual targets (e.g., /jobs linkedin--linkedin_uae_crypto_payment).
+# - telegram_visible: if true, phase appears in Telegram command suggestions.
+# - writes_database: if true, phase stores results in database.
+# - sends_notification: if true, phase sends completion notifications.
+# - full_run_included: if true, phase runs as part of "full collection" (id: all).
+# - execution_mode: how phase is launched (python, shell, library).
+#
+# Defaults section:
+# - job_watch_sources: comma-separated source ids to watch (used for alerting).
+# - Per-phase settings: batch_size, workers, timeouts, scroll_rounds, pause intervals.
+#   These override code defaults. Set via env var (BATCH_SIZE=1) if you need runtime override.
+#
+# Environment variable override priority: env > YAML > code default
+# Example: BATCH_SIZE=4 overrides runtime.linkedin_jobs.batch_size
+#
+# Do not modify phase ids without updating:
+# - Source code references (phase_runner.py, collectors)
+# - Telegram bot command mappings
+# - Frontend dashboard phase lists
+# - Database phase tracking
+
 # Runtime defaults from YAML. Environment variables still take precedence.
 runtime:
   phases:
