@@ -13,6 +13,7 @@ from src.utils.collection_config import (
     REGISTRY,
     load_collection_registry,
     _sources,
+    build_linkedin_job_targets,
     build_indeed_search_targets,
     JOB_PAGES,
     LINKEDIN_SEARCH_URLS,
@@ -141,6 +142,18 @@ class TestLinkedInJobs:
         targets = linkedin.get("targets", [])
         ids = [t.get("target_id") for t in targets if t.get("target_id")]
         assert len(ids) == len(set(ids)), f"Duplicate target IDs: {ids}"
+
+    def test_linkedin_matrix_routes_disambiguated_locations(self):
+        """Verify runtime-validated matrix locations avoid ambiguous LinkedIn routing."""
+        targets = {target.target_id: target for target in build_linkedin_job_targets()}
+        amsterdam = targets["linkedin_amsterdam_payments"]
+        malta = targets["linkedin_malta_payments"]
+
+        assert "location=Amsterdam%2C+Netherlands" in amsterdam.url
+        assert "geoId=" not in amsterdam.url
+
+        assert malta.url.startswith("https://mt.linkedin.com/jobs/search/?")
+        assert "location=Malta" not in malta.url
 
 
 class TestIndeed:

@@ -376,7 +376,9 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
 
             source = linkedin_location.get("source", "")
             location_str = linkedin_location.get("location", "")
+            url_location = linkedin_location.get("url_location", location_str)
             geo_id = linkedin_location.get("geo_id")
+            domain = linkedin_location.get("domain")
             remote = linkedin_location.get("remote", False)
 
             # Get role-specific LinkedIn settings
@@ -411,6 +413,7 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
                 "source": source,
                 "country": location_config.get("country", ""),
                 "location": location_str,
+                "url_location": url_location,
                 "keyword_groups": [
                     {
                         "id": keyword_group_id,
@@ -425,6 +428,8 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
             # Add geo_id if present
             if geo_id:
                 target["geo_id"] = geo_id
+            if domain:
+                target["domain"] = domain
 
             # Add remote flag if True
             if remote:
@@ -679,6 +684,7 @@ def build_linkedin_jobs_url(
     location: str | None,
     geo_id: str | None = None,
     remote: bool = False,
+    domain: str = "www.linkedin.com",
     extra_params: dict[str, str] | None = None,
 ) -> str:
     params: dict[str, str] = {}
@@ -692,7 +698,8 @@ def build_linkedin_jobs_url(
         params["f_WT"] = "2"
     if extra_params:
         params.update({k: v for k, v in extra_params.items() if v is not None})
-    return "https://www.linkedin.com/jobs/search/?" + urllib.parse.urlencode(params)
+    host = domain.strip() or "www.linkedin.com"
+    return f"https://{host}/jobs/search/?" + urllib.parse.urlencode(params)
 
 
 def build_indeed_url(
@@ -800,6 +807,7 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                             location=target.get("location"),
                             geo_id=target.get("geo_id"),
                             remote=bool(target.get("remote")),
+                            domain=str(target.get("domain") or "www.linkedin.com"),
                         ),
                         target=target,
                         keyword_group=group,
@@ -814,9 +822,10 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                     _search_target(
                         url=build_linkedin_jobs_url(
                             query=group["query"],
-                            location=matrix_target.get("location"),
+                            location=matrix_target.get("url_location", matrix_target.get("location")),
                             geo_id=matrix_target.get("geo_id"),
                             remote=bool(matrix_target.get("remote")),
+                            domain=str(matrix_target.get("domain") or "www.linkedin.com"),
                         ),
                         target=matrix_target,
                         keyword_group=group,
@@ -834,6 +843,7 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                     location=target.get("location"),
                     geo_id=target.get("geo_id"),
                     remote=bool(target.get("remote")),
+                    domain=str(target.get("domain") or "www.linkedin.com"),
                 )
                 targets.append(_search_target(url=url, target=target))
     if include_recruiters:

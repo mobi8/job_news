@@ -56,7 +56,6 @@ locations:
     linkedin:
       source: linkedin_amsterdam
       location: "Amsterdam, Netherlands"
-      geo_id: '104268996'
       aliases:
         - netherlands
     indeed:
@@ -138,6 +137,8 @@ locations:
     linkedin:
       source: linkedin_malta
       location: "Malta"
+      url_location: ""
+      domain: mt.linkedin.com
     linkedin_posts:
       id: posts_malta
       country: Malta
