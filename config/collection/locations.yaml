@@ -58,9 +58,6 @@ locations:
         - netherlands
         - nederland
         - holland
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - custody
@@ -102,9 +99,6 @@ locations:
         - perth
         - adelaide
         - canberra
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - custody
@@ -141,9 +135,6 @@ locations:
         - valletta
         - st julian
         - st. julian
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -178,9 +169,6 @@ locations:
     linkedin:
       source: linkedin_cyprus
       location: "Cyprus"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -212,9 +200,6 @@ locations:
       location: "United Kingdom"
       aliases:
         - uk
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -249,9 +234,6 @@ locations:
     linkedin:
       source: linkedin_gibraltar
       location: "Gibraltar"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -292,9 +274,6 @@ locations:
     linkedin:
       source: linkedin_estonia
       location: "Estonia"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -322,9 +301,6 @@ locations:
     linkedin:
       source: linkedin_lithuania
       location: "Lithuania"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -352,9 +328,6 @@ locations:
     linkedin:
       source: linkedin_ireland
       location: "Ireland"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -388,9 +361,6 @@ locations:
     linkedin:
       source: linkedin_spain
       location: "Spain"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury
@@ -420,9 +390,6 @@ locations:
     linkedin:
       source: linkedin_portugal
       location: "Portugal"
-    role_query_additions:
-      payments:
-        - fintech
     enabled_roles:
       - payments
       - treasury

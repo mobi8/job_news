@@ -657,8 +657,9 @@ class TestMatrixIntegration:
             if "malta" in t.target_id
         }
 
+        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
         expected_queries = {
-            "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+            "linkedin_malta_payments": expected_payments_query,
             "linkedin_malta_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_malta_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_malta_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
@@ -687,10 +688,11 @@ class TestMatrixIntegration:
             }
         }
 
+        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
         assert payment_queries == {
-            "linkedin_amsterdam_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
-            "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
-            "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+            "linkedin_amsterdam_payments": expected_payments_query,
+            "linkedin_australia_payments": expected_payments_query,
+            "linkedin_malta_payments": expected_payments_query,
         }
         for query in payment_queries.values():
             assert "netherlands" not in query.lower()
@@ -708,8 +710,9 @@ class TestMatrixIntegration:
             if "australia" in t.target_id
         }
 
+        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
         expected_queries = {
-            "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+            "linkedin_australia_payments": expected_payments_query,
             "linkedin_australia_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_australia_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_australia_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",

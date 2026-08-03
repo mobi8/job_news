@@ -8,7 +8,7 @@ role_profiles:
     linkedin:
       keyword_group_id: payments
       queries:
-        - "payment operations OR payments engineer OR crypto payments OR payment product manager"
+        - "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
 
   treasury:
     id: treasury
