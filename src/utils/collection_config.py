@@ -380,7 +380,12 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
             # Get role-specific LinkedIn settings
             linkedin_role = role_config.get("linkedin", {})
             keyword_group_id = linkedin_role.get("keyword_group_id", "")
-            queries = linkedin_role.get("queries", [])
+            location_queries = linkedin_role.get("location_queries", {})
+            queries = (
+                location_queries.get(location_id)
+                if isinstance(location_queries, dict) and location_queries.get(location_id)
+                else linkedin_role.get("queries", [])
+            )
 
             # Merge queries into a single query string
             query = " OR ".join(queries) if queries else ""
@@ -1055,8 +1060,14 @@ def _keyword_group_payload(
     if keyword_group.get("query"):
         queries.append(str(keyword_group.get("query")))
     if phase == "posts":
-        role_ids = {str(keyword_group.get("id") or ""), str(keyword_group.get("domain") or "")}
-        return targets, tuple(item for item in role_ids if item), tuple(queries)
+        role_ids = tuple(
+            dict.fromkeys(
+                str(item)
+                for item in [keyword_group.get("id"), keyword_group.get("domain")]
+                if str(item or "").strip()
+            )
+        )
+        return targets, role_ids, tuple(queries)
     if target_ids:
         targets = [target for target in targets if target.target_id in target_ids]
     if phase == "jobspy" and keyword_group_ids:
@@ -1447,6 +1458,12 @@ def get_enabled_job_source_ids() -> list[str]:
                     if source_id and source_id not in seen:
                         seen.add(source_id)
                         result.append(source_id)
+            if source_key == "linkedin_jobs":
+                for target in generate_linkedin_matrix_targets(REGISTRY):
+                    source_id = target.get("source")
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
         else:
             # For flat sources (job_pages, recruiters), use source field or key
             source_id = source_config.get("source", source_key)
@@ -1476,6 +1493,12 @@ def get_enabled_linkedin_source_ids() -> list[str]:
             if source_id and source_id not in seen:
                 seen.add(source_id)
                 result.append(source_id)
+
+    for target in generate_linkedin_matrix_targets(REGISTRY):
+        source_id = target.get("source")
+        if source_id and source_id not in seen:
+            seen.add(source_id)
+            result.append(source_id)
 
     return result
 
@@ -1677,6 +1700,12 @@ def get_enabled_job_source_ids() -> list[str]:
                     if source_id and source_id not in seen:
                         seen.add(source_id)
                         result.append(source_id)
+            if source_key == "linkedin_jobs":
+                for target in generate_linkedin_matrix_targets(REGISTRY):
+                    source_id = target.get("source")
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
         else:
             # For flat dict sources, use source field or key
             source_id = source_config.get("source", source_key)
@@ -1706,6 +1735,12 @@ def get_enabled_linkedin_source_ids() -> list[str]:
             if source_id and source_id not in seen:
                 seen.add(source_id)
                 result.append(source_id)
+
+    for target in generate_linkedin_matrix_targets(REGISTRY):
+        source_id = target.get("source")
+        if source_id and source_id not in seen:
+            seen.add(source_id)
+            result.append(source_id)
 
     return result
 

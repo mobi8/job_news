@@ -158,12 +158,13 @@ sources:
         keyword_group_ids:
         - igaming
     # Matrix-based target generation configuration
-    # Currently enabled for Amsterdam only as a minimal integration test
-    # Other locations (uae, remote, australia) remain manual only
+    # Currently enabled for Amsterdam and Australia.
+    # Other locations (uae, remote) remain manual only.
     matrix:
       enabled: true
       locations:
         - amsterdam
+        - australia
       roles:
         - payments
         - custody
@@ -425,55 +426,5 @@ sources:
       keyword_groups:
       - id: igaming
         query: igaming operations OR gaming operations OR casino operations OR compliance gaming OR live ops
-      url:
-        builder: linkedin_jobs
-    - id: linkedin_australia_payments
-      enabled: true
-      source: linkedin_australia
-      country: Australia
-      location: Sydney, Australia
-      keyword_groups:
-      - id: payments
-        query: payment operations OR payments engineer OR crypto payments OR fintech australia OR payment product manager
-      url:
-        builder: linkedin_jobs
-    - id: linkedin_australia_custody
-      enabled: true
-      source: linkedin_australia
-      country: Australia
-      location: Sydney, Australia
-      keyword_groups:
-      - id: settlement
-        query: custody operations OR asset custody OR settlement operations OR vault operations
-      url:
-        builder: linkedin_jobs
-    - id: linkedin_australia_settlement
-      enabled: true
-      source: linkedin_australia
-      country: Australia
-      location: Sydney, Australia
-      keyword_groups:
-      - id: settlement
-        query: settlement operations OR trading operations OR exchange operations
-      url:
-        builder: linkedin_jobs
-    - id: linkedin_australia_product
-      enabled: true
-      source: linkedin_australia
-      country: Australia
-      location: Sydney, Australia
-      keyword_groups:
-      - id: product
-        query: product manager OR product owner OR delivery manager OR product operations
-      url:
-        builder: linkedin_jobs
-    - id: linkedin_australia_igaming
-      enabled: true
-      source: linkedin_australia
-      country: Australia
-      location: Sydney, Australia
-      keyword_groups:
-      - id: igaming
-        query: igaming operations OR gaming operations OR casino operations
       url:
         builder: linkedin_jobs

@@ -33,3 +33,19 @@ locations:
       settlement: linkedin_amsterdam_settlement
       product: linkedin_amsterdam_product
       igaming: linkedin_amsterdam_igaming
+
+  australia:
+    id: australia
+    label: Australia
+    enabled: true
+    country: Australia
+    linkedin:
+      source: linkedin_australia
+      location: "Sydney, Australia"
+    # Legacy target ID mappings for existing targets
+    legacy_target_ids:
+      payments: linkedin_australia_payments
+      custody: linkedin_australia_custody
+      settlement: linkedin_australia_settlement
+      product: linkedin_australia_product
+      igaming: linkedin_australia_igaming

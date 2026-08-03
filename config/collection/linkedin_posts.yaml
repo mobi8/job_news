@@ -36,10 +36,6 @@ sources:
     - id: backlog
       query: backlog
       domain: backlog
-      aliases:
-      - product
-      - product_manager
-      - product-manager
     - id: game
       query: game
       domain: game

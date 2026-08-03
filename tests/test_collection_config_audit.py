@@ -58,13 +58,11 @@ class TestEnabledJobSourceIds:
     def test_amsterdam_and_australia_sources_enabled(self):
         """Verify amsterdam and australia LinkedIn sources are available.
 
-        Note: Amsterdam is now generated through matrix in linkedin_jobs source.
-        Australia remains as a separate manual source.
+        Note: Amsterdam and Australia are generated through the linkedin_jobs matrix.
         """
         linkedin_ids = get_enabled_linkedin_source_ids()
+        assert "linkedin_amsterdam" in linkedin_ids, "linkedin_amsterdam not in enabled sources"
         assert "linkedin_australia" in linkedin_ids, "linkedin_australia not in enabled sources"
-        # Amsterdam is no longer a separate source; it's generated from matrix
-        assert "linkedin_amsterdam" not in linkedin_ids, "amsterdam should be matrix-generated, not manual"
 
 
 class TestSourceMetadataLookup:

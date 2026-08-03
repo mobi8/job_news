@@ -172,7 +172,7 @@ def test_phase_runner_indeed_keyword_group(capsys):
     payload = json.loads(capsys.readouterr().out)
     assert code == 0
     assert payload["resolved_selector"]["keyword_group_id"] == "product"
-    assert payload["resolved_selector"]["keyword_group_ids"] == ["crypto_product"]
+    assert payload["resolved_selector"]["keyword_group_ids"] == ["product"]
     assert payload["resolved_selector"]["url_count"] == 1
 
 
@@ -189,7 +189,8 @@ def test_phase_runner_posts_location_role_selector(capsys):
     payload = json.loads(capsys.readouterr().out)
     assert code == 0
     assert payload["resolved_selector"]["target_ids"] == ["posts_uae"]
-    assert payload["resolved_selector"]["keyword_group_id"] == "backlog"
+    assert payload["resolved_selector"]["keyword_group_id"] == "product_ops"
+    assert payload["resolved_selector"]["keyword_group_ids"] == ["product_ops", "product_delivery"]
     assert payload["resolved_selector"]["url_count"] == 4
 
 

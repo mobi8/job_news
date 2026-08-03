@@ -17,8 +17,8 @@ sources:
         label: Crypto
         keyword_group_ids:
         - payments
-        - crypto_product
-        - custody_game
+        - product
+        - settlement
         - exchanges
       - id: payments
         label: Payments
@@ -32,7 +32,7 @@ sources:
         - product_manager
         - product-manager
         keyword_group_ids:
-        - crypto_product
+        - product
     targets:
     - id: indeed_uae
       enabled: true
