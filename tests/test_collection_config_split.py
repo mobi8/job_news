@@ -132,7 +132,7 @@ class TestLinkedInJobs:
 
     def test_linkedin_urls_count(self):
         """Verify expected number of generated LinkedIn URLs."""
-        assert len(LINKEDIN_SEARCH_URLS) == 227
+        assert len(LINKEDIN_SEARCH_URLS) == 215
 
     def test_no_duplicate_linkedin_target_ids(self):
         """Verify no duplicate target_ids in LinkedIn jobs."""

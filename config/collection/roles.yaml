@@ -83,7 +83,7 @@ role_profiles:
     linkedin:
       keyword_group_id: product
       queries:
-        - "product manager OR product owner OR product lead"
+        - "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager"
 
   product_operations:
     id: product_operations
@@ -94,7 +94,7 @@ role_profiles:
     linkedin:
       keyword_group_id: product_operations
       queries:
-        - "product operations OR product operations manager OR product analyst"
+        - "payment product operations OR fintech product operations OR igaming product operations OR product operations manager"
 
   delivery:
     id: delivery
@@ -103,7 +103,7 @@ role_profiles:
     linkedin:
       keyword_group_id: delivery
       queries:
-        - "delivery manager OR project delivery manager OR technical delivery manager"
+        - "payments delivery manager OR fintech delivery manager OR implementation delivery manager"
 
   implementation:
     id: implementation
@@ -112,7 +112,7 @@ role_profiles:
     linkedin:
       keyword_group_id: implementation
       queries:
-        - "implementation manager OR implementation specialist OR onboarding manager"
+        - "payments implementation manager OR PSP implementation specialist OR merchant onboarding manager"
 
   integration:
     id: integration
@@ -133,7 +133,7 @@ role_profiles:
     linkedin:
       keyword_group_id: technical_account
       queries:
-        - "technical account manager OR technical account specialist OR partner solutions engineer"
+        - "payments technical account manager OR PSP technical account manager OR fintech solutions engineer"
 
   account_manager:
     id: account_manager
@@ -144,7 +144,7 @@ role_profiles:
     linkedin:
       keyword_group_id: account_manager
       queries:
-        - "account manager OR client success manager OR customer success manager"
+        - "payments account manager OR igaming account manager OR PSP account manager OR fintech account manager"
 
   partner_manager:
     id: partner_manager
@@ -155,7 +155,7 @@ role_profiles:
     linkedin:
       keyword_group_id: partner_manager
       queries:
-        - "partner manager OR partnership manager OR strategic partnerships manager"
+        - "payments partner manager OR igaming partner manager OR PSP partnership manager"
 
   business_development:
     id: business_development
@@ -167,7 +167,7 @@ role_profiles:
     linkedin:
       keyword_group_id: business_development
       queries:
-        - "business development manager OR sales manager OR commercial manager"
+        - "payments business development OR igaming business development OR PSP sales manager"
 
   fraud:
     id: fraud
@@ -176,7 +176,7 @@ role_profiles:
     linkedin:
       keyword_group_id: fraud
       queries:
-        - "fraud analyst OR fraud operations OR fraud prevention OR transaction monitoring"
+        - "payments fraud analyst OR fraud operations OR fraud prevention OR transaction monitoring"
 
   risk:
     id: risk
@@ -185,7 +185,7 @@ role_profiles:
     linkedin:
       keyword_group_id: risk
       queries:
-        - "risk analyst OR risk operations OR payments risk OR operational risk"
+        - "payments risk analyst OR payments risk operations OR merchant risk analyst"
 
   compliance:
     id: compliance
@@ -194,7 +194,7 @@ role_profiles:
     linkedin:
       keyword_group_id: compliance
       queries:
-        - "compliance analyst OR compliance manager OR regulatory compliance"
+        - "payments compliance analyst OR fintech compliance manager OR igaming compliance"
 
   aml:
     id: aml
@@ -203,7 +203,7 @@ role_profiles:
     linkedin:
       keyword_group_id: aml
       queries:
-        - "AML analyst OR anti money laundering OR financial crime analyst"
+        - "AML analyst payments OR AML analyst igaming OR financial crime analyst"
 
   kyc:
     id: kyc
@@ -212,7 +212,7 @@ role_profiles:
     linkedin:
       keyword_group_id: kyc
       queries:
-        - "KYC analyst OR KYC specialist OR customer due diligence"
+        - "KYC analyst payments OR KYC specialist fintech OR customer due diligence analyst"
 
   kyb:
     id: kyb

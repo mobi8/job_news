@@ -661,7 +661,7 @@ class TestMatrixIntegration:
             "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
             "linkedin_malta_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_malta_settlement": "settlement operations OR trading operations OR exchange operations",
-            "linkedin_malta_product": "product manager OR product owner OR product lead",
+            "linkedin_malta_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
             "linkedin_malta_igaming": "igaming operations OR gaming operations OR casino operations",
         }
 
@@ -712,7 +712,7 @@ class TestMatrixIntegration:
             "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
             "linkedin_australia_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_australia_settlement": "settlement operations OR trading operations OR exchange operations",
-            "linkedin_australia_product": "product manager OR product owner OR product lead",
+            "linkedin_australia_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
             "linkedin_australia_igaming": "igaming operations OR gaming operations OR casino operations",
         }
 
@@ -750,6 +750,6 @@ class TestMatrixIntegration:
         # After Phase F: 24 manual + 15 matrix-generated = 39 target objects
         # But SearchTarget count includes multiple per target if multiple keyword groups
         # Expected: 43 SearchTarget objects including recruiters
-        assert len(prod_targets) == 231, (
-            f"Production SearchTarget count changed: expected 231, got {len(prod_targets)}"
+        assert len(prod_targets) == 219, (
+            f"Production SearchTarget count changed: expected 219, got {len(prod_targets)}"
         )

@@ -195,8 +195,6 @@ locations:
       - account_manager
       - partner_manager
       - business_development
-      - fraud
-      - risk
       - compliance
       - aml
       - kyc
@@ -258,7 +256,6 @@ locations:
       - payments
       - treasury
       - settlement
-      - product
       - account_manager
       - partner_manager
       - business_development
@@ -281,7 +278,6 @@ locations:
       - treasury
       - settlement
       - reconciliation
-      - product
       - account_manager
       - compliance
       - aml
@@ -313,8 +309,6 @@ locations:
       - integration
       - technical_account
       - business_development
-      - fraud
-      - risk
       - compliance
       - aml
       - kyc
@@ -344,8 +338,6 @@ locations:
       - technical_account
       - account_manager
       - business_development
-      - fraud
-      - risk
       - compliance
       - aml
       - kyc
@@ -413,8 +405,6 @@ locations:
       - account_manager
       - partner_manager
       - business_development
-      - fraud
-      - risk
       - compliance
       - aml
       - kyc
@@ -446,8 +436,6 @@ locations:
       - technical_account
       - account_manager
       - business_development
-      - fraud
-      - risk
       - compliance
       - aml
       - kyc
