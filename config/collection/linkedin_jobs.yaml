@@ -159,8 +159,9 @@ sources:
         - igaming
     # Matrix-based target generation configuration
     # Specifies location and role combinations to generate targets for
+    # Currently disabled until integration into build_linkedin_job_targets() is complete
     matrix:
-      enabled: true
+      enabled: false
       locations:
         - uae
         - amsterdam
