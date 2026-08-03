@@ -160,13 +160,16 @@ async function detectLoginState(page) {
     const href = location.href;
     const body = cleanText(document.body ? document.body.innerText : '');
     const joined = `${href} ${document.title} ${body}`;
+    const securityText = /checkpoint|security verification|verify your identity|verify it'?s you|unusual activity|security check/i.test(joined);
+    const challengeUrl = /\/checkpoint|\/challenge/i.test(href);
+    const captchaFrame = Boolean(document.querySelector('iframe[src*="captcha"], iframe[src*="challenge"], [class*="captcha"]'));
     const signals = {
       loginForm: Boolean(document.querySelector('input[name="session_key"], input#username, form[action*="login"], a[href*="/login"]')),
       authwall: /authwall|로그인하여|sign in to view|join linkedin/i.test(joined),
-      checkpoint: /checkpoint|challenge|security verification|verify your identity/i.test(joined),
-      captcha: /captcha|verify you are human/i.test(joined) || Boolean(document.querySelector('iframe[src*="captcha"], iframe[src*="challenge"], [class*="captcha"]')),
+      checkpoint: securityText || challengeUrl,
+      captcha: /captcha|verify you are human/i.test(joined) || captchaFrame,
       finalLoginUrl: /\/login|\/authwall/i.test(href),
-      finalCheckpointUrl: /\/checkpoint|\/challenge/i.test(href),
+      finalCheckpointUrl: challengeUrl,
     };
     const checkpointRequired = signals.checkpoint || signals.captcha || signals.finalCheckpointUrl;
     const loginRequired = signals.loginForm || signals.authwall || signals.finalLoginUrl;
