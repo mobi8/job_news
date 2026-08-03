@@ -143,6 +143,8 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
         "runtime": {},
         "topics": {},
         "keyword_groups": {},
+        "locations": {},
+        "role_profiles": {},
     }
 
     # Load all YAML files in collection/ directory (sorted for determinism)
@@ -232,6 +234,28 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
                     )
                 registry["topics"][topics_key] = topics_value
 
+        # Merge locations (single ownership per location id)
+        if "locations" in data:
+            locations_section = data["locations"]
+            if isinstance(locations_section, dict):
+                for location_id, location_config in locations_section.items():
+                    if location_id in registry["locations"]:
+                        raise ValueError(
+                            f"Duplicate location id '{location_id}' found in {yaml_file.name}"
+                        )
+                    registry["locations"][location_id] = location_config
+
+        # Merge role_profiles (single ownership per role profile id)
+        if "role_profiles" in data:
+            role_profiles_section = data["role_profiles"]
+            if isinstance(role_profiles_section, dict):
+                for role_id, role_config in role_profiles_section.items():
+                    if role_id in registry["role_profiles"]:
+                        raise ValueError(
+                            f"Duplicate role profile id '{role_id}' found in {yaml_file.name}"
+                        )
+                    registry["role_profiles"][role_id] = role_config
+
     # Validate loaded registry
     _validate_registry(registry)
 
@@ -279,8 +303,118 @@ def _validate_registry(registry: dict[str, Any]) -> None:
                 raise ValueError(f"Duplicate source metadata id '{metadata_id}'")
             seen_metadata_ids.add(metadata_id)
 
+    # Check for duplicate location IDs
+    seen_location_ids = set()
+    for location_id, location_config in registry.get("locations", {}).items():
+        if location_id in seen_location_ids:
+            raise ValueError(f"Duplicate location id '{location_id}'")
+        if isinstance(location_config, dict):
+            config_id = location_config.get("id")
+            if config_id and config_id != location_id:
+                raise ValueError(
+                    f"Location key '{location_id}' does not match its id field '{config_id}'"
+                )
+        seen_location_ids.add(location_id)
+
+    # Check for duplicate role profile IDs
+    seen_role_ids = set()
+    for role_id, role_config in registry.get("role_profiles", {}).items():
+        if role_id in seen_role_ids:
+            raise ValueError(f"Duplicate role profile id '{role_id}'")
+        if isinstance(role_config, dict):
+            config_id = role_config.get("id")
+            if config_id and config_id != role_id:
+                raise ValueError(
+                    f"Role profile key '{role_id}' does not match its id field '{config_id}'"
+                )
+        seen_role_ids.add(role_id)
+
 
 REGISTRY = load_collection_registry()
+
+
+def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Generate LinkedIn targets from location × role matrix.
+
+    For each enabled location × role combination, creates a target with:
+    - Preserved legacy target ID if it exists
+    - Location-specific settings (source, location, geo_id, remote flag)
+    - Role-specific keyword_group with merged queries
+    - URL builder configuration
+
+    Returns list of generated target objects sorted by location then role.
+    """
+    linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
+    matrix_config = linkedin_source.get("matrix", {})
+
+    if not matrix_config.get("enabled"):
+        return []
+
+    locations = registry.get("locations", {})
+    role_profiles = registry.get("role_profiles", {})
+
+    generated_targets = []
+
+    # Iterate over locations and roles in deterministic order
+    for location_id in sorted(matrix_config.get("locations", [])):
+        location_config = locations.get(location_id)
+        if not location_config or not location_config.get("enabled"):
+            continue
+
+        for role_id in sorted(matrix_config.get("roles", [])):
+            role_config = role_profiles.get(role_id)
+            if not role_config or not role_config.get("enabled"):
+                continue
+
+            # Use legacy target ID if available, otherwise generate new ID
+            legacy_target_ids = location_config.get("legacy_target_ids", {})
+            target_id = legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}")
+
+            # Get location-specific LinkedIn settings
+            linkedin_location = location_config.get("linkedin", {})
+            source = linkedin_location.get("source", "")
+            location_str = linkedin_location.get("location", "")
+            geo_id = linkedin_location.get("geo_id")
+            remote = linkedin_location.get("remote", False)
+
+            # Get role-specific LinkedIn settings
+            linkedin_role = role_config.get("linkedin", {})
+            keyword_group_id = linkedin_role.get("keyword_group_id", "")
+            queries = linkedin_role.get("queries", [])
+
+            # Merge queries into a single query string
+            query = " OR ".join(queries) if queries else ""
+
+            # Build the target object
+            target = {
+                "id": target_id,
+                "enabled": True,
+                "source": source,
+                "country": location_config.get("country", ""),
+                "location": location_str,
+                "keyword_groups": [
+                    {
+                        "id": keyword_group_id,
+                        "query": query
+                    }
+                ],
+                "url": {
+                    "builder": "linkedin_jobs"
+                }
+            }
+
+            # Add geo_id if present
+            if geo_id:
+                target["geo_id"] = geo_id
+
+            # Add remote flag if True
+            if remote:
+                target["remote"] = True
+
+            generated_targets.append(target)
+
+    # Sort by target ID for deterministic ordering
+    return sorted(generated_targets, key=lambda t: t["id"])
 
 
 def _enabled(item: dict[str, Any]) -> bool:

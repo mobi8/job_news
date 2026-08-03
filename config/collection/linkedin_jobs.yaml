@@ -157,6 +157,19 @@ sources:
         label: iGaming
         keyword_group_ids:
         - igaming
+    # Matrix-based target generation configuration
+    # Specifies location and role combinations to generate targets for
+    matrix:
+      enabled: true
+      locations:
+        - uae
+        - amsterdam
+      roles:
+        - payments
+        - custody
+        - settlement
+        - product
+        - igaming
     targets:
     - id: linkedin_company_42167861_emea
       enabled: true

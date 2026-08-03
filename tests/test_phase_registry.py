@@ -102,10 +102,12 @@ class TestRegistryEquivalence:
     """Test deep equivalence between split and monolithic registries."""
 
     def test_registry_structure(self, split_registry, mono_registry):
-        """Verify both registries have identical top-level keys."""
+        """Verify both registries have identical core top-level keys (excluding new extensions)."""
         split_keys = set(split_registry.keys())
         mono_keys = set(mono_registry.keys())
-        assert split_keys == mono_keys, f"Registry keys mismatch: {split_keys} vs {mono_keys}"
+        # New sections (locations, role_profiles) are extensions, not in original monolithic config
+        core_keys = mono_keys  # Use monolithic as baseline
+        assert core_keys.issubset(split_keys), f"Missing core keys in split: {core_keys - split_keys}"
 
     def test_version_identical(self, split_registry, mono_registry):
         """Verify version is identical."""
@@ -301,6 +303,45 @@ class TestConfigPathHandling:
         invalid_path = Path("/nonexistent/path")
         with pytest.raises(ValueError, match="must be a directory or .yaml file"):
             load_collection_registry(invalid_path)
+
+
+class TestLocationsAndRoles:
+    """Test locations and role_profiles sections."""
+
+    def test_locations_loaded(self, split_registry):
+        """Verify locations are loaded."""
+        locations = split_registry.get("locations", {})
+        assert "uae" in locations
+        assert "amsterdam" in locations
+
+    def test_locations_structure(self, split_registry):
+        """Verify location structure."""
+        locations = split_registry.get("locations", {})
+        for loc_id, loc_config in locations.items():
+            assert isinstance(loc_config, dict)
+            assert "id" in loc_config
+            assert "label" in loc_config
+            assert "enabled" in loc_config
+            assert "country" in loc_config
+
+    def test_role_profiles_loaded(self, split_registry):
+        """Verify role profiles are loaded."""
+        roles = split_registry.get("role_profiles", {})
+        assert "payments" in roles
+        assert "custody" in roles
+        assert "settlement" in roles
+        assert "product" in roles
+        assert "igaming" in roles
+
+    def test_role_profiles_structure(self, split_registry):
+        """Verify role profile structure."""
+        roles = split_registry.get("role_profiles", {})
+        for role_id, role_config in roles.items():
+            assert isinstance(role_config, dict)
+            assert "id" in role_config
+            assert "label" in role_config
+            assert "enabled" in role_config
+            assert "linkedin" in role_config
 
 
 class TestValidatorCorrectness:

@@ -1,0 +1,65 @@
+role_profiles:
+  payments:
+    id: payments
+    label: Payments
+    enabled: true
+    # Role profile for payments-related positions across organizations
+    linkedin:
+      keyword_group_id: payments
+      # Queries extracted from existing targets (linkedin_uae_payments_engineer, linkedin_uae_crypto_payment, linkedin_amsterdam_payments)
+      queries:
+        - "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech"
+        - "payments engineer OR payments developer OR crypto payments OR stablecoin OR payment product manager OR fintech delivery manager"
+      # Union of above for generation:
+      # "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech OR payments developer OR stablecoin OR fintech delivery manager"
+
+  custody:
+    id: custody
+    label: Custody / Asset Operations
+    enabled: true
+    # Role profile for custody and asset management positions
+    linkedin:
+      keyword_group_id: settlement
+      # Queries extracted from existing targets (linkedin_uae_web3_wallet, linkedin_amsterdam_custody)
+      queries:
+        - "wallet operations OR custody operations OR wallet specialist OR digital asset custody OR vault management"
+        - "custody operations OR asset custody OR settlement operations OR vault operations"
+      # Union: "wallet operations OR custody operations OR wallet specialist OR digital asset custody OR vault management OR asset custody OR settlement operations OR vault operations"
+
+  settlement:
+    id: settlement
+    label: Settlement / Trading Operations
+    enabled: true
+    # Role profile for settlement, trading, and exchange operations
+    linkedin:
+      keyword_group_id: settlement
+      # Query extracted from existing Amsterdam target (linkedin_amsterdam_settlement)
+      # Note: UAE has no direct "settlement" role target; linkedin_uae_custody_game is hybrid (custody_game role ID)
+      queries:
+        - "settlement operations OR trading operations OR exchange operations OR brokerage operations"
+
+  product:
+    id: product
+    label: Product Manager / Product Operations
+    enabled: true
+    # Role profile for product management and product operations
+    linkedin:
+      keyword_group_id: product
+      # Queries extracted from existing targets (linkedin_uae_crypto_product, linkedin_amsterdam_product)
+      queries:
+        - "crypto product manager OR product owner OR neobank OR digital asset OR stable coin OR backlog"
+        - "product manager OR product owner OR delivery manager OR product operations"
+      # Union: "crypto product manager OR product owner OR neobank OR digital asset OR stable coin OR backlog OR delivery manager OR project manager fintech OR product operations"
+
+  igaming:
+    id: igaming
+    label: iGaming / Gaming Operations
+    enabled: true
+    # Role profile for iGaming and gaming operations positions
+    linkedin:
+      keyword_group_id: igaming
+      # Queries extracted from existing targets (linkedin_uae_igaming, linkedin_amsterdam_igaming)
+      queries:
+        - "igaming OR gaming operations OR casino operations OR sportsbook operations OR gaming compliance"
+        - "igaming operations OR gaming operations OR casino operations"
+      # Union: "igaming OR gaming operations OR casino operations OR sportsbook operations OR gaming compliance OR igaming operations OR live ops"
