@@ -776,12 +776,13 @@ def _process_jobspy_country(
     indeed_jobs: list = []
     jobspy_logger.info("Scraping JobSpy country bucket: %s", country)
 
+    configured_keywords = plan.get("keyword_queries") or target_filter_keyword_queries(INDEED_SEARCH_KEYWORDS)
     failures = _run_jobspy_keyword_bucket(
         jobs=indeed_jobs,
         existing_fingerprints=existing_fingerprints,
         now_iso=now_iso,
         site_name="indeed",
-        keywords=target_filter_keyword_queries(INDEED_SEARCH_KEYWORDS),
+        keywords=target_filter_keyword_queries(list(configured_keywords)),
         source=plan.get("source") or plan.get("indeed_source") or _jobspy_source_name("indeed", country),
         country=country,
         location=plan.get("location") or plan.get("indeed_location"),

@@ -103,6 +103,32 @@ class TestSourceMetadata:
         assert len(ids) == len(set(ids)), f"Duplicate IDs found: {ids}"
 
 
+class TestJobSpyConfig:
+    """Test JobSpy source-specific configuration."""
+
+    def test_uae_target_uses_source_specific_keywords(self):
+        targets = _sources()["jobspy"]["targets"]
+        target = next(item for item in targets if item["id"] == "jobspy_uae_indeed")
+        keywords = target.get("keyword_queries") or []
+
+        assert keywords
+        assert target["keywords_from"] == "indeed"
+        assert "crypto" in keywords
+        assert "digital asset" in keywords
+        assert "igaming" in keywords
+
+        retry_heavy_keywords = {
+            "payment",
+            "operations manager",
+            "business development",
+            "product manager",
+            "sales",
+            "compliance",
+            "risk",
+        }
+        assert retry_heavy_keywords.isdisjoint(keywords)
+
+
 class TestJobPages:
     """Test job_pages source."""
 
