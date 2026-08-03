@@ -153,6 +153,23 @@ def test_phase_runner_linkedin_target_group_alias(capsys):
     assert payload["resolved_selector"]["url_count"] == 14
 
 
+def test_phase_runner_linkedin_malta_target_group(capsys):
+    code = phase_runner.main(["run", "linkedin", "--target", "malta", "--dry-run"])
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert code == 0
+    assert payload["resolved_selector"]["match_kind"] == "target_group"
+    assert payload["resolved_selector"]["target_group_id"] == "malta"
+    assert payload["resolved_selector"]["target_ids"] == [
+        "linkedin_malta_custody",
+        "linkedin_malta_igaming",
+        "linkedin_malta_payments",
+        "linkedin_malta_product",
+        "linkedin_malta_settlement",
+    ]
+    assert payload["resolved_selector"]["url_count"] == 5
+
+
 def test_phase_runner_linkedin_keyword_group(capsys):
     code = phase_runner.main(["run", "linkedin", "--target", "uae", "--subselector", "payments", "--dry-run"])
     captured = capsys.readouterr()

@@ -40,7 +40,7 @@ class TestEnabledJobSourceIds:
         """Verify LinkedIn target sources are collected."""
         enabled_ids = set(get_enabled_job_source_ids())
         # Should include linkedin sources
-        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia"}
+        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_malta"}
         included = enabled_ids & linkedin_sources
         assert len(included) > 0, f"No LinkedIn sources found in {enabled_ids}"
 
@@ -51,18 +51,19 @@ class TestEnabledJobSourceIds:
         non_linkedin = {"jobvite_pragmaticplay", "smartrecruitment", "drjobs"}
         assert len(linkedin_ids & non_linkedin) == 0, "Non-LinkedIn sources in LinkedIn list"
         # Should include LinkedIn sources
-        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia"}
+        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_malta"}
         included = linkedin_ids & linkedin_sources
         assert len(included) > 0, f"No LinkedIn sources found in {linkedin_ids}"
 
     def test_amsterdam_and_australia_sources_enabled(self):
-        """Verify amsterdam and australia LinkedIn sources are available.
+        """Verify matrix LinkedIn sources are available.
 
-        Note: Amsterdam and Australia are generated through the linkedin_jobs matrix.
+        Note: Amsterdam, Australia, and Malta are generated through the linkedin_jobs matrix.
         """
         linkedin_ids = get_enabled_linkedin_source_ids()
         assert "linkedin_amsterdam" in linkedin_ids, "linkedin_amsterdam not in enabled sources"
         assert "linkedin_australia" in linkedin_ids, "linkedin_australia not in enabled sources"
+        assert "linkedin_malta" in linkedin_ids, "linkedin_malta not in enabled sources"
 
 
 class TestSourceMetadataLookup:

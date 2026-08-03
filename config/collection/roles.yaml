@@ -12,6 +12,8 @@ role_profiles:
       location_queries:
         australia:
           - "payment operations OR payments engineer OR crypto payments OR fintech australia OR payment product manager"
+        malta:
+          - "payment operations OR payments engineer OR crypto payments OR fintech malta OR payment product manager"
 
   custody:
     id: custody

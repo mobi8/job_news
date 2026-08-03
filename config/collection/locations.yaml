@@ -49,3 +49,12 @@ locations:
       settlement: linkedin_australia_settlement
       product: linkedin_australia_product
       igaming: linkedin_australia_igaming
+
+  malta:
+    id: malta
+    label: Malta
+    enabled: true
+    country: Malta
+    linkedin:
+      source: linkedin_malta
+      location: "Malta"

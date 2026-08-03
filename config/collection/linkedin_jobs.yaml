@@ -157,14 +157,43 @@ sources:
         label: iGaming
         keyword_group_ids:
         - igaming
+    - id: malta
+      label: Malta
+      aliases:
+      - linkedin_malta
+      country: Malta
+      target_ids:
+      - linkedin_malta_payments
+      - linkedin_malta_custody
+      - linkedin_malta_settlement
+      - linkedin_malta_product
+      - linkedin_malta_igaming
+      keyword_groups:
+      - id: payments
+        label: Payments
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        keyword_group_ids:
+        - product
+      - id: settlement
+        label: Settlement
+        keyword_group_ids:
+        - settlement
+      - id: igaming
+        label: iGaming
+        keyword_group_ids:
+        - igaming
     # Matrix-based target generation configuration
-    # Currently enabled for Amsterdam and Australia.
+    # Currently enabled for Amsterdam, Australia, and Malta.
     # Other locations (uae, remote) remain manual only.
     matrix:
       enabled: true
       locations:
         - amsterdam
         - australia
+        - malta
       roles:
         - payments
         - custody
