@@ -1,6 +1,6 @@
 sources:
   glassdoor:
-    enabled: true
+    enabled: false
     type: generated_search
     fetch_method: browserless
     targets:

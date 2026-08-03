@@ -888,7 +888,7 @@ sources:
 
   # Browserless Glassdoor searches. Keywords are converted with the Glassdoor UAE URL builder.
   glassdoor:
-    enabled: true
+    enabled: false
     type: generated_search
     fetch_method: browserless
     targets:
@@ -2118,7 +2118,7 @@ runtime:
     full_run_included: true
     execution_mode: python
   defaults:
-    job_watch_sources: jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads,linkedin_public,linkedin_emea,indeed_uae,glassdoor_uae,drjobs
+    job_watch_sources: jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads,linkedin_public,linkedin_emea,indeed_uae,drjobs
   linkedin_jobs:
     batch_size: 2
   indeed:

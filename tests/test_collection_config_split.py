@@ -15,6 +15,7 @@ from src.utils.collection_config import (
     _sources,
     build_linkedin_job_targets,
     build_indeed_search_targets,
+    build_glassdoor_search_targets,
     JOB_PAGES,
     LINKEDIN_SEARCH_URLS,
     INDEED_SEARCH_URLS,
@@ -233,6 +234,9 @@ class TestGlassdoor:
         target = glassdoor.get("targets", [{}])[0]
         keywords = target.get("keywords", [])
         assert len(keywords) == 12
+
+        assert glassdoor.get("enabled") is False
+        assert build_glassdoor_search_targets() == []
 
     def test_glassdoor_keywords_are_strings(self):
         """Verify Glassdoor keywords are strings."""
