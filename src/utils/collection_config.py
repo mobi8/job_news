@@ -360,6 +360,9 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         location_config = locations.get(location_id)
         if not location_config or not location_config.get("enabled"):
             continue
+        linkedin_location = location_config.get("linkedin", {})
+        location_role_additions = location_config.get("role_query_additions", {})
+        location_role_overrides = location_config.get("role_overrides", {})
 
         for role_id in sorted(matrix_config.get("roles", [])):
             role_config = role_profiles.get(role_id)
@@ -370,8 +373,6 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
             legacy_target_ids = location_config.get("legacy_target_ids", {})
             target_id = legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}")
 
-            # Get location-specific LinkedIn settings
-            linkedin_location = location_config.get("linkedin", {})
             source = linkedin_location.get("source", "")
             location_str = linkedin_location.get("location", "")
             geo_id = linkedin_location.get("geo_id")
@@ -379,13 +380,25 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
 
             # Get role-specific LinkedIn settings
             linkedin_role = role_config.get("linkedin", {})
-            keyword_group_id = linkedin_role.get("keyword_group_id", "")
-            location_queries = linkedin_role.get("location_queries", {})
-            queries = (
-                location_queries.get(location_id)
-                if isinstance(location_queries, dict) and location_queries.get(location_id)
-                else linkedin_role.get("queries", [])
+            role_override = (
+                location_role_overrides.get(role_id, {})
+                if isinstance(location_role_overrides, dict)
+                else {}
             )
+            keyword_group_id = role_override.get("keyword_group_id") or linkedin_role.get("keyword_group_id", "")
+            legacy_location_queries = linkedin_role.get("location_queries", {})
+            if isinstance(legacy_location_queries, dict) and legacy_location_queries.get(location_id):
+                queries = legacy_location_queries.get(location_id) or []
+            else:
+                queries = list(linkedin_role.get("queries", []) or [])
+                additions = []
+                if isinstance(location_role_additions, dict):
+                    additions = location_role_additions.get(role_id, []) or []
+                queries.extend(str(item) for item in additions if str(item).strip())
+            if role_override.get("query"):
+                queries = [str(role_override.get("query"))]
+            elif role_override.get("queries"):
+                queries = [str(item) for item in role_override.get("queries") or [] if str(item).strip()]
 
             # Merge queries into a single query string
             query = " OR ".join(queries) if queries else ""
@@ -420,6 +433,59 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
 
     # Sort by target ID for deterministic ordering
     return sorted(generated_targets, key=lambda t: t["id"])
+
+
+def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build selector groups for standard matrix locations from canonical config."""
+    linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
+    matrix_config = linkedin_source.get("matrix", {})
+    if not matrix_config.get("enabled"):
+        return []
+
+    locations = registry.get("locations", {})
+    role_profiles = registry.get("role_profiles", {})
+    groups: list[dict[str, Any]] = []
+    for location_id in sorted(matrix_config.get("locations", [])):
+        location = locations.get(location_id)
+        if not isinstance(location, dict) or not _enabled(location):
+            continue
+        linkedin_location = location.get("linkedin") or {}
+        target_ids = []
+        keyword_groups_by_id: dict[str, dict[str, Any]] = {}
+        legacy_target_ids = location.get("legacy_target_ids", {})
+        role_overrides = location.get("role_overrides", {})
+        for role_id in sorted(matrix_config.get("roles", [])):
+            role = role_profiles.get(role_id)
+            if not isinstance(role, dict) or not _enabled(role):
+                continue
+            target_ids.append(legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}"))
+            linkedin_role = role.get("linkedin") or {}
+            role_override = role_overrides.get(role_id, {}) if isinstance(role_overrides, dict) else {}
+            keyword_id = str(role_override.get("keyword_group_id") or linkedin_role.get("keyword_group_id") or role_id)
+            selector_id = str(role.get("selector_group_id") or role_id)
+            if selector_id not in keyword_groups_by_id:
+                keyword_groups_by_id[selector_id] = {
+                    "id": selector_id,
+                    "label": str(role.get("label") or selector_id),
+                    "aliases": [str(alias) for alias in role.get("aliases", []) or []],
+                    "keyword_group_ids": [keyword_id],
+                }
+            elif keyword_id not in keyword_groups_by_id[selector_id]["keyword_group_ids"]:
+                keyword_groups_by_id[selector_id]["keyword_group_ids"].append(keyword_id)
+
+        aliases = [f"linkedin_{location_id}"]
+        aliases.extend(str(alias) for alias in linkedin_location.get("aliases", []) or [])
+        groups.append(
+            {
+                "id": location_id,
+                "label": str(location.get("label") or location_id),
+                "aliases": aliases,
+                "country": str(location.get("country") or ""),
+                "target_ids": target_ids,
+                "keyword_groups": list(keyword_groups_by_id.values()),
+            }
+        )
+    return groups
 
 
 def _enabled(item: dict[str, Any]) -> bool:
@@ -769,14 +835,60 @@ def build_drjobs_search_targets() -> list[SearchTarget]:
     return _filter_search_targets("drjobs", targets)
 
 
+def _linkedin_post_locations(config: dict[str, Any]) -> list[dict[str, Any]]:
+    shared_locations = REGISTRY.get("locations", {})
+    locations = []
+    for location in config.get("locations", []) or []:
+        if not isinstance(location, dict) or not _enabled(location):
+            continue
+        location_ref = str(location.get("location_ref") or "")
+        if not location_ref:
+            locations.append(location)
+            continue
+        shared = shared_locations.get(location_ref)
+        if not isinstance(shared, dict) or not _enabled(shared):
+            continue
+        posts = shared.get("linkedin_posts") or {}
+        if not isinstance(posts, dict) or not _enabled(posts):
+            continue
+        locations.append(_linkedin_post_location_from_shared(location_ref, shared, posts))
+    location_refs = config.get("matrix", {}).get("locations") or []
+    if not location_refs:
+        return locations
+    for location_id in sorted(location_refs):
+        shared = shared_locations.get(location_id)
+        if not isinstance(shared, dict) or not _enabled(shared):
+            continue
+        posts = shared.get("linkedin_posts") or {}
+        if not isinstance(posts, dict) or not _enabled(posts):
+            continue
+        locations.append(_linkedin_post_location_from_shared(location_id, shared, posts))
+    return locations
+
+
+def _linkedin_post_location_from_shared(
+    location_id: str,
+    shared: dict[str, Any],
+    posts: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "id": posts.get("id") or f"posts_{location_id}",
+        "enabled": True,
+        "country": posts.get("country") or shared.get("label") or shared.get("country"),
+        "store_country": posts.get("store_country") or posts.get("country") or shared.get("label") or shared.get("country"),
+        "label": posts.get("label") or shared.get("label") or location_id,
+        "aliases": posts.get("aliases") or [location_id],
+        "query_location": posts.get("query_location"),
+        "location_terms": posts.get("location_terms") or [],
+    }
+
+
 def build_linkedin_post_plans() -> list[dict[str, Any]]:
     config = _sources().get("linkedin_posts", {})
     if not config.get("enabled", True):
         return []
     plans: list[dict[str, Any]] = []
-    for location in config.get("locations", []):
-        if not _enabled(location):
-            continue
+    for location in _linkedin_post_locations(config):
         for role in config.get("roles", []):
             for lead in config.get("leads", []):
                 plans.append(
@@ -944,7 +1056,10 @@ def _phase_source_config(phase: str) -> dict[str, Any]:
 
 def _target_groups_for_phase(phase: str) -> list[dict[str, Any]]:
     groups = _phase_source_config(phase).get("target_groups") or []
-    return [group for group in groups if isinstance(group, dict) and _enabled(group)]
+    configured = [group for group in groups if isinstance(group, dict) and _enabled(group)]
+    if phase == "linkedin":
+        configured.extend(_matrix_target_groups_for_linkedin(REGISTRY))
+    return configured
 
 
 def _target_group_values(group: dict[str, Any]) -> tuple[str, ...]:
@@ -1136,7 +1251,8 @@ def selector_candidates_for_phase(phase: str) -> list[SelectorCandidate]:
     if phase == "player":
         return [_candidate_from_mapping("player", target) for target in enabled_player_feeds()]
     if phase == "posts":
-        locations = _phase_source_config("posts").get("locations") or []
+        posts_config = _phase_source_config("posts")
+        locations = _linkedin_post_locations(posts_config)
         return [
             _candidate_from_mapping(
                 "posts",
@@ -1655,8 +1771,7 @@ def linkedin_post_location_terms_by_country() -> dict[str, list[str]]:
     config = _sources().get("linkedin_posts", {})
     return {
         str(location.get("country")): list(location.get("location_terms") or [])
-        for location in config.get("locations", [])
-        if _enabled(location)
+        for location in _linkedin_post_locations(config)
     }
 
 

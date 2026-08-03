@@ -56,21 +56,7 @@ sources:
       query: compliance OR risk management OR regulatory
       domain: compliance_risk
     locations:
-    - id: posts_uae
-      enabled: true
-      country: UAE
-      store_country: UAE
-      label: UAE
-      aliases:
-      - uae
-      - linkedin_posts_uae
-      query_location: in UAE
-      location_terms:
-      - uae
-      - dubai
-      - abu dhabi
-      - united arab emirates
-      - emirates
+    - location_ref: uae
     - id: posts_remote_mena
       enabled: true
       country: Remote
@@ -92,50 +78,9 @@ sources:
       - bahrain
       - kuwait
       - oman
-    - id: posts_amsterdam
-      enabled: true
-      country: Amsterdam
-      store_country: Amsterdam
-      label: Amsterdam
-      aliases:
-      - amsterdam
-      query_location: in Amsterdam Netherlands
-      location_terms:
-      - amsterdam
-      - netherlands
-      - nederland
-      - holland
-    - id: posts_australia
-      enabled: true
-      country: Australia
-      store_country: Australia
-      label: Australia
-      aliases:
-      - australia
-      - au
-      query_location: in Australia
-      location_terms:
-      - australia
-      - sydney
-      - melbourne
-      - brisbane
-      - perth
-      - adelaide
-      - canberra
-    - id: posts_malta
-      enabled: true
-      country: Malta
-      store_country: Malta
-      label: Malta
-      aliases:
-      - malta
-      query_location: in Malta
-      location_terms:
-      - malta
-      - sliema
-      - valletta
-      - st julian
-      - st. julian
+    - location_ref: amsterdam
+    - location_ref: australia
+    - location_ref: malta
     filters:
       hiring_terms:
       - hiring

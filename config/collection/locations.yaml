@@ -8,6 +8,23 @@ locations:
       source: linkedin_public
       location: "Dubai, United Arab Emirates"
       # Note: UAE public sources use location string, not geo_id
+      aliases:
+        - united_arab_emirates
+    linkedin_posts:
+      id: posts_uae
+      country: UAE
+      store_country: UAE
+      label: UAE
+      aliases:
+        - uae
+        - linkedin_posts_uae
+      query_location: in UAE
+      location_terms:
+        - uae
+        - dubai
+        - abu dhabi
+        - united arab emirates
+        - emirates
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_uae_crypto_payment
@@ -26,6 +43,24 @@ locations:
       source: linkedin_amsterdam
       location: "Amsterdam, Netherlands"
       geo_id: '104268996'
+      aliases:
+        - netherlands
+    linkedin_posts:
+      id: posts_amsterdam
+      country: Amsterdam
+      store_country: Amsterdam
+      label: Amsterdam
+      aliases:
+        - amsterdam
+      query_location: in Amsterdam Netherlands
+      location_terms:
+        - amsterdam
+        - netherlands
+        - nederland
+        - holland
+    role_query_additions:
+      payments:
+        - fintech
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_amsterdam_payments
@@ -42,6 +77,28 @@ locations:
     linkedin:
       source: linkedin_australia
       location: "Sydney, Australia"
+      aliases:
+        - au
+    linkedin_posts:
+      id: posts_australia
+      country: Australia
+      store_country: Australia
+      label: Australia
+      aliases:
+        - australia
+        - au
+      query_location: in Australia
+      location_terms:
+        - australia
+        - sydney
+        - melbourne
+        - brisbane
+        - perth
+        - adelaide
+        - canberra
+    role_query_additions:
+      payments:
+        - fintech
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_australia_payments
@@ -58,3 +115,20 @@ locations:
     linkedin:
       source: linkedin_malta
       location: "Malta"
+    linkedin_posts:
+      id: posts_malta
+      country: Malta
+      store_country: Malta
+      label: Malta
+      aliases:
+        - malta
+      query_location: in Malta
+      location_terms:
+        - malta
+        - sliema
+        - valletta
+        - st julian
+        - st. julian
+    role_query_additions:
+      payments:
+        - fintech

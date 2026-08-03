@@ -659,7 +659,7 @@ class TestMatrixIntegration:
         }
 
         expected_queries = {
-            "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR fintech malta OR payment product manager",
+            "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
             "linkedin_malta_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_malta_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_malta_product": "product manager OR product owner OR delivery manager OR product operations",
@@ -672,8 +672,34 @@ class TestMatrixIntegration:
                 f"{tid}: expected query {expected_query!r}, got {search_target.keyword_query!r}"
             )
 
+    def test_matrix_payment_queries_are_location_neutral(self):
+        """Verify reusable payment role queries do not duplicate LinkedIn location routing."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        payment_queries = {
+            t.target_id: t.keyword_query
+            for t in prod_targets
+            if t.target_id
+            in {
+                "linkedin_amsterdam_payments",
+                "linkedin_australia_payments",
+                "linkedin_malta_payments",
+            }
+        }
+
+        assert payment_queries == {
+            "linkedin_amsterdam_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+            "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+            "linkedin_malta_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
+        }
+        for query in payment_queries.values():
+            assert "netherlands" not in query.lower()
+            assert "australia" not in query.lower()
+            assert "malta" not in query.lower()
+
     def test_australia_queries_preserved(self):
-        """Verify generated Australia targets preserve the previous manual queries."""
+        """Verify generated Australia non-payment targets preserve previous manual queries."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
@@ -684,7 +710,7 @@ class TestMatrixIntegration:
         }
 
         expected_queries = {
-            "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR fintech australia OR payment product manager",
+            "linkedin_australia_payments": "payment operations OR payments engineer OR crypto payments OR payment product manager OR fintech",
             "linkedin_australia_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_australia_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_australia_product": "product manager OR product owner OR delivery manager OR product operations",
@@ -696,6 +722,21 @@ class TestMatrixIntegration:
             assert search_target.keyword_query == expected_query, (
                 f"{tid}: expected query {expected_query!r}, got {search_target.keyword_query!r}"
             )
+
+    def test_standard_linkedin_target_groups_are_derived(self):
+        """Verify matrix locations do not need duplicated target-group YAML."""
+        from src.utils.collection_config import REGISTRY, discovery_target_groups
+
+        configured_groups = REGISTRY["sources"]["linkedin_jobs"]["target_groups"]
+        configured_ids = {group["id"] for group in configured_groups}
+        assert configured_ids == {"uae", "remote"}
+
+        status, groups = discovery_target_groups("linkedin")
+        assert status == "ok"
+        derived = {group["id"]: group for group in groups}
+        for location_id in ("amsterdam", "australia", "malta"):
+            assert derived[location_id]["target_count"] == 5
+            assert derived[location_id]["keyword_count"] == 4
 
     def test_production_target_count_unchanged(self):
         """Verify total production SearchTarget count unchanged after matrix integration."""

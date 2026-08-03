@@ -3,26 +3,22 @@ role_profiles:
     id: payments
     label: Payments
     enabled: true
-    # Role profile for payments-related positions across organizations
+    aliases:
+      - payment
+    # Canonical payments intent. Location routing belongs in locations.yaml.
     linkedin:
       keyword_group_id: payments
-      # Using exact Amsterdam manual target query for consistent generation
       queries:
-        - "payment operations OR payments engineer OR crypto payments OR fintech netherlands OR payment product manager"
-      location_queries:
-        australia:
-          - "payment operations OR payments engineer OR crypto payments OR fintech australia OR payment product manager"
-        malta:
-          - "payment operations OR payments engineer OR crypto payments OR fintech malta OR payment product manager"
+        - "payment operations OR payments engineer OR crypto payments OR payment product manager"
 
   custody:
     id: custody
     label: Custody / Asset Operations
     enabled: true
-    # Role profile for custody and asset management positions
+    selector_group_id: settlement
+    # Role profile for custody and asset management positions.
     linkedin:
       keyword_group_id: settlement
-      # Using exact Amsterdam manual target query for consistent generation
       queries:
         - "custody operations OR asset custody OR settlement operations OR vault operations"
 
@@ -30,10 +26,9 @@ role_profiles:
     id: settlement
     label: Settlement / Trading Operations
     enabled: true
-    # Role profile for settlement, trading, and exchange operations
+    # Role profile for settlement, trading, and exchange operations.
     linkedin:
       keyword_group_id: settlement
-      # Using exact Amsterdam manual target query for consistent generation
       queries:
         - "settlement operations OR trading operations OR exchange operations"
 
@@ -41,10 +36,12 @@ role_profiles:
     id: product
     label: Product Manager / Product Operations
     enabled: true
-    # Role profile for product management and product operations
+    aliases:
+      - product_manager
+      - product-manager
+    # Role profile for product management and product operations.
     linkedin:
       keyword_group_id: product
-      # Using exact Amsterdam manual target query for consistent generation
       queries:
         - "product manager OR product owner OR delivery manager OR product operations"
 
@@ -52,9 +49,8 @@ role_profiles:
     id: igaming
     label: iGaming / Gaming Operations
     enabled: true
-    # Role profile for iGaming and gaming operations positions
+    # Role profile for iGaming and gaming operations positions.
     linkedin:
       keyword_group_id: igaming
-      # Using exact Amsterdam manual target query for consistent generation
       queries:
         - "igaming operations OR gaming operations OR casino operations"
