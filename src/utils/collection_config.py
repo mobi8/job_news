@@ -436,6 +436,75 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
     return sorted(generated_targets, key=lambda t: t["id"])
 
 
+def generate_indeed_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Generate Indeed targets from verified source-specific location routing.
+
+    Unlike LinkedIn, Indeed routing is not universal. A location must opt in with
+    locations.<id>.indeed.enabled=true and explicit domain/location settings.
+    """
+    indeed_source = registry.get("sources", {}).get("indeed", {})
+    matrix_config = indeed_source.get("matrix", {})
+    if not matrix_config.get("enabled"):
+        return []
+
+    locations = registry.get("locations", {})
+    role_profiles = registry.get("role_profiles", {})
+    generated_targets: list[dict[str, Any]] = []
+
+    configured_roles = [str(role_id) for role_id in matrix_config.get("roles", []) or []]
+    for location_id in sorted(matrix_config.get("locations", [])):
+        location_config = locations.get(location_id)
+        if not isinstance(location_config, dict) or not location_config.get("enabled"):
+            continue
+        indeed_location = location_config.get("indeed") or {}
+        if not isinstance(indeed_location, dict) or not indeed_location.get("enabled"):
+            continue
+
+        enabled_roles = indeed_location.get("enabled_roles") or location_config.get("indeed_enabled_roles") or []
+        role_ids = [str(role_id) for role_id in enabled_roles if str(role_id) in configured_roles]
+        excluded_roles = {str(role_id) for role_id in indeed_location.get("excluded_roles", []) or []}
+        legacy_target_ids = indeed_location.get("legacy_target_ids") or {}
+
+        for role_id in sorted(role_id for role_id in role_ids if role_id not in excluded_roles):
+            role_config = role_profiles.get(role_id)
+            if not isinstance(role_config, dict) or not role_config.get("enabled"):
+                continue
+            indeed_role = role_config.get("indeed") or {}
+            queries = [str(item) for item in indeed_role.get("queries", []) or [] if str(item).strip()]
+            if not queries:
+                continue
+            keyword_group_id = str(indeed_role.get("keyword_group_id") or role_id)
+            target_id = str(legacy_target_ids.get(role_id) or f"indeed_{location_id}_{role_id}")
+            generated_targets.append(
+                {
+                    "id": target_id,
+                    "enabled": True,
+                    "source": str(indeed_location.get("source") or f"indeed_{location_id}"),
+                    "country": str(indeed_location.get("country") or location_config.get("country") or ""),
+                    "location": str(indeed_location.get("location") or ""),
+                    "indeed_country": str(indeed_location.get("country_indeed") or ""),
+                    "domain": str(indeed_location.get("domain") or ""),
+                    "locale": str(indeed_location.get("locale") or ""),
+                    "routing_mode": str(indeed_location.get("routing_mode") or "domain"),
+                    "sort": str(indeed_location.get("sort") or "date"),
+                    "keyword_groups": [
+                        {"id": keyword_group_id, "query": query}
+                        for query in queries
+                    ],
+                    "url": {"builder": "indeed"},
+                }
+            )
+
+    return sorted(
+        generated_targets,
+        key=lambda target: (
+            str(target.get("source") or ""),
+            str((target.get("keyword_groups") or [{}])[0].get("id") or ""),
+            str(target.get("id") or ""),
+        ),
+    )
+
+
 def _matrix_role_ids_for_location(matrix_config: dict[str, Any], location_config: dict[str, Any]) -> list[str]:
     configured_roles = [str(role_id) for role_id in matrix_config.get("roles", []) or []]
     enabled_roles = location_config.get("enabled_roles")
@@ -626,11 +695,38 @@ def build_linkedin_jobs_url(
     return "https://www.linkedin.com/jobs/search/?" + urllib.parse.urlencode(params)
 
 
-def build_indeed_url(*, domain: str, query: str, location: str, sort: str = "date") -> str:
+def build_indeed_url(
+    *,
+    domain: str,
+    query: str,
+    location: str,
+    sort: str = "date",
+    locale: str = "",
+) -> str:
     params = {"q": query, "l": location}
     if sort:
         params["sort"] = sort
+    if locale:
+        params["hl"] = locale
+    params = {key: value for key, value in params.items() if value}
     return f"https://{domain}/jobs?" + urllib.parse.urlencode(params)
+
+
+def _build_indeed_url_from_routing(*, routing: dict[str, Any], query: str) -> str:
+    explicit_url = str(routing.get("explicit_url") or "").strip()
+    routing_mode = str(routing.get("routing_mode") or "domain")
+    if routing_mode == "explicit_url" or explicit_url:
+        if not explicit_url:
+            return ""
+        separator = "&" if "?" in explicit_url else "?"
+        return explicit_url + separator + urllib.parse.urlencode({"q": query})
+    return build_indeed_url(
+        domain=str(routing.get("domain") or ""),
+        query=query,
+        location=str(routing.get("location") or ""),
+        sort=str(routing.get("sort") or "date"),
+        locale=str(routing.get("locale") or ""),
+    )
 
 
 def build_glassdoor_uae_url(keyword: str) -> str:
@@ -762,8 +858,12 @@ def build_indeed_search_targets() -> list[SearchTarget]:
     config = _sources().get("indeed", {})
     if not config.get("enabled", True):
         return targets
+    generated_matrix = generate_indeed_matrix_targets(REGISTRY)
+    generated_ids = {target["id"] for target in generated_matrix}
     for target in config.get("targets", []):
         if not _enabled(target):
+            continue
+        if target.get("id") in generated_ids:
             continue
         override = _url_config(target).get("explicit_override")
         groups = _keyword_groups(target)
@@ -780,6 +880,20 @@ def build_indeed_search_targets() -> list[SearchTarget]:
                         sort=str(target.get("sort") or "date"),
                     ),
                     target=target,
+                    keyword_group=group,
+                )
+            )
+    for matrix_target in generated_matrix:
+        override = _url_config(matrix_target).get("explicit_override")
+        groups = _keyword_groups(matrix_target)
+        if override:
+            targets.append(_search_target(url=override, target=matrix_target))
+            continue
+        for group in groups:
+            targets.append(
+                _search_target(
+                    url=_build_indeed_url_from_routing(routing=matrix_target, query=group["query"]),
+                    target=matrix_target,
                     keyword_group=group,
                 )
             )

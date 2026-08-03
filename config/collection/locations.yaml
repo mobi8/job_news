@@ -10,6 +10,20 @@ locations:
       # Note: UAE public sources use location string, not geo_id
       aliases:
         - united_arab_emirates
+    indeed:
+      enabled: true
+      source: indeed_uae
+      domain: ae.indeed.com
+      location: dubai
+      country: UAE
+      country_indeed: United Arab Emirates
+      locale: en_AE
+      routing_mode: domain
+      sort: date
+      enabled_roles:
+        - account_manager
+      legacy_target_ids:
+        account_manager: indeed_uae
     linkedin_posts:
       id: posts_uae
       country: UAE
@@ -45,6 +59,9 @@ locations:
       geo_id: '104268996'
       aliases:
         - netherlands
+    indeed:
+      enabled: false
+      unsupported_reason: "nl.indeed.com reached a Cloudflare security-check page in production browser verification."
     linkedin_posts:
       id: posts_amsterdam
       country: Amsterdam
@@ -169,6 +186,9 @@ locations:
     linkedin:
       source: linkedin_cyprus
       location: "Cyprus"
+    indeed:
+      enabled: false
+      unsupported_reason: "cy.indeed.com and indeed.com.cy could not be resolved during verification."
     enabled_roles:
       - payments
       - treasury
@@ -200,6 +220,9 @@ locations:
       location: "United Kingdom"
       aliases:
         - uk
+    indeed:
+      enabled: false
+      unsupported_reason: "uk.indeed.com reached a Cloudflare security-check page in production browser verification."
     enabled_roles:
       - payments
       - treasury
@@ -328,6 +351,9 @@ locations:
     linkedin:
       source: linkedin_ireland
       location: "Ireland"
+    indeed:
+      enabled: false
+      unsupported_reason: "ie.indeed.com reached a Cloudflare security-check page in production browser verification."
     enabled_roles:
       - payments
       - treasury
@@ -361,6 +387,9 @@ locations:
     linkedin:
       source: linkedin_spain
       location: "Spain"
+    indeed:
+      enabled: false
+      unsupported_reason: "es.indeed.com reached a Cloudflare security-check page in production browser verification."
     enabled_roles:
       - payments
       - treasury
@@ -390,6 +419,9 @@ locations:
     linkedin:
       source: linkedin_portugal
       location: "Portugal"
+    indeed:
+      enabled: false
+      unsupported_reason: "pt.indeed.com reached a Cloudflare security-check page in production browser verification."
     enabled_roles:
       - payments
       - treasury

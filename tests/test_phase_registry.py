@@ -6,6 +6,7 @@ Tests verify that the split YAML configuration in config/collection/
 produces an identical registry to the original monolithic config/collection_sources.yaml.
 """
 
+import json
 import pytest
 import yaml
 from pathlib import Path
@@ -53,6 +54,50 @@ def test_phase_alias_resolution_uses_registry():
     assert resolve_phase_id("collect") == "all"
     assert resolve_phase_id("list") == "list"
     assert resolve_phase_id("help") == "help"
+
+
+def test_indeed_country_specific_routing_and_metadata():
+    from src.utils.collection_config import build_indeed_search_targets, target_metadata_by_url
+
+    targets = build_indeed_search_targets()
+    assert len(targets) == 1
+    assert {target.country for target in targets} == {"UAE"}
+    assert {target.source for target in targets} == {"indeed_uae"}
+    assert {target.keyword_group_id for target in targets} == {
+        "account_manager",
+    }
+    metadata = target_metadata_by_url(targets)
+    account = next(target for target in targets if target.keyword_query == "account manager payments")
+    assert metadata[account.url]["country"] == "UAE"
+    assert metadata[account.url]["source"] == "indeed_uae"
+
+
+def test_indeed_unsupported_locations_are_disabled_with_reason():
+    locations = REGISTRY["locations"]
+    for location_id in ["united_kingdom", "amsterdam", "ireland", "spain", "portugal", "cyprus"]:
+        indeed = locations[location_id].get("indeed") or {}
+        assert indeed.get("enabled") is False
+        assert indeed.get("unsupported_reason")
+
+
+def test_indeed_selector_filters_to_role_queries(monkeypatch):
+    from src.utils import collection_config
+
+    selection = collection_config.resolve_selector("indeed", "uae", "account_manager")
+    assert selection.status == "matched"
+    assert selection.keyword_group_ids == ("account_manager",)
+    assert selection.keyword_queries == ("account manager payments",)
+    assert len(selection.targets) == 1
+
+    payload = {
+        "phase": "indeed",
+        "target_ids": ["indeed_uae"],
+        "keyword_group_ids": ["account_manager"],
+        "keyword_queries": ["account manager payments"],
+    }
+    monkeypatch.setenv("COLLECTION_TARGET_FILTER_JSON", json.dumps(payload))
+    filtered = collection_config.build_indeed_search_targets()
+    assert [target.keyword_query for target in filtered] == ["account manager payments"]
 
 
 def test_enabled_phases_have_handlers():

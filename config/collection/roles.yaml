@@ -9,6 +9,9 @@ role_profiles:
       keyword_group_id: payments
       queries:
         - "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
+    indeed:
+      keyword_group_id: payments
+      queries: []
 
   treasury:
     id: treasury
@@ -113,6 +116,9 @@ role_profiles:
       keyword_group_id: implementation
       queries:
         - "payments implementation manager OR PSP implementation specialist OR merchant onboarding manager"
+    indeed:
+      keyword_group_id: implementation
+      queries: []
 
   integration:
     id: integration
@@ -134,6 +140,9 @@ role_profiles:
       keyword_group_id: technical_account
       queries:
         - "payments technical account manager OR PSP technical account manager OR fintech solutions engineer"
+    indeed:
+      keyword_group_id: technical_account
+      queries: []
 
   account_manager:
     id: account_manager
@@ -145,6 +154,10 @@ role_profiles:
       keyword_group_id: account_manager
       queries:
         - "payments account manager OR igaming account manager OR PSP account manager OR fintech account manager"
+    indeed:
+      keyword_group_id: account_manager
+      queries:
+        - "account manager payments"
 
   partner_manager:
     id: partner_manager
@@ -195,6 +208,9 @@ role_profiles:
       keyword_group_id: compliance
       queries:
         - "payments compliance analyst OR fintech compliance manager OR igaming compliance"
+    indeed:
+      keyword_group_id: compliance
+      queries: []
 
   aml:
     id: aml
@@ -243,3 +259,6 @@ role_profiles:
       keyword_group_id: igaming
       queries:
         - "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino"
+    indeed:
+      keyword_group_id: igaming
+      queries: []

@@ -187,12 +187,21 @@ def test_phase_runner_linkedin_keyword_group(capsys):
 
 
 def test_phase_runner_indeed_keyword_group(capsys):
-    code = phase_runner.main(["run", "indeed", "--target", "uae", "--subselector", "product", "--dry-run"])
+    code = phase_runner.main(["run", "indeed", "--target", "uae", "--subselector", "account_manager", "--dry-run"])
     payload = json.loads(capsys.readouterr().out)
     assert code == 0
-    assert payload["resolved_selector"]["keyword_group_id"] == "product"
-    assert payload["resolved_selector"]["keyword_group_ids"] == ["product"]
+    assert payload["resolved_selector"]["target_ids"] == ["indeed_uae"]
+    assert payload["resolved_selector"]["keyword_group_id"] == "account_manager"
+    assert payload["resolved_selector"]["keyword_group_ids"] == ["account_manager"]
     assert payload["resolved_selector"]["url_count"] == 1
+
+
+def test_phase_runner_indeed_unsupported_keyword_group(capsys):
+    code = phase_runner.main(["run", "indeed", "--target", "uae", "--subselector", "payments", "--dry-run"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert payload["status"] == "invalid_target"
+    assert payload["error"] == "unknown subselector: payments"
 
 
 def test_phase_runner_jobspy_keyword_reference(capsys):

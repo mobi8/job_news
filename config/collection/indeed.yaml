@@ -13,26 +13,30 @@ sources:
       target_ids:
       - indeed_uae
       keyword_groups:
-      - id: crypto
-        label: Crypto
-        keyword_group_ids:
-        - payments
-        - product
-        - settlement
-        - exchanges
-      - id: payments
-        label: Payments
+      - id: account_manager
+        label: Account Manager
         aliases:
-        - payment
+        - account_management
         keyword_group_ids:
-        - payments
-      - id: product
-        label: Product
-        aliases:
-        - product_manager
-        - product-manager
-        keyword_group_ids:
-        - product
+        - account_manager
+    matrix:
+      enabled: true
+      locations:
+      - uae
+      - united_kingdom
+      - amsterdam
+      - ireland
+      - spain
+      - portugal
+      - malta
+      - cyprus
+      roles:
+      - payments
+      - igaming
+      - account_manager
+      - technical_account
+      - implementation
+      - compliance
     targets:
     - id: indeed_uae
       enabled: true

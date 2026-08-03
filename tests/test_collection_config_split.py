@@ -13,6 +13,7 @@ from src.utils.collection_config import (
     REGISTRY,
     load_collection_registry,
     _sources,
+    build_indeed_search_targets,
     JOB_PAGES,
     LINKEDIN_SEARCH_URLS,
     INDEED_SEARCH_URLS,
@@ -153,8 +154,8 @@ class TestIndeed:
 
     def test_indeed_urls_count(self):
         """Verify Indeed search URLs count (one per keyword group)."""
-        # Indeed has 1 target with 7 keyword groups = 7 URLs
-        assert len(INDEED_SEARCH_URLS) == 7
+        # Verified UAE Indeed routing generates 1 source-specific role query URL.
+        assert len(INDEED_SEARCH_URLS) == 1
 
     def test_indeed_keyword_groups(self):
         """Verify Indeed keyword groups are present."""
@@ -162,6 +163,21 @@ class TestIndeed:
         target = indeed.get("targets", [{}])[0]
         keyword_groups = target.get("keyword_groups", [])
         assert len(keyword_groups) > 0
+
+    def test_indeed_matrix_only_generates_verified_locations(self):
+        """Verify unsupported Indeed locations are skipped instead of guessed."""
+        targets = build_indeed_search_targets()
+        assert {target.country for target in targets} == {"UAE"}
+        assert {target.source for target in targets} == {"indeed_uae"}
+        assert all(target.url.startswith("https://ae.indeed.com/jobs?") for target in targets)
+
+    def test_indeed_matrix_queries_are_source_specific(self):
+        """Verify Indeed uses shorter source-specific queries, not LinkedIn Boolean chains."""
+        targets = build_indeed_search_targets()
+        queries = {target.keyword_query for target in targets}
+        assert "account manager payments" in queries
+        assert "payment operations OR payment operations manager" not in queries
+        assert all(" OR " not in query for query in queries)
 
 
 class TestGlassdoor:
