@@ -1,0 +1,35 @@
+locations:
+  uae:
+    id: uae
+    label: UAE
+    enabled: true
+    country: UAE
+    linkedin:
+      source: linkedin_public
+      location: "Dubai, United Arab Emirates"
+      # Note: UAE public sources use location string, not geo_id
+    # Legacy target ID mappings for existing targets
+    legacy_target_ids:
+      payments: linkedin_uae_crypto_payment
+      custody: linkedin_uae_web3_wallet
+      product: linkedin_uae_crypto_product
+      igaming: linkedin_uae_igaming
+      # Note: UAE has no existing "settlement" role target
+      # linkedin_uae_custody_game is hybrid (custody_game role ID)
+
+  amsterdam:
+    id: amsterdam
+    label: Amsterdam
+    enabled: true
+    country: Netherlands
+    linkedin:
+      source: linkedin_amsterdam
+      location: "Amsterdam, Netherlands"
+      geo_id: '104268996'
+    # Legacy target ID mappings for existing targets
+    legacy_target_ids:
+      payments: linkedin_amsterdam_payments
+      custody: linkedin_amsterdam_custody
+      settlement: linkedin_amsterdam_settlement
+      product: linkedin_amsterdam_product
+      igaming: linkedin_amsterdam_igaming

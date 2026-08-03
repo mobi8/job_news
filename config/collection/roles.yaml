@@ -1,0 +1,55 @@
+role_profiles:
+  payments:
+    id: payments
+    label: Payments
+    enabled: true
+    # Role profile for payments-related positions across organizations
+    linkedin:
+      keyword_group_id: payments
+      # Using exact Amsterdam manual target query for consistent generation
+      queries:
+        - "payment operations OR payments engineer OR crypto payments OR fintech netherlands OR payment product manager"
+
+  custody:
+    id: custody
+    label: Custody / Asset Operations
+    enabled: true
+    # Role profile for custody and asset management positions
+    linkedin:
+      keyword_group_id: settlement
+      # Using exact Amsterdam manual target query for consistent generation
+      queries:
+        - "custody operations OR asset custody OR settlement operations OR vault operations"
+
+  settlement:
+    id: settlement
+    label: Settlement / Trading Operations
+    enabled: true
+    # Role profile for settlement, trading, and exchange operations
+    linkedin:
+      keyword_group_id: settlement
+      # Using exact Amsterdam manual target query for consistent generation
+      queries:
+        - "settlement operations OR trading operations OR exchange operations"
+
+  product:
+    id: product
+    label: Product Manager / Product Operations
+    enabled: true
+    # Role profile for product management and product operations
+    linkedin:
+      keyword_group_id: product
+      # Using exact Amsterdam manual target query for consistent generation
+      queries:
+        - "product manager OR product owner OR delivery manager OR product operations"
+
+  igaming:
+    id: igaming
+    label: iGaming / Gaming Operations
+    enabled: true
+    # Role profile for iGaming and gaming operations positions
+    linkedin:
+      keyword_group_id: igaming
+      # Using exact Amsterdam manual target query for consistent generation
+      queries:
+        - "igaming operations OR gaming operations OR casino operations"

@@ -15,14 +15,20 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 
 def _get_config_path() -> Path:
-    """Get the config path, supporting both monolithic and split configurations."""
+    """Get the config path, supporting both monolithic and split configurations.
+
+    Behavior:
+    - COLLECTION_SOURCES_CONFIG_PATH env var: use that path (file or directory)
+    - config/collection/ directory exists: use that directory (split config)
+    - default: config/collection_sources.yaml (monolithic config)
+    """
     env_path = os.getenv("COLLECTION_SOURCES_CONFIG_PATH")
     if env_path:
         return Path(env_path)
-    # Default to collection directory if it exists, otherwise use legacy path
+    # Default to split directory if it exists, otherwise use monolithic file
     collection_dir = ROOT / "config" / "collection"
-    if collection_dir.exists():
-        return collection_dir / "dummy.yaml"  # Marker path; loader uses parent dir
+    if collection_dir.exists() and collection_dir.is_dir():
+        return collection_dir
     return ROOT / "config" / "collection_sources.yaml"
 
 CONFIG_PATH = _get_config_path()
@@ -110,23 +116,24 @@ def _load_yaml(path: Path = CONFIG_PATH) -> dict[str, Any]:
 
 
 def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    """Load collection registry from split YAML files in config/collection/.
+    """Load collection registry from split YAML files or monolithic YAML file.
 
-    Automatically discovers and loads all .yaml files. Each file can contain
-    top-level sections: source_metadata, sources, filters, runtime, topics, keyword_groups.
-    Single ownership enforced: each section-key appears in only one file.
+    If path is a directory: load all .yaml files from that directory (split mode).
+    Each file can contain top-level sections: source_metadata, sources, filters,
+    runtime, topics, keyword_groups. Single ownership enforced: each section-key
+    appears in only one file.
+
+    If path is a .yaml file: load that single file directly (monolithic mode).
     """
-    # Handle both old monolithic path and new collection directory path
-    if path.name.endswith('.yaml') and not path.is_dir():
-        # If given a YAML file in collection/, use its parent directory
-        if path.parent.name == 'collection':
-            config_dir = path.parent
-        else:
-            # If given collection_sources.yaml, look for collection/ directory
-            config_dir = path.parent / "collection"
+    if path.is_dir():
+        # Split mode: load all YAML files from directory
+        config_dir = path
+    elif path.suffix == '.yaml' or path.suffix == '.yml':
+        # Monolithic mode: load single file
+        return _load_yaml(path)
     else:
-        # If given a directory or marker path, use it
-        config_dir = path if path.is_dir() else path.parent / "collection"
+        # Invalid path
+        raise ValueError(f"CONFIG_PATH must be a directory or .yaml file, got: {path}")
 
     registry = {
         "version": 1,
@@ -136,6 +143,8 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
         "runtime": {},
         "topics": {},
         "keyword_groups": {},
+        "locations": {},
+        "role_profiles": {},
     }
 
     # Load all YAML files in collection/ directory (sorted for determinism)
@@ -192,6 +201,7 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
         # Merge runtime
         if "runtime" in data:
             runtime_section = data["runtime"]
+            # Process phases if present
             if "phases" in runtime_section:
                 if "phases" not in registry["runtime"]:
                     registry["runtime"]["phases"] = []
@@ -205,15 +215,14 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
                                 f"Duplicate phase_id '{phase_id}' found in {yaml_file.name}"
                             )
                         registry["runtime"]["phases"].append(phase)
-            else:
-                # Copy non-phases runtime config
-                for key, value in runtime_section.items():
-                    if key != "phases":
-                        if key in registry["runtime"] and registry["runtime"][key]:
-                            raise ValueError(
-                                f"Duplicate runtime.{key} found in {yaml_file.name}"
-                            )
-                        registry["runtime"][key] = value
+            # Process non-phase runtime config (always, not in else block)
+            for key, value in runtime_section.items():
+                if key != "phases":
+                    if key in registry["runtime"] and registry["runtime"][key]:
+                        raise ValueError(
+                            f"Duplicate runtime.{key} found in {yaml_file.name}"
+                        )
+                    registry["runtime"][key] = value
 
         # Merge topics
         if "topics" in data:
@@ -225,6 +234,28 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
                     )
                 registry["topics"][topics_key] = topics_value
 
+        # Merge locations (single ownership per location id)
+        if "locations" in data:
+            locations_section = data["locations"]
+            if isinstance(locations_section, dict):
+                for location_id, location_config in locations_section.items():
+                    if location_id in registry["locations"]:
+                        raise ValueError(
+                            f"Duplicate location id '{location_id}' found in {yaml_file.name}"
+                        )
+                    registry["locations"][location_id] = location_config
+
+        # Merge role_profiles (single ownership per role profile id)
+        if "role_profiles" in data:
+            role_profiles_section = data["role_profiles"]
+            if isinstance(role_profiles_section, dict):
+                for role_id, role_config in role_profiles_section.items():
+                    if role_id in registry["role_profiles"]:
+                        raise ValueError(
+                            f"Duplicate role profile id '{role_id}' found in {yaml_file.name}"
+                        )
+                    registry["role_profiles"][role_id] = role_config
+
     # Validate loaded registry
     _validate_registry(registry)
 
@@ -235,45 +266,155 @@ def _validate_registry(registry: dict[str, Any]) -> None:
     """Validate loaded registry for consistency.
 
     Only checks for errors that would break runtime behavior:
-    - Duplicate target_ids across all sources (where target_id exists)
-    - Missing keyword_group references
+    - Duplicate target IDs across all sources
+    - Malformed targets (missing required 'id' field)
+    - Duplicate source metadata IDs
     """
 
-    # Check for duplicate target_ids across all sources
+    # Check for duplicate target IDs across all sources
     seen_target_ids = {}
     for source_name, source_value in registry.get("sources", {}).items():
         targets = source_value.get("targets", []) if isinstance(source_value, dict) else []
         if isinstance(targets, list):
             for target in targets:
                 if isinstance(target, dict):
-                    target_id = target.get("target_id")
-                    # Only validate if target_id is explicitly set (skip None)
-                    if target_id:
-                        if target_id in seen_target_ids:
-                            raise ValueError(
-                                f"Duplicate target_id '{target_id}' found in "
-                                f"{seen_target_ids[target_id]} and {source_name}"
-                            )
-                        seen_target_ids[target_id] = source_name
-
-    # Check keyword_group references exist
-    for source_name, source_value in registry.get("sources", {}).items():
-        if not isinstance(source_value, dict):
-            continue
-        keyword_groups = source_value.get("keyword_groups", {})
-        targets = source_value.get("targets", [])
-        if isinstance(targets, list):
-            for target in targets:
-                if isinstance(target, dict):
-                    kg_id = target.get("keyword_group_id")
-                    if kg_id and kg_id not in keyword_groups:
+                    target_id = target.get("id")
+                    # Targets must have an 'id' field
+                    if not target_id:
                         raise ValueError(
-                            f"Target '{target.get('target_id') or target.get('id')}' in {source_name} "
-                            f"references non-existent keyword_group '{kg_id}'"
+                            f"Target in source '{source_name}' missing required 'id' field"
                         )
+                    # Check for duplicates
+                    if target_id in seen_target_ids:
+                        raise ValueError(
+                            f"Duplicate target id '{target_id}' found in "
+                            f"{seen_target_ids[target_id]} and {source_name}"
+                        )
+                    seen_target_ids[target_id] = source_name
+
+    # Check for duplicate source metadata IDs
+    seen_metadata_ids = set()
+    for metadata in registry.get("source_metadata", []):
+        if isinstance(metadata, dict):
+            metadata_id = metadata.get("id")
+            if not metadata_id:
+                raise ValueError("Source metadata entry missing required 'id' field")
+            if metadata_id in seen_metadata_ids:
+                raise ValueError(f"Duplicate source metadata id '{metadata_id}'")
+            seen_metadata_ids.add(metadata_id)
+
+    # Check for duplicate location IDs
+    seen_location_ids = set()
+    for location_id, location_config in registry.get("locations", {}).items():
+        if location_id in seen_location_ids:
+            raise ValueError(f"Duplicate location id '{location_id}'")
+        if isinstance(location_config, dict):
+            config_id = location_config.get("id")
+            if config_id and config_id != location_id:
+                raise ValueError(
+                    f"Location key '{location_id}' does not match its id field '{config_id}'"
+                )
+        seen_location_ids.add(location_id)
+
+    # Check for duplicate role profile IDs
+    seen_role_ids = set()
+    for role_id, role_config in registry.get("role_profiles", {}).items():
+        if role_id in seen_role_ids:
+            raise ValueError(f"Duplicate role profile id '{role_id}'")
+        if isinstance(role_config, dict):
+            config_id = role_config.get("id")
+            if config_id and config_id != role_id:
+                raise ValueError(
+                    f"Role profile key '{role_id}' does not match its id field '{config_id}'"
+                )
+        seen_role_ids.add(role_id)
 
 
 REGISTRY = load_collection_registry()
+
+
+def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Generate LinkedIn targets from location × role matrix.
+
+    For each enabled location × role combination, creates a target with:
+    - Preserved legacy target ID if it exists
+    - Location-specific settings (source, location, geo_id, remote flag)
+    - Role-specific keyword_group with merged queries
+    - URL builder configuration
+
+    Returns list of generated target objects sorted by location then role.
+    """
+    linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
+    matrix_config = linkedin_source.get("matrix", {})
+
+    if not matrix_config.get("enabled"):
+        return []
+
+    locations = registry.get("locations", {})
+    role_profiles = registry.get("role_profiles", {})
+
+    generated_targets = []
+
+    # Iterate over locations and roles in deterministic order
+    for location_id in sorted(matrix_config.get("locations", [])):
+        location_config = locations.get(location_id)
+        if not location_config or not location_config.get("enabled"):
+            continue
+
+        for role_id in sorted(matrix_config.get("roles", [])):
+            role_config = role_profiles.get(role_id)
+            if not role_config or not role_config.get("enabled"):
+                continue
+
+            # Use legacy target ID if available, otherwise generate new ID
+            legacy_target_ids = location_config.get("legacy_target_ids", {})
+            target_id = legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}")
+
+            # Get location-specific LinkedIn settings
+            linkedin_location = location_config.get("linkedin", {})
+            source = linkedin_location.get("source", "")
+            location_str = linkedin_location.get("location", "")
+            geo_id = linkedin_location.get("geo_id")
+            remote = linkedin_location.get("remote", False)
+
+            # Get role-specific LinkedIn settings
+            linkedin_role = role_config.get("linkedin", {})
+            keyword_group_id = linkedin_role.get("keyword_group_id", "")
+            queries = linkedin_role.get("queries", [])
+
+            # Merge queries into a single query string
+            query = " OR ".join(queries) if queries else ""
+
+            # Build the target object
+            target = {
+                "id": target_id,
+                "enabled": True,
+                "source": source,
+                "country": location_config.get("country", ""),
+                "location": location_str,
+                "keyword_groups": [
+                    {
+                        "id": keyword_group_id,
+                        "query": query
+                    }
+                ],
+                "url": {
+                    "builder": "linkedin_jobs"
+                }
+            }
+
+            # Add geo_id if present
+            if geo_id:
+                target["geo_id"] = geo_id
+
+            # Add remote flag if True
+            if remote:
+                target["remote"] = True
+
+            generated_targets.append(target)
+
+    # Sort by target ID for deterministic ordering
+    return sorted(generated_targets, key=lambda t: t["id"])
 
 
 def _enabled(item: dict[str, Any]) -> bool:
@@ -456,8 +597,16 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
         return []
     source_config = _sources().get("linkedin_jobs", {})
     if source_config.get("enabled", True):
+        # Generate matrix targets if enabled
+        generated_matrix = generate_linkedin_matrix_targets(REGISTRY)
+        generated_ids = {t["id"] for t in generated_matrix}
+
+        # Process manual targets, skipping those replaced by matrix generation
         for target in source_config.get("targets", []):
             if not _enabled(target):
+                continue
+            # Skip manual targets that have matrix equivalents
+            if target.get("id") in generated_ids:
                 continue
             override = _url_config(target).get("explicit_override")
             groups = _keyword_groups(target)
@@ -474,6 +623,23 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                             remote=bool(target.get("remote")),
                         ),
                         target=target,
+                        keyword_group=group,
+                    )
+                )
+
+        # Add generated matrix targets
+        for matrix_target in generated_matrix:
+            groups = matrix_target.get("keyword_groups", [])
+            for group in groups:
+                targets.append(
+                    _search_target(
+                        url=build_linkedin_jobs_url(
+                            query=group["query"],
+                            location=matrix_target.get("location"),
+                            geo_id=matrix_target.get("geo_id"),
+                            remote=bool(matrix_target.get("remote")),
+                        ),
+                        target=matrix_target,
                         keyword_group=group,
                     )
                 )
@@ -1315,7 +1481,10 @@ def get_enabled_linkedin_source_ids() -> list[str]:
 
 
 def get_collection_target_metadata() -> dict[str, dict[str, str]]:
-    """Get target metadata mapping (target_id -> {source, country, location})."""
+    """Get target metadata mapping (target_id -> {source, country, location}).
+
+    Includes both manual targets and matrix-generated targets.
+    """
     metadata: dict[str, dict[str, str]] = {}
 
     for source_key, source_config in (_sources() or {}).items():
@@ -1344,6 +1513,17 @@ def get_collection_target_metadata() -> dict[str, dict[str, str]]:
                     "country": country,
                     "location": location,
                 }
+
+    # Also include matrix-generated targets
+    matrix_targets = generate_linkedin_matrix_targets(REGISTRY)
+    for target in matrix_targets:
+        target_id = target.get("id", "")
+        if target_id and target_id not in metadata:
+            metadata[target_id] = {
+                "source": target.get("source", ""),
+                "country": target.get("country", ""),
+                "location": target.get("location", ""),
+            }
 
     return metadata
 
@@ -1528,39 +1708,6 @@ def get_enabled_linkedin_source_ids() -> list[str]:
                 result.append(source_id)
 
     return result
-
-
-def get_collection_target_metadata() -> dict[str, dict[str, str]]:
-    """Get target metadata mapping (target_id -> {source, country, location})."""
-    metadata: dict[str, dict[str, str]] = {}
-
-    for source_key, source_config in (_sources() or {}).items():
-        if not isinstance(source_config, dict) or not _enabled(source_config):
-            continue
-
-        targets = source_config.get("targets", [])
-        if not targets:
-            continue
-
-        for target in targets:
-            if not isinstance(target, dict) or not _enabled(target):
-                continue
-
-            target_id = target.get("id", "")
-            if not target_id:
-                continue
-
-            source_id = target.get("source", "")
-            country = target.get("country", "")
-            location = target.get("location", "")
-            if source_id:
-                metadata[target_id] = {
-                    "source": source_id,
-                    "country": country,
-                    "location": location,
-                }
-
-    return metadata
 
 
 def get_source_metadata_by_id(source_id: str) -> dict[str, Any] | None:

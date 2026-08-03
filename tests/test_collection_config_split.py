@@ -122,10 +122,13 @@ class TestLinkedInJobs:
     """Test linkedin_jobs source."""
 
     def test_linkedin_targets_count(self):
-        """Verify expected number of LinkedIn targets."""
+        """Verify expected number of LinkedIn targets in registry (manual only).
+
+        Amsterdam targets are now generated from matrix, so manual count is 29.
+        """
         linkedin = _sources().get("linkedin_jobs", {})
         targets = linkedin.get("targets", [])
-        assert len(targets) == 34, f"Expected 34 targets, got {len(targets)}"
+        assert len(targets) == 29, f"Expected 29 manual targets, got {len(targets)}"
 
     def test_linkedin_urls_count(self):
         """Verify expected number of generated LinkedIn URLs."""
