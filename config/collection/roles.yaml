@@ -5,51 +5,240 @@ role_profiles:
     enabled: true
     aliases:
       - payment
-    # Canonical payments intent. Location routing belongs in locations.yaml.
     linkedin:
       keyword_group_id: payments
       queries:
         - "payment operations OR payments engineer OR crypto payments OR payment product manager"
+
+  treasury:
+    id: treasury
+    label: Treasury
+    enabled: true
+    linkedin:
+      keyword_group_id: treasury
+      queries:
+        - "treasury operations OR treasury analyst OR liquidity operations OR cash management"
+
+  settlement:
+    id: settlement
+    label: Settlement
+    enabled: true
+    linkedin:
+      keyword_group_id: settlement
+      queries:
+        - "settlement operations OR trading operations OR exchange operations"
+
+  reconciliation:
+    id: reconciliation
+    label: Reconciliation
+    enabled: true
+    aliases:
+      - reconciliations
+    linkedin:
+      keyword_group_id: reconciliation
+      queries:
+        - "reconciliation analyst OR reconciliations specialist OR payment reconciliation OR transaction reconciliation"
 
   custody:
     id: custody
     label: Custody / Asset Operations
     enabled: true
     selector_group_id: settlement
-    # Role profile for custody and asset management positions.
     linkedin:
       keyword_group_id: settlement
       queries:
         - "custody operations OR asset custody OR settlement operations OR vault operations"
 
-  settlement:
-    id: settlement
-    label: Settlement / Trading Operations
+  wallet_operations:
+    id: wallet_operations
+    label: Wallet Operations
     enabled: true
-    # Role profile for settlement, trading, and exchange operations.
+    aliases:
+      - wallet
+      - wallet_ops
     linkedin:
-      keyword_group_id: settlement
+      keyword_group_id: wallet_operations
       queries:
-        - "settlement operations OR trading operations OR exchange operations"
+        - "wallet operations OR wallet specialist OR digital asset operations OR blockchain operations"
+
+  crypto_operations:
+    id: crypto_operations
+    label: Crypto Operations
+    enabled: true
+    aliases:
+      - crypto
+      - web3
+    linkedin:
+      keyword_group_id: crypto_operations
+      queries:
+        - "crypto operations OR web3 operations OR digital asset operations OR blockchain operations"
 
   product:
     id: product
-    label: Product Manager / Product Operations
+    label: Product Manager
     enabled: true
     aliases:
       - product_manager
       - product-manager
-    # Role profile for product management and product operations.
     linkedin:
       keyword_group_id: product
       queries:
-        - "product manager OR product owner OR delivery manager OR product operations"
+        - "product manager OR product owner OR product lead"
+
+  product_operations:
+    id: product_operations
+    label: Product Operations
+    enabled: true
+    aliases:
+      - product_ops
+    linkedin:
+      keyword_group_id: product_operations
+      queries:
+        - "product operations OR product operations manager OR product analyst"
+
+  delivery:
+    id: delivery
+    label: Delivery
+    enabled: true
+    linkedin:
+      keyword_group_id: delivery
+      queries:
+        - "delivery manager OR project delivery manager OR technical delivery manager"
+
+  implementation:
+    id: implementation
+    label: Implementation
+    enabled: true
+    linkedin:
+      keyword_group_id: implementation
+      queries:
+        - "implementation manager OR implementation specialist OR onboarding manager"
+
+  integration:
+    id: integration
+    label: Integration
+    enabled: true
+    linkedin:
+      keyword_group_id: integration
+      queries:
+        - "integration engineer OR solutions engineer OR payments integration OR API integration"
+
+  technical_account:
+    id: technical_account
+    label: Technical Account
+    enabled: true
+    aliases:
+      - technical_account_manager
+      - tam
+    linkedin:
+      keyword_group_id: technical_account
+      queries:
+        - "technical account manager OR technical account specialist OR partner solutions engineer"
+
+  account_manager:
+    id: account_manager
+    label: Account Manager
+    enabled: true
+    aliases:
+      - account_management
+    linkedin:
+      keyword_group_id: account_manager
+      queries:
+        - "account manager OR client success manager OR customer success manager"
+
+  partner_manager:
+    id: partner_manager
+    label: Partner Manager
+    enabled: true
+    aliases:
+      - partnerships
+    linkedin:
+      keyword_group_id: partner_manager
+      queries:
+        - "partner manager OR partnership manager OR strategic partnerships manager"
+
+  business_development:
+    id: business_development
+    label: Business Development
+    enabled: true
+    aliases:
+      - bd
+      - sales
+    linkedin:
+      keyword_group_id: business_development
+      queries:
+        - "business development manager OR sales manager OR commercial manager"
+
+  fraud:
+    id: fraud
+    label: Fraud
+    enabled: true
+    linkedin:
+      keyword_group_id: fraud
+      queries:
+        - "fraud analyst OR fraud operations OR fraud prevention OR transaction monitoring"
+
+  risk:
+    id: risk
+    label: Risk
+    enabled: true
+    linkedin:
+      keyword_group_id: risk
+      queries:
+        - "risk analyst OR risk operations OR payments risk OR operational risk"
+
+  compliance:
+    id: compliance
+    label: Compliance
+    enabled: true
+    linkedin:
+      keyword_group_id: compliance
+      queries:
+        - "compliance analyst OR compliance manager OR regulatory compliance"
+
+  aml:
+    id: aml
+    label: AML
+    enabled: true
+    linkedin:
+      keyword_group_id: aml
+      queries:
+        - "AML analyst OR anti money laundering OR financial crime analyst"
+
+  kyc:
+    id: kyc
+    label: KYC
+    enabled: true
+    linkedin:
+      keyword_group_id: kyc
+      queries:
+        - "KYC analyst OR KYC specialist OR customer due diligence"
+
+  kyb:
+    id: kyb
+    label: KYB
+    enabled: true
+    linkedin:
+      keyword_group_id: kyb
+      queries:
+        - "KYB analyst OR KYB specialist OR merchant due diligence"
+
+  payment_partnerships:
+    id: payment_partnerships
+    label: Payment Partnerships
+    enabled: true
+    aliases:
+      - psp
+      - psp_partnerships
+    linkedin:
+      keyword_group_id: payment_partnerships
+      queries:
+        - "payment partnerships OR PSP partnerships OR acquiring partnerships OR banking partnerships"
 
   igaming:
     id: igaming
     label: iGaming / Gaming Operations
     enabled: true
-    # Role profile for iGaming and gaming operations positions.
     linkedin:
       keyword_group_id: igaming
       queries:

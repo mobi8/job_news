@@ -140,6 +140,62 @@ source_metadata:
   group: LinkedIn
   country: Australia
   aliases: []
+- id: linkedin_cyprus
+  label: LinkedIn Cyprus
+  kind: jobs
+  group: LinkedIn
+  country: Cyprus
+  aliases: []
+- id: linkedin_united_kingdom
+  label: LinkedIn United Kingdom
+  kind: jobs
+  group: LinkedIn
+  country: United Kingdom
+  aliases:
+  - linkedin uk
+  - linkedin_uk
+- id: linkedin_gibraltar
+  label: LinkedIn Gibraltar
+  kind: jobs
+  group: LinkedIn
+  country: Gibraltar
+  aliases: []
+- id: linkedin_isle_of_man
+  label: LinkedIn Isle of Man
+  kind: jobs
+  group: LinkedIn
+  country: Isle of Man
+  aliases: []
+- id: linkedin_estonia
+  label: LinkedIn Estonia
+  kind: jobs
+  group: LinkedIn
+  country: Estonia
+  aliases: []
+- id: linkedin_lithuania
+  label: LinkedIn Lithuania
+  kind: jobs
+  group: LinkedIn
+  country: Lithuania
+  aliases: []
+- id: linkedin_ireland
+  label: LinkedIn Ireland
+  kind: jobs
+  group: LinkedIn
+  country: Ireland
+  aliases: []
+- id: linkedin_spain
+  label: LinkedIn Spain
+  kind: jobs
+  group: LinkedIn
+  country: Spain
+  aliases: []
+- id: linkedin_portugal
+  label: LinkedIn Portugal
+  kind: jobs
+  group: LinkedIn
+  country: Portugal
+  aliases: []
 - id: google_uae
   label: Google UAE
   kind: jobs

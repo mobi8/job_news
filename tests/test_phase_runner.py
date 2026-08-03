@@ -160,14 +160,16 @@ def test_phase_runner_linkedin_malta_target_group(capsys):
     assert code == 0
     assert payload["resolved_selector"]["match_kind"] == "target_group"
     assert payload["resolved_selector"]["target_group_id"] == "malta"
-    assert payload["resolved_selector"]["target_ids"] == [
+    target_ids = payload["resolved_selector"]["target_ids"]
+    assert {
         "linkedin_malta_custody",
         "linkedin_malta_igaming",
         "linkedin_malta_payments",
         "linkedin_malta_product",
         "linkedin_malta_settlement",
-    ]
-    assert payload["resolved_selector"]["url_count"] == 5
+    }.issubset(set(target_ids))
+    assert len(target_ids) == 24
+    assert payload["resolved_selector"]["url_count"] == 24
 
 
 def test_phase_runner_linkedin_keyword_group(capsys):

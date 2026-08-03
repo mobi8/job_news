@@ -106,12 +106,40 @@ sources:
       locations:
         - amsterdam
         - australia
+        - cyprus
+        - estonia
+        - gibraltar
+        - ireland
+        - isle_of_man
+        - lithuania
         - malta
+        - portugal
+        - spain
+        - united_kingdom
       roles:
         - payments
+        - treasury
         - custody
         - settlement
+        - reconciliation
+        - wallet_operations
+        - crypto_operations
         - product
+        - product_operations
+        - delivery
+        - implementation
+        - integration
+        - technical_account
+        - account_manager
+        - partner_manager
+        - business_development
+        - fraud
+        - risk
+        - compliance
+        - aml
+        - kyc
+        - kyb
+        - payment_partnerships
         - igaming
     targets:
     - id: linkedin_company_42167861_emea

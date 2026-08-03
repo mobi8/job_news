@@ -61,6 +61,12 @@ locations:
     role_query_additions:
       payments:
         - fintech
+    enabled_roles:
+      - payments
+      - custody
+      - settlement
+      - product
+      - igaming
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_amsterdam_payments
@@ -99,6 +105,12 @@ locations:
     role_query_additions:
       payments:
         - fintech
+    enabled_roles:
+      - payments
+      - custody
+      - settlement
+      - product
+      - igaming
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_australia_payments
@@ -132,3 +144,313 @@ locations:
     role_query_additions:
       payments:
         - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - custody
+      - wallet_operations
+      - crypto_operations
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - partner_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming
+
+  cyprus:
+    id: cyprus
+    label: Cyprus
+    enabled: true
+    country: Cyprus
+    linkedin:
+      source: linkedin_cyprus
+      location: "Cyprus"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - partner_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming
+
+  united_kingdom:
+    id: united_kingdom
+    label: United Kingdom
+    enabled: true
+    country: United Kingdom
+    linkedin:
+      source: linkedin_united_kingdom
+      location: "United Kingdom"
+      aliases:
+        - uk
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - custody
+      - wallet_operations
+      - crypto_operations
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - partner_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming
+
+  gibraltar:
+    id: gibraltar
+    label: Gibraltar
+    enabled: true
+    country: Gibraltar
+    linkedin:
+      source: linkedin_gibraltar
+      location: "Gibraltar"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - product
+      - account_manager
+      - partner_manager
+      - business_development
+      - compliance
+      - aml
+      - kyc
+      - payment_partnerships
+      - igaming
+
+  isle_of_man:
+    id: isle_of_man
+    label: Isle of Man
+    enabled: true
+    country: Isle of Man
+    linkedin:
+      source: linkedin_isle_of_man
+      location: "Isle of Man"
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - product
+      - account_manager
+      - compliance
+      - aml
+      - kyc
+      - igaming
+
+  estonia:
+    id: estonia
+    label: Estonia
+    enabled: true
+    country: Estonia
+    linkedin:
+      source: linkedin_estonia
+      location: "Estonia"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - wallet_operations
+      - crypto_operations
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+
+  lithuania:
+    id: lithuania
+    label: Lithuania
+    enabled: true
+    country: Lithuania
+    linkedin:
+      source: linkedin_lithuania
+      location: "Lithuania"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+
+  ireland:
+    id: ireland
+    label: Ireland
+    enabled: true
+    country: Ireland
+    linkedin:
+      source: linkedin_ireland
+      location: "Ireland"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - custody
+      - crypto_operations
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - partner_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming
+
+  spain:
+    id: spain
+    label: Spain
+    enabled: true
+    country: Spain
+    linkedin:
+      source: linkedin_spain
+      location: "Spain"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - partner_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming
+
+  portugal:
+    id: portugal
+    label: Portugal
+    enabled: true
+    country: Portugal
+    linkedin:
+      source: linkedin_portugal
+      location: "Portugal"
+    role_query_additions:
+      payments:
+        - fintech
+    enabled_roles:
+      - payments
+      - treasury
+      - settlement
+      - reconciliation
+      - product
+      - product_operations
+      - delivery
+      - implementation
+      - integration
+      - technical_account
+      - account_manager
+      - business_development
+      - fraud
+      - risk
+      - compliance
+      - aml
+      - kyc
+      - kyb
+      - payment_partnerships
+      - igaming

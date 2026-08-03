@@ -363,8 +363,9 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         linkedin_location = location_config.get("linkedin", {})
         location_role_additions = location_config.get("role_query_additions", {})
         location_role_overrides = location_config.get("role_overrides", {})
+        role_ids = _matrix_role_ids_for_location(matrix_config, location_config)
 
-        for role_id in sorted(matrix_config.get("roles", [])):
+        for role_id in role_ids:
             role_config = role_profiles.get(role_id)
             if not role_config or not role_config.get("enabled"):
                 continue
@@ -435,6 +436,17 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
     return sorted(generated_targets, key=lambda t: t["id"])
 
 
+def _matrix_role_ids_for_location(matrix_config: dict[str, Any], location_config: dict[str, Any]) -> list[str]:
+    configured_roles = [str(role_id) for role_id in matrix_config.get("roles", []) or []]
+    enabled_roles = location_config.get("enabled_roles")
+    if enabled_roles:
+        selected = [str(role_id) for role_id in enabled_roles if str(role_id) in configured_roles]
+    else:
+        selected = configured_roles
+    excluded_roles = {str(role_id) for role_id in location_config.get("excluded_roles", []) or []}
+    return sorted(role_id for role_id in selected if role_id not in excluded_roles)
+
+
 def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[str, Any]]:
     """Build selector groups for standard matrix locations from canonical config."""
     linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
@@ -454,7 +466,7 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
         keyword_groups_by_id: dict[str, dict[str, Any]] = {}
         legacy_target_ids = location.get("legacy_target_ids", {})
         role_overrides = location.get("role_overrides", {})
-        for role_id in sorted(matrix_config.get("roles", [])):
+        for role_id in _matrix_role_ids_for_location(matrix_config, location):
             role = role_profiles.get(role_id)
             if not isinstance(role, dict) or not _enabled(role):
                 continue
