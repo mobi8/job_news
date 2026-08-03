@@ -663,7 +663,7 @@ class TestMatrixIntegration:
             "linkedin_malta_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_malta_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_malta_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
-            "linkedin_malta_igaming": "igaming operations OR gaming operations OR casino operations",
+            "linkedin_malta_igaming": "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino",
         }
 
         for tid, expected_query in expected_queries.items():
@@ -716,7 +716,7 @@ class TestMatrixIntegration:
             "linkedin_australia_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
             "linkedin_australia_settlement": "settlement operations OR trading operations OR exchange operations",
             "linkedin_australia_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
-            "linkedin_australia_igaming": "igaming operations OR gaming operations OR casino operations",
+            "linkedin_australia_igaming": "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino",
         }
 
         for tid, expected_query in expected_queries.items():

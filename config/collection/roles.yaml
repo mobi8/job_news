@@ -242,4 +242,4 @@ role_profiles:
     linkedin:
       keyword_group_id: igaming
       queries:
-        - "igaming operations OR gaming operations OR casino operations"
+        - "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino"
