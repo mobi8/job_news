@@ -394,3 +394,111 @@ class TestValidatorCorrectness:
             assert isinstance(entry, dict), f"Metadata {i} is not a dict"
             assert "id" in entry, f"Metadata {i} missing 'id' field"
             assert entry["id"], f"Metadata {i} has empty 'id' field"
+
+
+class TestMatrixIntegration:
+    """Test matrix generation integration into build_linkedin_job_targets()."""
+
+    def test_matrix_generated_amsterdam_targets_returned(self):
+        """Verify build_linkedin_job_targets() returns matrix-generated Amsterdam targets."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        amsterdam_ids = {t.target_id for t in prod_targets if "amsterdam" in t.target_id}
+
+        expected = {
+            "linkedin_amsterdam_payments",
+            "linkedin_amsterdam_custody",
+            "linkedin_amsterdam_settlement",
+            "linkedin_amsterdam_product",
+            "linkedin_amsterdam_igaming",
+        }
+        assert expected == amsterdam_ids, f"Amsterdam targets mismatch: {amsterdam_ids}"
+
+    def test_no_duplicate_amsterdam_targets(self):
+        """Verify no duplicate Amsterdam targets in production output."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        amsterdam_targets = [t for t in prod_targets if "amsterdam" in t.target_id]
+        amsterdam_ids = [t.target_id for t in amsterdam_targets]
+
+        assert len(amsterdam_ids) == len(set(amsterdam_ids)), (
+            f"Duplicate Amsterdam targets found: {amsterdam_ids}"
+        )
+
+    def test_no_duplicate_target_ids_overall(self):
+        """Verify no duplicate target IDs across all production targets."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        all_ids = [t.target_id for t in prod_targets]
+
+        assert len(all_ids) == len(set(all_ids)), (
+            f"Duplicate target IDs found in production: total {len(all_ids)}, unique {len(set(all_ids))}"
+        )
+
+    def test_no_manual_amsterdam_in_registry(self):
+        """Verify manual Amsterdam targets are removed from registry."""
+        linkedin_jobs = REGISTRY.get("sources", {}).get("linkedin_jobs", {})
+        manual_targets = linkedin_jobs.get("targets", [])
+        manual_ids = {t.get("id") for t in manual_targets if isinstance(t, dict)}
+
+        amsterdam_manual = {tid for tid in manual_ids if "amsterdam" in tid}
+        assert not amsterdam_manual, f"Manual Amsterdam targets still in registry: {amsterdam_manual}"
+
+    def test_amsterdam_target_properties_preserved(self):
+        """Verify generated Amsterdam targets have correct properties."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        amsterdam_by_id = {
+            t.target_id: t
+            for t in prod_targets
+            if "amsterdam" in t.target_id
+        }
+
+        # Check each target has correct properties
+        for target_id, search_target in amsterdam_by_id.items():
+            assert search_target.target_id == target_id
+            assert "Amsterdam" in search_target.location or search_target.location == "Amsterdam, Netherlands"
+            assert search_target.country == "Netherlands"
+
+    def test_amsterdam_keyword_group_ids_correct(self):
+        """Verify Amsterdam targets have expected keyword_group_ids."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+        amsterdam_by_id = {
+            t.target_id: t
+            for t in prod_targets
+            if "amsterdam" in t.target_id
+        }
+
+        expected_kg_ids = {
+            "linkedin_amsterdam_payments": "payments",
+            "linkedin_amsterdam_custody": "settlement",
+            "linkedin_amsterdam_settlement": "settlement",
+            "linkedin_amsterdam_product": "product",
+            "linkedin_amsterdam_igaming": "igaming",
+        }
+
+        for tid, expected_kg_id in expected_kg_ids.items():
+            search_target = amsterdam_by_id[tid]
+            assert search_target.keyword_group_id == expected_kg_id, (
+                f"{tid}: expected kg_id {expected_kg_id}, got {search_target.keyword_group_id}"
+            )
+
+    def test_production_target_count_unchanged(self):
+        """Verify total production SearchTarget count unchanged after matrix integration."""
+        from src.utils.collection_config import build_linkedin_job_targets
+
+        prod_targets = build_linkedin_job_targets()
+
+        # Before: 34 manual targets including 5 Amsterdam
+        # After: 29 manual + 5 matrix-generated = 34 total target objects
+        # But SearchTarget count includes multiple per target if multiple keyword groups
+        # Expected: still 38 SearchTarget objects
+        assert len(prod_targets) == 38, (
+            f"Production SearchTarget count changed: expected 38, got {len(prod_targets)}"
+        )

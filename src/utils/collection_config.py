@@ -597,8 +597,16 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
         return []
     source_config = _sources().get("linkedin_jobs", {})
     if source_config.get("enabled", True):
+        # Generate matrix targets if enabled
+        generated_matrix = generate_linkedin_matrix_targets(REGISTRY)
+        generated_ids = {t["id"] for t in generated_matrix}
+
+        # Process manual targets, skipping those replaced by matrix generation
         for target in source_config.get("targets", []):
             if not _enabled(target):
+                continue
+            # Skip manual targets that have matrix equivalents
+            if target.get("id") in generated_ids:
                 continue
             override = _url_config(target).get("explicit_override")
             groups = _keyword_groups(target)
@@ -615,6 +623,23 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
                             remote=bool(target.get("remote")),
                         ),
                         target=target,
+                        keyword_group=group,
+                    )
+                )
+
+        # Add generated matrix targets
+        for matrix_target in generated_matrix:
+            groups = matrix_target.get("keyword_groups", [])
+            for group in groups:
+                targets.append(
+                    _search_target(
+                        url=build_linkedin_jobs_url(
+                            query=group["query"],
+                            location=matrix_target.get("location"),
+                            geo_id=matrix_target.get("geo_id"),
+                            remote=bool(matrix_target.get("remote")),
+                        ),
+                        target=matrix_target,
                         keyword_group=group,
                     )
                 )
@@ -1456,7 +1481,10 @@ def get_enabled_linkedin_source_ids() -> list[str]:
 
 
 def get_collection_target_metadata() -> dict[str, dict[str, str]]:
-    """Get target metadata mapping (target_id -> {source, country, location})."""
+    """Get target metadata mapping (target_id -> {source, country, location}).
+
+    Includes both manual targets and matrix-generated targets.
+    """
     metadata: dict[str, dict[str, str]] = {}
 
     for source_key, source_config in (_sources() or {}).items():
@@ -1485,6 +1513,17 @@ def get_collection_target_metadata() -> dict[str, dict[str, str]]:
                     "country": country,
                     "location": location,
                 }
+
+    # Also include matrix-generated targets
+    matrix_targets = generate_linkedin_matrix_targets(REGISTRY)
+    for target in matrix_targets:
+        target_id = target.get("id", "")
+        if target_id and target_id not in metadata:
+            metadata[target_id] = {
+                "source": target.get("source", ""),
+                "country": target.get("country", ""),
+                "location": target.get("location", ""),
+            }
 
     return metadata
 
@@ -1669,39 +1708,6 @@ def get_enabled_linkedin_source_ids() -> list[str]:
                 result.append(source_id)
 
     return result
-
-
-def get_collection_target_metadata() -> dict[str, dict[str, str]]:
-    """Get target metadata mapping (target_id -> {source, country, location})."""
-    metadata: dict[str, dict[str, str]] = {}
-
-    for source_key, source_config in (_sources() or {}).items():
-        if not isinstance(source_config, dict) or not _enabled(source_config):
-            continue
-
-        targets = source_config.get("targets", [])
-        if not targets:
-            continue
-
-        for target in targets:
-            if not isinstance(target, dict) or not _enabled(target):
-                continue
-
-            target_id = target.get("id", "")
-            if not target_id:
-                continue
-
-            source_id = target.get("source", "")
-            country = target.get("country", "")
-            location = target.get("location", "")
-            if source_id:
-                metadata[target_id] = {
-                    "source": source_id,
-                    "country": country,
-                    "location": location,
-                }
-
-    return metadata
 
 
 def get_source_metadata_by_id(source_id: str) -> dict[str, Any] | None:

@@ -56,10 +56,15 @@ class TestEnabledJobSourceIds:
         assert len(included) > 0, f"No LinkedIn sources found in {linkedin_ids}"
 
     def test_amsterdam_and_australia_sources_enabled(self):
-        """Verify amsterdam and australia LinkedIn sources are enabled."""
+        """Verify amsterdam and australia LinkedIn sources are available.
+
+        Note: Amsterdam is now generated through matrix in linkedin_jobs source.
+        Australia remains as a separate manual source.
+        """
         linkedin_ids = get_enabled_linkedin_source_ids()
-        assert "linkedin_amsterdam" in linkedin_ids, "linkedin_amsterdam not in enabled sources"
         assert "linkedin_australia" in linkedin_ids, "linkedin_australia not in enabled sources"
+        # Amsterdam is no longer a separate source; it's generated from matrix
+        assert "linkedin_amsterdam" not in linkedin_ids, "amsterdam should be matrix-generated, not manual"
 
 
 class TestSourceMetadataLookup:
@@ -252,22 +257,23 @@ class TestSelectorResolution:
 
 
 class TestYamlOnlyConfiguration:
-    """Tests verifying new region requires YAML changes only."""
+    """Tests verifying amsterdam region works through matrix generation."""
 
     def test_amsterdam_requires_only_yaml_changes(self):
-        """Verify amsterdam region works with YAML config only (no code changes)."""
+        """Verify amsterdam region works with YAML config (matrix-based)."""
         # 1. Source metadata exists in YAML
         meta = get_source_metadata_by_id("linkedin_amsterdam")
         assert meta is not None, "linkedin_amsterdam not in source_metadata"
 
-        # 2. Targets exist in YAML
+        # 2. Targets exist in YAML/matrix
         metadata = get_collection_target_metadata()
         amsterdam_targets = [k for k in metadata.keys() if "amsterdam" in k.lower()]
-        assert len(amsterdam_targets) > 0, "No amsterdam targets in YAML"
+        assert len(amsterdam_targets) > 0, "No amsterdam targets generated"
+        assert len(amsterdam_targets) == 5, f"Expected 5 amsterdam targets, got {len(amsterdam_targets)}"
 
-        # 3. Source is in enabled list
-        enabled_ids = get_enabled_linkedin_source_ids()
-        assert "linkedin_amsterdam" in enabled_ids, "linkedin_amsterdam not enabled"
+        # 3. Source metadata has correct country
+        meta = get_source_metadata_by_id("linkedin_amsterdam")
+        assert meta.get("country") == "Netherlands", "amsterdam country not set correctly"
 
         # 4. Selector candidates include amsterdam
         from utils.collection_config import selector_candidates_for_phase
@@ -276,15 +282,17 @@ class TestYamlOnlyConfiguration:
         assert len(amsterdam_candidates) > 0, "No amsterdam selector candidates"
 
     def test_new_region_integration_chain(self):
-        """Verify the full chain works for amsterdam without code changes."""
-        # 1. YAML config defines the region
-        # 2. get_enabled_linkedin_source_ids() includes it
+        """Verify the full chain works for amsterdam (matrix-based)."""
+        # 1. YAML config defines the region through matrix
+        # 2. Targets are generated and included in production
         # 3. get_source_metadata_by_id() returns its metadata
         # 4. selector_candidates_for_phase() generates candidates
         # 5. No code changes needed anywhere
 
-        enabled = get_enabled_linkedin_source_ids()
-        amsterdam_in_enabled = "linkedin_amsterdam" in enabled
+        # Amsterdam is now generated through matrix, not as a separate manual source
+        # But it should still be present in production output
+        metadata = get_collection_target_metadata()
+        amsterdam_in_metadata = any("amsterdam" in k.lower() for k in metadata.keys())
 
         meta = get_source_metadata_by_id("linkedin_amsterdam")
         amsterdam_has_meta = meta is not None
@@ -295,6 +303,6 @@ class TestYamlOnlyConfiguration:
             "amsterdam" in c.target_id.lower() for c in candidates
         )
 
-        assert amsterdam_in_enabled, "amsterdam not in enabled sources"
+        assert amsterdam_in_metadata, "amsterdam targets not generated"
         assert amsterdam_has_meta, "amsterdam not in source_metadata"
         assert amsterdam_has_candidates, "amsterdam not in selector candidates"
