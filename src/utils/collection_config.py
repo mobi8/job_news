@@ -13,7 +13,19 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = Path(os.getenv("COLLECTION_SOURCES_CONFIG_PATH") or ROOT / "config" / "collection_sources.yaml")
+
+def _get_config_path() -> Path:
+    """Get the config path, supporting both monolithic and split configurations."""
+    env_path = os.getenv("COLLECTION_SOURCES_CONFIG_PATH")
+    if env_path:
+        return Path(env_path)
+    # Default to collection directory if it exists, otherwise use legacy path
+    collection_dir = ROOT / "config" / "collection"
+    if collection_dir.exists():
+        return collection_dir / "dummy.yaml"  # Marker path; loader uses parent dir
+    return ROOT / "config" / "collection_sources.yaml"
+
+CONFIG_PATH = _get_config_path()
 
 
 @dataclass(frozen=True)
@@ -98,12 +110,167 @@ def _load_yaml(path: Path = CONFIG_PATH) -> dict[str, Any]:
 
 
 def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    registry = _load_yaml(path)
-    if registry.get("version") != 1:
-        raise ValueError("collection source registry version must be 1")
-    registry.setdefault("sources", {})
-    registry.setdefault("source_metadata", [])
+    """Load collection registry from split YAML files in config/collection/.
+
+    Automatically discovers and loads all .yaml files. Each file can contain
+    top-level sections: source_metadata, sources, filters, runtime, topics, keyword_groups.
+    Single ownership enforced: each section-key appears in only one file.
+    """
+    # Handle both old monolithic path and new collection directory path
+    if path.name.endswith('.yaml') and not path.is_dir():
+        # If given a YAML file in collection/, use its parent directory
+        if path.parent.name == 'collection':
+            config_dir = path.parent
+        else:
+            # If given collection_sources.yaml, look for collection/ directory
+            config_dir = path.parent / "collection"
+    else:
+        # If given a directory or marker path, use it
+        config_dir = path if path.is_dir() else path.parent / "collection"
+
+    registry = {
+        "version": 1,
+        "source_metadata": [],
+        "sources": {},
+        "filters": {},
+        "runtime": {},
+        "topics": {},
+        "keyword_groups": {},
+    }
+
+    # Load all YAML files in collection/ directory (sorted for determinism)
+    for yaml_file in sorted(config_dir.glob("*.yaml")):
+        try:
+            data = _load_yaml(yaml_file)
+        except Exception as e:
+            raise ValueError(f"Error loading {yaml_file.name}: {e}") from e
+
+        if not data:
+            continue
+
+        # Merge source_metadata (single ownership per source_id)
+        if "source_metadata" in data:
+            metadata_list = data["source_metadata"]
+            if isinstance(metadata_list, list):
+                existing_ids = {item.get("id") for item in registry["source_metadata"]}
+                for item in metadata_list:
+                    source_id = item.get("id")
+                    if source_id in existing_ids:
+                        raise ValueError(
+                            f"Duplicate source_id '{source_id}' found in {yaml_file.name}"
+                        )
+                    registry["source_metadata"].append(item)
+
+        # Merge sources (single ownership per source name)
+        if "sources" in data:
+            sources_section = data["sources"]
+            for source_name, source_value in sources_section.items():
+                if source_name in registry["sources"]:
+                    raise ValueError(
+                        f"Duplicate source '{source_name}' found in {yaml_file.name}"
+                    )
+                registry["sources"][source_name] = source_value
+
+        # Merge filters (single ownership per filter type)
+        if "filters" in data:
+            for filter_type, filter_list in data["filters"].items():
+                if filter_type in registry["filters"]:
+                    raise ValueError(
+                        f"Duplicate filter type '{filter_type}' found in {yaml_file.name}"
+                    )
+                registry["filters"][filter_type] = filter_list
+
+        # Merge keyword_groups (single ownership per source type)
+        if "keyword_groups" in data:
+            for kg_type, kg_list in data["keyword_groups"].items():
+                if kg_type in registry["keyword_groups"]:
+                    raise ValueError(
+                        f"Duplicate keyword_groups type '{kg_type}' found in {yaml_file.name}"
+                    )
+                registry["keyword_groups"][kg_type] = kg_list
+
+        # Merge runtime
+        if "runtime" in data:
+            runtime_section = data["runtime"]
+            if "phases" in runtime_section:
+                if "phases" not in registry["runtime"]:
+                    registry["runtime"]["phases"] = []
+                phases_list = runtime_section["phases"]
+                if isinstance(phases_list, list):
+                    existing_phase_ids = {p.get("id") for p in registry["runtime"].get("phases", [])}
+                    for phase in phases_list:
+                        phase_id = phase.get("id")
+                        if phase_id in existing_phase_ids:
+                            raise ValueError(
+                                f"Duplicate phase_id '{phase_id}' found in {yaml_file.name}"
+                            )
+                        registry["runtime"]["phases"].append(phase)
+            else:
+                # Copy non-phases runtime config
+                for key, value in runtime_section.items():
+                    if key != "phases":
+                        if key in registry["runtime"] and registry["runtime"][key]:
+                            raise ValueError(
+                                f"Duplicate runtime.{key} found in {yaml_file.name}"
+                            )
+                        registry["runtime"][key] = value
+
+        # Merge topics
+        if "topics" in data:
+            topics_section = data["topics"]
+            for topics_key, topics_value in topics_section.items():
+                if topics_key in registry["topics"]:
+                    raise ValueError(
+                        f"Duplicate topics section '{topics_key}' found in {yaml_file.name}"
+                    )
+                registry["topics"][topics_key] = topics_value
+
+    # Validate loaded registry
+    _validate_registry(registry)
+
     return registry
+
+
+def _validate_registry(registry: dict[str, Any]) -> None:
+    """Validate loaded registry for consistency.
+
+    Only checks for errors that would break runtime behavior:
+    - Duplicate target_ids across all sources (where target_id exists)
+    - Missing keyword_group references
+    """
+
+    # Check for duplicate target_ids across all sources
+    seen_target_ids = {}
+    for source_name, source_value in registry.get("sources", {}).items():
+        targets = source_value.get("targets", []) if isinstance(source_value, dict) else []
+        if isinstance(targets, list):
+            for target in targets:
+                if isinstance(target, dict):
+                    target_id = target.get("target_id")
+                    # Only validate if target_id is explicitly set (skip None)
+                    if target_id:
+                        if target_id in seen_target_ids:
+                            raise ValueError(
+                                f"Duplicate target_id '{target_id}' found in "
+                                f"{seen_target_ids[target_id]} and {source_name}"
+                            )
+                        seen_target_ids[target_id] = source_name
+
+    # Check keyword_group references exist
+    for source_name, source_value in registry.get("sources", {}).items():
+        if not isinstance(source_value, dict):
+            continue
+        keyword_groups = source_value.get("keyword_groups", {})
+        targets = source_value.get("targets", [])
+        if isinstance(targets, list):
+            for target in targets:
+                if isinstance(target, dict):
+                    kg_id = target.get("keyword_group_id")
+                    if kg_id and kg_id not in keyword_groups:
+                        raise ValueError(
+                            f"Target '{target.get('target_id') or target.get('id')}' in {source_name} "
+                            f"references non-existent keyword_group '{kg_id}'"
+                        )
 
 
 REGISTRY = load_collection_registry()

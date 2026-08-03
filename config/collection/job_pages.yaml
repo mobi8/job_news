@@ -1,0 +1,56 @@
+sources:
+  job_pages:
+  - id: pragmatic_jobvite
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: jobvite_pragmaticplay
+    label: Pragmatic Play Jobvite
+    url: https://jobs.jobvite.com/pragmaticplay/jobs
+    parser: jobvite
+    country: Global
+  - id: pragmatic_smartrecruiters
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: smartrecruitment
+    label: Pragmatic Play SmartRecruiters
+    url: https://jobs.smartrecruitment.com/jobs?department_id=20888
+    parser: smartrecruiters
+    country: Global
+  - id: igaming_recruitment
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: igamingrecruitment
+    label: iGaming Recruitment
+    url: https://igamingrecruitment.io/jobs/
+    parser: igaming_recruitment
+    country: Global
+  - id: igaminghunt_bamboohr
+    enabled: true
+    type: fixed_page
+    fetch_method: http
+    source: igaminghunt_bamboohr
+    label: IGAMINGHUNT BambooHR
+    url: https://igaminghunt.bamboohr.com/jobs/embed2.php
+    parser: bamboohr
+    country: Global
+  - id: jobrapido_uae
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobrapido_uae
+    label: Jobrapido UAE
+    url: https://ae.jobrapido.com/?w=igaming&l=dubai&r=&shm=all
+    parser: jobrapido
+    country: UAE
+  - id: jobleads_uae
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobleads
+    label: JobLeads UAE
+    url: https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2
+    parser: jobleads
+    country: UAE

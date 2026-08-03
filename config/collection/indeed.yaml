@@ -1,0 +1,61 @@
+sources:
+  indeed:
+    enabled: true
+    type: generated_search
+    fetch_method: browser
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - indeed_uae
+      - united_arab_emirates
+      country: UAE
+      target_ids:
+      - indeed_uae
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - payments
+        - crypto_product
+        - custody_game
+        - exchanges
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - payments
+      - id: product
+        label: Product
+        aliases:
+        - product_manager
+        - product-manager
+        keyword_group_ids:
+        - crypto_product
+    targets:
+    - id: indeed_uae
+      enabled: true
+      source: indeed_uae
+      country: UAE
+      location: dubai
+      indeed_country: United Arab Emirates
+      domain: ae.indeed.com
+      sort: date
+      keyword_groups:
+      - id: korean
+        query: korean
+      - id: payments
+        query: payment operations OR crypto payments OR payments engineer OR payment product manager
+      - id: settlement
+        query: settlement operations OR custody operations OR asset custody OR trading operations
+      - id: product
+        query: product manager OR product owner OR product operations OR delivery manager
+      - id: igaming
+        query: igaming operations OR gaming operations OR casino operations OR compliance gaming
+      - id: regulation
+        query: adgm OR fsra OR vara
+      - id: exchanges
+        query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+      url:
+        builder: indeed

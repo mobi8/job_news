@@ -1,0 +1,97 @@
+sources:
+  recruiters:
+    enabled: true
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - recruiters_uae
+      country: UAE
+      target_ids:
+      - recruiter_robert_walters_uae
+      - recruiter_michael_page_uae
+      - recruiter_hays_uae
+      - recruiter_crypto_recruit_uae
+      keyword_groups:
+      - id: fintech
+        label: Fintech
+        target_ids:
+        - recruiter_hays_uae
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        target_ids:
+        - recruiter_robert_walters_uae
+        - recruiter_michael_page_uae
+      - id: crypto
+        label: Crypto
+        target_ids:
+        - recruiter_robert_walters_uae
+        - recruiter_crypto_recruit_uae
+      - id: robert_walters
+        label: Robert Walters
+        aliases:
+        - robert-walters
+        - robert
+        target_ids:
+        - recruiter_robert_walters_uae
+    companies:
+    - robert walters
+    - michael page
+    - hays
+    - salt
+    - discovered mena
+    - stanley james
+    - cander group
+    - mint selection
+    - ateca consulting
+    - ap executive
+    - crypto recruit
+    - blockchain talent
+    - Hyphen Connect
+    targets:
+    - id: recruiter_robert_walters_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: robert walters
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Robert Walters crypto OR web3 OR payments OR payment operations OR custody OR settlement OR product manager OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_michael_page_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: michael page
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Michael Page crypto OR payments OR payment operations OR product OR product operations OR delivery OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_hays_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: hays
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Hays crypto OR fintech OR payments OR payment operations OR compliance OR custody OR backlog
+      url:
+        builder: linkedin_jobs
+    - id: recruiter_crypto_recruit_uae
+      enabled: true
+      type: generated_search
+      fetch_method: browser
+      source: linkedin_public
+      company: crypto recruit
+      country: UAE
+      location: Dubai, United Arab Emirates
+      keyword_query: Crypto Recruit web3 OR crypto OR payments OR custody OR settlement OR product manager OR backlog
+      url:
+        builder: linkedin_jobs

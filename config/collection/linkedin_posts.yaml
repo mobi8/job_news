@@ -1,0 +1,179 @@
+sources:
+  linkedin_posts:
+    enabled: true
+    type: generated_plans
+    fetch_method: browser
+    source: linkedin_post
+    leads:
+    - id: hire
+      query: hire
+      category: hiring_post
+    - id: hiring
+      query: hiring
+      category: hiring_post
+    - id: job
+      query: job
+      category: job_post
+    - id: job_alert
+      query: job alert
+      category: recruiter_post
+    roles:
+    - id: crypto
+      query: crypto
+      domain: crypto_payments
+      aliases:
+      - payments
+      - payment
+    - id: igaming
+      query: igaming
+      domain: igaming
+    - id: web3
+      query: web3
+      domain: web3
+    - id: digital_asset
+      query: digital asset
+      domain: digital_asset
+    - id: backlog
+      query: backlog
+      domain: backlog
+      aliases:
+      - product
+      - product_manager
+      - product-manager
+    - id: game
+      query: game
+      domain: game
+    - id: payments
+      query: payment operations OR payments engineer OR payment product
+      domain: payments
+      aliases:
+      - payment
+    - id: custody
+      query: custody OR asset custody OR settlement
+      domain: custody_wallet
+    - id: product_ops
+      query: product manager OR product operations OR delivery manager
+      domain: product_delivery
+      aliases:
+      - product
+    - id: compliance
+      query: compliance OR risk management OR regulatory
+      domain: compliance_risk
+    locations:
+    - id: posts_uae
+      enabled: true
+      country: UAE
+      store_country: UAE
+      label: UAE
+      aliases:
+      - uae
+      - linkedin_posts_uae
+      query_location: in UAE
+      location_terms:
+      - uae
+      - dubai
+      - abu dhabi
+      - united arab emirates
+      - emirates
+    - id: posts_remote_mena
+      enabled: true
+      country: Remote
+      store_country: Remote
+      label: MENA Remote
+      aliases:
+      - remote
+      - mena
+      query_location: remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman
+      location_terms:
+      - remote
+      - mena
+      - middle east
+      - gcc
+      - uae
+      - dubai
+      - saudi
+      - qatar
+      - bahrain
+      - kuwait
+      - oman
+    - id: posts_amsterdam
+      enabled: true
+      country: Amsterdam
+      store_country: Amsterdam
+      label: Amsterdam
+      aliases:
+      - amsterdam
+      query_location: in Amsterdam Netherlands
+      location_terms:
+      - amsterdam
+      - netherlands
+      - nederland
+      - holland
+    - id: posts_australia
+      enabled: true
+      country: Australia
+      store_country: Australia
+      label: Australia
+      aliases:
+      - australia
+      - au
+      query_location: in Australia
+      location_terms:
+      - australia
+      - sydney
+      - melbourne
+      - brisbane
+      - perth
+      - adelaide
+      - canberra
+    - id: posts_malta
+      enabled: true
+      country: Malta
+      store_country: Malta
+      label: Malta
+      aliases:
+      - malta
+      query_location: in Malta
+      location_terms:
+      - malta
+      - sliema
+      - valletta
+      - st julian
+      - st. julian
+    filters:
+      hiring_terms:
+      - hiring
+      - we are hiring
+      - we're hiring
+      - open role
+      - job alert
+      - looking for
+      - vacancy
+      - join our team
+      - apply
+      - referral
+      - recruiting
+      job_destination_terms:
+      - "/jobs/"
+      - "/careers/"
+      - greenhouse.io
+      - lever.co
+      - ashbyhq.com
+      - workable.com
+      - recruitee.com
+      - smartrecruiters.com
+      domain_terms:
+      - crypto
+      - web3
+      - blockchain
+      - payment
+      - payments
+      - fintech
+      - igaming
+      - gaming
+      - casino
+      - sportsbook
+      - product
+      - business development
+      - wallet
+      - backlog

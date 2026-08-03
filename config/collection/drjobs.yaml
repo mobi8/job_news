@@ -1,0 +1,28 @@
+sources:
+  drjobs:
+    enabled: true
+    type: generated_search
+    fetch_method: browser
+    targets:
+    - id: drjobs_uae
+      enabled: true
+      source: drjobs
+      country: UAE
+      location: UAE
+      region: uae
+      url_builder: drjobs
+      keywords:
+      - igaming
+      - gaming operations
+      - crypto
+      - digital asset
+      - exchange
+      - custody
+      - settlement
+      - wallet
+      - payment operations
+      - product manager
+      - backlog
+      - compliance
+      explicit_urls:
+      - https://drjobs.ae/igaming-jobs

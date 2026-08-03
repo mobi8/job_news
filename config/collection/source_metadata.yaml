@@ -1,0 +1,185 @@
+source_metadata:
+- id: jobvite_pragmaticplay
+  label: Jobvite
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - jobvite
+- id: smartrecruitment
+  label: SmartRecruitment
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - smartrecruit
+  - smartrecruiters
+- id: igamingrecruitment
+  label: iGaming Recruitment
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - igaming_recruitment
+  - igaming recruitment
+- id: igaminghunt_bamboohr
+  label: IGAMINGHUNT
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - igaminghunt
+  - bamboohr_igaminghunt
+- id: jobrapido_uae
+  label: Jobrapido
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - jobrapido
+- id: jobleads
+  label: JobLeads
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - joblead
+- id: drjobs
+  label: DrJobs
+  kind: jobs
+  group: Browser
+  country: UAE
+  aliases:
+  - drjobs.ae
+- id: glassdoor_uae
+  label: Glassdoor UAE
+  kind: jobs
+  group: Browserless
+  country: UAE
+  aliases:
+  - glassdoor
+  - glassdoor_browserless_uae
+- id: indeed_uae
+  label: Indeed UAE
+  kind: jobs
+  group: Indeed
+  country: UAE
+  aliases:
+  - indeed
+  - indeed_jobspy
+  - jobspy_indeed
+  - indeed_browserless_uae
+- id: indeed_georgia
+  label: Indeed Georgia
+  kind: jobs
+  group: Indeed
+  country: Georgia
+  aliases: []
+- id: indeed_malta
+  label: Indeed Malta
+  kind: jobs
+  group: Indeed
+  country: Malta
+  aliases: []
+- id: linkedin_public
+  label: LinkedIn
+  kind: jobs
+  group: LinkedIn
+  country: UAE
+  aliases:
+  - linkedin
+  - linkedin_jobspy
+  - jobspy_linkedin
+- id: linkedin_emea
+  label: LinkedIn EMEA
+  kind: jobs
+  group: LinkedIn
+  country: Remote
+  aliases:
+  - linkedin emea
+- id: linkedin_georgia
+  label: LinkedIn Georgia
+  kind: jobs
+  group: LinkedIn
+  country: Georgia
+  aliases: []
+- id: linkedin_malta
+  label: LinkedIn Malta
+  kind: jobs
+  group: LinkedIn
+  country: Malta
+  aliases: []
+- id: linkedin_post
+  label: LinkedIn Post
+  kind: jobs
+  group: LinkedIn
+  country: UAE
+  aliases:
+  - posts
+- id: linkedin_post_spot
+  label: LinkedIn Spot
+  kind: jobs
+  group: LinkedIn
+  country: Other
+  aliases: []
+- id: linkedin_job_spot
+  label: LinkedIn Jobs Spot
+  kind: jobs
+  group: LinkedIn
+  country: Other
+  aliases: []
+- id: linkedin_amsterdam
+  label: LinkedIn Amsterdam
+  kind: jobs
+  group: LinkedIn
+  country: Netherlands
+  aliases: []
+- id: linkedin_australia
+  label: LinkedIn Australia
+  kind: jobs
+  group: LinkedIn
+  country: Australia
+  aliases: []
+- id: google_uae
+  label: Google UAE
+  kind: jobs
+  group: Google
+  country: UAE
+  aliases:
+  - google
+- id: google_georgia
+  label: Google Georgia
+  kind: jobs
+  group: Google
+  country: Georgia
+  aliases: []
+- id: google_malta
+  label: Google Malta
+  kind: jobs
+  group: Google
+  country: Malta
+  aliases: []
+- id: telegram_job_crypto_uae
+  label: TG Jobs UAE
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: telegram_cryptojobslist
+  label: TG Crypto
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: telegram_hr1win
+  label: TG 1Win
+  kind: jobs
+  group: Telegram
+  country: UAE
+  aliases: []
+- id: himalayas_igaming
+  label: Himalayas iGaming
+  kind: jobs
+  group: Remote
+  country: Remote
+  aliases: []

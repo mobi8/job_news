@@ -1,0 +1,27 @@
+sources:
+  glassdoor:
+    enabled: true
+    type: generated_search
+    fetch_method: browserless
+    targets:
+    - id: glassdoor_uae
+      enabled: true
+      source: glassdoor_uae
+      country: UAE
+      location: UAE
+      region: uae
+      url_builder: glassdoor_uae
+      keywords:
+      - crypto
+      - igaming
+      - payment
+      - payment operations
+      - wallet
+      - custody
+      - digital asset
+      - settlement
+      - product
+      - product manager
+      - backlog
+      - compliance
+      explicit_urls: []

@@ -1,0 +1,43 @@
+sources:
+  jobspy:
+    enabled: true
+    type: jobspy
+    fetch_method: library
+    target_groups:
+    - id: uae
+      label: UAE
+      aliases:
+      - jobspy_uae
+      country: UAE
+      target_ids:
+      - jobspy_uae_indeed
+      keyword_groups:
+      - id: crypto
+        label: Crypto
+        keyword_group_ids:
+        - payments
+        - crypto_product
+        - custody_game
+        - exchanges
+      - id: product-manager
+        label: Product Manager
+        aliases:
+        - product
+        - product_manager
+        keyword_group_ids:
+        - crypto_product
+      - id: payments
+        label: Payments
+        aliases:
+        - payment
+        keyword_group_ids:
+        - payments
+    targets:
+    - id: jobspy_uae_indeed
+      enabled: true
+      site: indeed
+      source: indeed_uae
+      country: UAE
+      location: Dubai, United Arab Emirates
+      indeed_country: United Arab Emirates
+      keywords_from: indeed
