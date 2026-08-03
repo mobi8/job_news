@@ -1,0 +1,130 @@
+sources:
+  news_feeds:
+  - id: igaming_business
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_igaming_business
+    label: iGaming Business
+    category: igaming
+    url: https://igamingbusiness.com/feed/
+    parser: rss
+  - id: fintech_news_uae
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_fintech_uae
+    label: Fintech News UAE
+    category: fintech
+    url: https://fintechnews.ae/feed/
+    parser: rss
+  - id: intergame_news
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_news
+    label: InterGame iGaming News
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/news
+    parser: rss
+  - id: intergame_crypto
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_crypto
+    label: InterGame Cryptocurrency
+    category: crypto
+    url: https://www.intergameonline.com/rss/igaming/cryptocurrency
+    parser: rss
+  - id: intergame_all
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_all
+    label: InterGame All iGaming
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/all
+    parser: rss
+  - id: intergame_abbrev
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_intergame_abbrev
+    label: InterGame Abbreviated
+    category: igaming
+    url: https://www.intergameonline.com/rss/igaming/abbreviated
+    parser: rss
+  - id: finextra_headlines
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_headlines
+    label: FinExtra Headlines
+    category: fintech
+    url: https://www.finextra.com/rss/headlines.aspx
+    parser: rss
+  - id: finextra_payments
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_payments
+    label: FinExtra Payments
+    category: payments
+    url: https://www.finextra.com/rss/channel.aspx?channel=payments
+    parser: rss
+  - id: finextra_crypto
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_finextra_crypto
+    label: FinExtra Crypto
+    category: crypto
+    url: https://www.finextra.com/rss/channel.aspx?channel=crypto
+    parser: rss
+  - id: focusgn
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_focusgn
+    label: FocusGN
+    category: igaming
+    url: https://focusgn.com/feed/
+    parser: rss
+  - id: venturebeat_games
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_venturebeat_games
+    label: VentureBeat Games
+    category: games
+    url: https://venturebeat.com/games/feed/
+    parser: rss
+  - id: pocket_gamer
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_pocket_gamer
+    label: Pocket Gamer
+    category: games
+    url: https://www.pocketgamer.biz/feed/
+    parser: rss
+  - id: gamesindustry
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_gamesindus_news
+    label: GamesIndustry.biz
+    category: games
+    url: https://www.gamesindustry.biz/feed
+    parser: rss
+  player_feeds:
+  - id: pragmatic_play_official
+    enabled: true
+    type: rss
+    fetch_method: http
+    source: rss_player_pragmatic
+    label: Pragmatic Play
+    player: Pragmatic Play
+    category: iGaming
+    url: https://www.pragmaticplay.com/news/feed/
+    parser: rss

@@ -13,7 +13,25 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = Path(os.getenv("COLLECTION_SOURCES_CONFIG_PATH") or ROOT / "config" / "collection_sources.yaml")
+
+def _get_config_path() -> Path:
+    """Get the config path, supporting both monolithic and split configurations.
+
+    Behavior:
+    - COLLECTION_SOURCES_CONFIG_PATH env var: use that path (file or directory)
+    - config/collection/ directory exists: use that directory (split config)
+    - default: config/collection_sources.yaml (monolithic config)
+    """
+    env_path = os.getenv("COLLECTION_SOURCES_CONFIG_PATH")
+    if env_path:
+        return Path(env_path)
+    # Default to split directory if it exists, otherwise use monolithic file
+    collection_dir = ROOT / "config" / "collection"
+    if collection_dir.exists() and collection_dir.is_dir():
+        return collection_dir
+    return ROOT / "config" / "collection_sources.yaml"
+
+CONFIG_PATH = _get_config_path()
 
 
 @dataclass(frozen=True)
@@ -98,12 +116,168 @@ def _load_yaml(path: Path = CONFIG_PATH) -> dict[str, Any]:
 
 
 def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    registry = _load_yaml(path)
-    if registry.get("version") != 1:
-        raise ValueError("collection source registry version must be 1")
-    registry.setdefault("sources", {})
-    registry.setdefault("source_metadata", [])
+    """Load collection registry from split YAML files or monolithic YAML file.
+
+    If path is a directory: load all .yaml files from that directory (split mode).
+    Each file can contain top-level sections: source_metadata, sources, filters,
+    runtime, topics, keyword_groups. Single ownership enforced: each section-key
+    appears in only one file.
+
+    If path is a .yaml file: load that single file directly (monolithic mode).
+    """
+    if path.is_dir():
+        # Split mode: load all YAML files from directory
+        config_dir = path
+    elif path.suffix == '.yaml' or path.suffix == '.yml':
+        # Monolithic mode: load single file
+        return _load_yaml(path)
+    else:
+        # Invalid path
+        raise ValueError(f"CONFIG_PATH must be a directory or .yaml file, got: {path}")
+
+    registry = {
+        "version": 1,
+        "source_metadata": [],
+        "sources": {},
+        "filters": {},
+        "runtime": {},
+        "topics": {},
+        "keyword_groups": {},
+    }
+
+    # Load all YAML files in collection/ directory (sorted for determinism)
+    for yaml_file in sorted(config_dir.glob("*.yaml")):
+        try:
+            data = _load_yaml(yaml_file)
+        except Exception as e:
+            raise ValueError(f"Error loading {yaml_file.name}: {e}") from e
+
+        if not data:
+            continue
+
+        # Merge source_metadata (single ownership per source_id)
+        if "source_metadata" in data:
+            metadata_list = data["source_metadata"]
+            if isinstance(metadata_list, list):
+                existing_ids = {item.get("id") for item in registry["source_metadata"]}
+                for item in metadata_list:
+                    source_id = item.get("id")
+                    if source_id in existing_ids:
+                        raise ValueError(
+                            f"Duplicate source_id '{source_id}' found in {yaml_file.name}"
+                        )
+                    registry["source_metadata"].append(item)
+
+        # Merge sources (single ownership per source name)
+        if "sources" in data:
+            sources_section = data["sources"]
+            for source_name, source_value in sources_section.items():
+                if source_name in registry["sources"]:
+                    raise ValueError(
+                        f"Duplicate source '{source_name}' found in {yaml_file.name}"
+                    )
+                registry["sources"][source_name] = source_value
+
+        # Merge filters (single ownership per filter type)
+        if "filters" in data:
+            for filter_type, filter_list in data["filters"].items():
+                if filter_type in registry["filters"]:
+                    raise ValueError(
+                        f"Duplicate filter type '{filter_type}' found in {yaml_file.name}"
+                    )
+                registry["filters"][filter_type] = filter_list
+
+        # Merge keyword_groups (single ownership per source type)
+        if "keyword_groups" in data:
+            for kg_type, kg_list in data["keyword_groups"].items():
+                if kg_type in registry["keyword_groups"]:
+                    raise ValueError(
+                        f"Duplicate keyword_groups type '{kg_type}' found in {yaml_file.name}"
+                    )
+                registry["keyword_groups"][kg_type] = kg_list
+
+        # Merge runtime
+        if "runtime" in data:
+            runtime_section = data["runtime"]
+            # Process phases if present
+            if "phases" in runtime_section:
+                if "phases" not in registry["runtime"]:
+                    registry["runtime"]["phases"] = []
+                phases_list = runtime_section["phases"]
+                if isinstance(phases_list, list):
+                    existing_phase_ids = {p.get("id") for p in registry["runtime"].get("phases", [])}
+                    for phase in phases_list:
+                        phase_id = phase.get("id")
+                        if phase_id in existing_phase_ids:
+                            raise ValueError(
+                                f"Duplicate phase_id '{phase_id}' found in {yaml_file.name}"
+                            )
+                        registry["runtime"]["phases"].append(phase)
+            # Process non-phase runtime config (always, not in else block)
+            for key, value in runtime_section.items():
+                if key != "phases":
+                    if key in registry["runtime"] and registry["runtime"][key]:
+                        raise ValueError(
+                            f"Duplicate runtime.{key} found in {yaml_file.name}"
+                        )
+                    registry["runtime"][key] = value
+
+        # Merge topics
+        if "topics" in data:
+            topics_section = data["topics"]
+            for topics_key, topics_value in topics_section.items():
+                if topics_key in registry["topics"]:
+                    raise ValueError(
+                        f"Duplicate topics section '{topics_key}' found in {yaml_file.name}"
+                    )
+                registry["topics"][topics_key] = topics_value
+
+    # Validate loaded registry
+    _validate_registry(registry)
+
     return registry
+
+
+def _validate_registry(registry: dict[str, Any]) -> None:
+    """Validate loaded registry for consistency.
+
+    Only checks for errors that would break runtime behavior:
+    - Duplicate target IDs across all sources
+    - Malformed targets (missing required 'id' field)
+    - Duplicate source metadata IDs
+    """
+
+    # Check for duplicate target IDs across all sources
+    seen_target_ids = {}
+    for source_name, source_value in registry.get("sources", {}).items():
+        targets = source_value.get("targets", []) if isinstance(source_value, dict) else []
+        if isinstance(targets, list):
+            for target in targets:
+                if isinstance(target, dict):
+                    target_id = target.get("id")
+                    # Targets must have an 'id' field
+                    if not target_id:
+                        raise ValueError(
+                            f"Target in source '{source_name}' missing required 'id' field"
+                        )
+                    # Check for duplicates
+                    if target_id in seen_target_ids:
+                        raise ValueError(
+                            f"Duplicate target id '{target_id}' found in "
+                            f"{seen_target_ids[target_id]} and {source_name}"
+                        )
+                    seen_target_ids[target_id] = source_name
+
+    # Check for duplicate source metadata IDs
+    seen_metadata_ids = set()
+    for metadata in registry.get("source_metadata", []):
+        if isinstance(metadata, dict):
+            metadata_id = metadata.get("id")
+            if not metadata_id:
+                raise ValueError("Source metadata entry missing required 'id' field")
+            if metadata_id in seen_metadata_ids:
+                raise ValueError(f"Duplicate source metadata id '{metadata_id}'")
+            seen_metadata_ids.add(metadata_id)
 
 
 REGISTRY = load_collection_registry()
@@ -1089,6 +1263,98 @@ def _runtime_int(section: str, key: str, default: int, env_name: str | None = No
         return default
 
 
+def get_enabled_job_source_ids() -> list[str]:
+    """Get all enabled job source IDs from YAML config (news sources excluded)."""
+    news_sources = {"rss", "player"}  # News-only sources to exclude
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for source_key, source_config in (_sources() or {}).items():
+        if not isinstance(source_config, dict):
+            continue
+        if source_key.startswith("telegram"):
+            continue  # Telegram channels are not job sources
+        if source_key in news_sources:
+            continue  # Skip news-only sources
+        if not _enabled(source_config):
+            continue  # Skip disabled sources
+
+        # For sources with targets (LinkedIn, Indeed, etc.), collect enabled target source IDs
+        targets = source_config.get("targets", [])
+        if targets:
+            for target in targets:
+                if isinstance(target, dict) and _enabled(target):
+                    source_id = target.get("source")
+                    if source_id and source_id not in seen:
+                        seen.add(source_id)
+                        result.append(source_id)
+        else:
+            # For flat sources (job_pages, recruiters), use source field or key
+            source_id = source_config.get("source", source_key)
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_enabled_linkedin_source_ids() -> list[str]:
+    """Get all enabled LinkedIn source IDs from YAML config."""
+    linkedin_config = _sources().get("linkedin_jobs", {})
+    if not isinstance(linkedin_config, dict):
+        return []
+
+    seen: set[str] = set()
+    result: list[str] = []
+
+    targets = linkedin_config.get("targets", [])
+    if not targets:
+        return []
+
+    for target in targets:
+        if isinstance(target, dict) and _enabled(target):
+            source_id = target.get("source")
+            if source_id and source_id not in seen:
+                seen.add(source_id)
+                result.append(source_id)
+
+    return result
+
+
+def get_collection_target_metadata() -> dict[str, dict[str, str]]:
+    """Get target metadata mapping (target_id -> {source, country, location})."""
+    metadata: dict[str, dict[str, str]] = {}
+
+    for source_key, source_config in (_sources() or {}).items():
+        if not isinstance(source_config, dict) or not _enabled(source_config):
+            continue
+
+        targets = source_config.get("targets", [])
+        if not targets:
+            continue
+
+        for target in targets:
+            if not isinstance(target, dict) or not _enabled(target):
+                continue
+
+            target_id = target.get("id", "")
+            if not target_id:
+                continue
+
+            source_id = target.get("source", "")
+            country = target.get("country", "")
+            location = target.get("location", "")
+
+            if target_id not in metadata:
+                metadata[target_id] = {
+                    "source": source_id,
+                    "country": country,
+                    "location": location,
+                }
+
+    return metadata
+
+
 def runtime_default_sources() -> str:
     return str(REGISTRY.get("runtime", {}).get("defaults", {}).get("job_watch_sources", ""))
 
@@ -1426,11 +1692,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--check-urls", action="store_true", help="Reserved for a future lightweight URL health check")
+    parser.add_argument("--enabled-job-source-ids", action="store_true", help="Print enabled job source IDs (comma-separated)")
+    parser.add_argument("--enabled-linkedin-source-ids", action="store_true", help="Print enabled LinkedIn source IDs (comma-separated)")
     args = parser.parse_args(argv)
+
     if args.check or args.check_urls:
         print(check_summary())
         errors, _ = validate_registry()
         return 1 if errors else 0
+
+    if args.enabled_job_source_ids:
+        sources = get_enabled_job_source_ids()
+        print(",".join(sources))
+        return 0
+
+    if args.enabled_linkedin_source_ids:
+        sources = get_enabled_linkedin_source_ids()
+        print(",".join(sources))
+        return 0
+
     parser.print_help()
     return 0
 
