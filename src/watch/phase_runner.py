@@ -240,6 +240,11 @@ def _run_subprocess(
 ) -> dict[str, Any]:
     summary = _base_summary(phase, target=env_updates.get("PHASE_TARGET") if env_updates else None, dry_run=dry_run)
     summary["metadata"]["command"] = command
+    route_run_id = os.getenv("COLLECTION_RUN_ID") or f"{summary['run_id']}-routes"
+    route_dir = OUTPUT_DIR / "runs" / route_run_id
+    summary["metadata"]["route_run_id"] = route_run_id
+    summary["metadata"]["route_targets_path"] = str(route_dir / "targets.jsonl")
+    summary["metadata"]["route_summary_path"] = str(route_dir / "summary.md")
     if dry_run:
         summary["status"] = "dry_run"
         return summary
@@ -249,6 +254,7 @@ def _run_subprocess(
     env.setdefault("PYTHON_BIN", sys.executable)
     if env_updates:
         env.update(env_updates)
+    env.setdefault("COLLECTION_RUN_ID", route_run_id)
     process = subprocess.Popen(
         command,
         cwd=str(ROOT),

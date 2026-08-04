@@ -330,7 +330,7 @@ class TestConfigPathHandling:
         registry = load_collection_registry(split_dir)
 
         assert registry.get("version") == 1
-        assert len(registry.get("source_metadata", [])) == 36
+        assert len(registry.get("source_metadata", [])) == 35
         assert len(registry.get("runtime", {}).get("phases", [])) == 15
 
     def test_load_monolithic_file(self):
@@ -797,7 +797,7 @@ class TestMatrixIntegration:
         # Before Phase F: 24 manual + 10 matrix-generated = 34 target objects
         # After Phase F: 24 manual + 15 matrix-generated = 39 target objects
         # But SearchTarget count includes multiple per target if multiple keyword groups
-        # Expected: 43 SearchTarget objects including recruiters
-        assert len(prod_targets) == 219, (
-            f"Production SearchTarget count changed: expected 219, got {len(prod_targets)}"
+        # Expected after removing Isle of Man from active collection scope.
+        assert len(prod_targets) == 210, (
+            f"Production SearchTarget count changed: expected 210, got {len(prod_targets)}"
         )

@@ -37,6 +37,14 @@ from utils.config import (  # noqa: E402
     LINKEDIN_POSTS_PROFILE_DIR,
     OUTPUT_DIR,
 )
+from utils.route_observability import (  # noqa: E402
+    append_jsonl,
+    classify_health,
+    new_run_id,
+    render_compact_telegram_summary,
+    run_dir,
+    write_markdown_summary,
+)
 
 def _resolve_node_bin() -> str:
     """Resolve Node executable path from multiple sources."""
@@ -88,6 +96,53 @@ ACTIVE_LINKEDIN_POSTS_PROFILE_DIR = Path(
 LOCK_PATH = OUTPUT_DIR / "linkedin_posts.lock"
 CURRENT_STAGE = "startup"
 LOCK_ACQUIRED = False
+
+
+def _posts_run_context() -> tuple[str, Path]:
+    run_id = os.getenv("COLLECTION_RUN_ID") or new_run_id("posts")
+    os.environ["COLLECTION_RUN_ID"] = run_id
+    return run_id, run_dir(run_id)
+
+
+def _post_plan_record(plan: Dict[str, Any], *, raw: int | None, filtered: int | None, elapsed_ms: int | None, error: str | None) -> Dict[str, Any]:
+    status = "failed" if error else "success"
+    parsed = raw
+    return {
+        "source": "linkedin_posts",
+        "origin": "matrix",
+        "location_id": plan.get("location_id"),
+        "location": plan.get("display_location") or plan.get("country"),
+        "role_id": plan.get("role_id") or plan.get("domain"),
+        "lead_id": plan.get("lead_id"),
+        "category": plan.get("category"),
+        "target_id": f"{plan.get('location_id')}_{plan.get('role_id')}_{plan.get('lead_id')}",
+        "keyword_group_id": plan.get("role_id") or plan.get("domain"),
+        "query": plan.get("query"),
+        "url": None,
+        "attempted": True,
+        "status": status,
+        "health": classify_health(
+            attempted=True,
+            status=status,
+            raw=raw,
+            parsed=parsed,
+            filtered=filtered,
+            error=error,
+        ),
+        "raw": raw,
+        "parsed": parsed,
+        "filtered": filtered,
+        "new": None,
+        "saved": None,
+        "duplicates": None,
+        "elapsed_ms": elapsed_ms,
+        "error": error,
+    }
+
+
+def _write_post_records(run_output_dir: Path, records: List[Dict[str, Any]]) -> None:
+    if records:
+        append_jsonl(run_output_dir / "targets.jsonl", records)
 
 
 class LoginRequiredError(RuntimeError):
@@ -695,6 +750,7 @@ def main() -> None:
         return
 
     print("LinkedIn posts runner starting...", flush=True)
+    route_run_id, route_output_dir = _posts_run_context()
     max_plans = _env_int("LINKEDIN_POST_MAX_PLANS", len(LINKEDIN_POST_SEARCH_PLANS))
     start_plan = max(1, _env_int("LINKEDIN_POST_START_PLAN", 1))
     batch_size = _env_int("LINKEDIN_POST_BATCH_SIZE", 5)
@@ -723,13 +779,25 @@ def main() -> None:
 
         try:
             result = _run_probe(plans)
-        except LoginRequiredError:
+        except LoginRequiredError as exc:
+            _write_post_records(
+                route_output_dir,
+                [_post_plan_record(plan, raw=None, filtered=None, elapsed_ms=None, error=f"login_required: {exc}") for plan in plans],
+            )
             raise
-        except CheckpointRequiredError:
+        except CheckpointRequiredError as exc:
+            _write_post_records(
+                route_output_dir,
+                [_post_plan_record(plan, raw=None, filtered=None, elapsed_ms=None, error=f"checkpoint_required: {exc}") for plan in plans],
+            )
             raise
         except RuntimeError as exc:
             error_msg = str(exc)[:300]
             print(f"LinkedIn posts batch {batch_index} failed: {error_msg}")
+            _write_post_records(
+                route_output_dir,
+                [_post_plan_record(plan, raw=None, filtered=None, elapsed_ms=None, error=error_msg) for plan in plans],
+            )
             if os.getenv("LINKEDIN_POST_AUTO_LOGIN_SETUP", "1").strip().lower() in {"1", "true", "yes", "on"}:
                 print("Automatic login setup is disabled for /posts; login must be completed manually.")
             total_errors += 1
@@ -749,6 +817,38 @@ def main() -> None:
                 print(f"  - {error.get('query', 'unknown')}: {str(error.get('error', ''))[:180]}")
 
         posts = [post for post in raw_posts if _passes_filters(post)]
+        filtered_by_query: Dict[str, int] = {}
+        for post in posts:
+            query = str(post.get("query") or "")
+            filtered_by_query[query] = filtered_by_query.get(query, 0) + 1
+        plan_records = []
+        for plan_result in result.get("plan_results", []) or []:
+            query = str(plan_result.get("query") or "")
+            plan_records.append(
+                _post_plan_record(
+                    plan_result,
+                    raw=int(plan_result.get("raw") or 0),
+                    filtered=filtered_by_query.get(query, 0),
+                    elapsed_ms=plan_result.get("elapsed_ms"),
+                    error=str(plan_result.get("error") or "") or None,
+                )
+            )
+        if not plan_records:
+            raw_by_query: Dict[str, int] = {}
+            for post in raw_posts:
+                query = str(post.get("query") or "")
+                raw_by_query[query] = raw_by_query.get(query, 0) + 1
+            plan_records = [
+                _post_plan_record(
+                    plan,
+                    raw=raw_by_query.get(str(plan.get("query") or ""), 0),
+                    filtered=filtered_by_query.get(str(plan.get("query") or ""), 0),
+                    elapsed_ms=None,
+                    error=None,
+                )
+                for plan in plans
+            ]
+        _write_post_records(route_output_dir, plan_records)
         jobs = [_to_job(post) for post in posts]
         from utils.db import Database
         from utils.scoring import calculate_match_score
@@ -784,6 +884,18 @@ def main() -> None:
         f"LinkedIn posts: raw={total_raw} filtered={total_filtered} "
         f"inserted={total_inserted} notified={total_notified} errors={total_errors}"
     )
+    targets_path = route_output_dir / "targets.jsonl"
+    if targets_path.exists():
+        records = [json.loads(line) for line in targets_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        write_markdown_summary(route_output_dir / "summary.md", run_id=route_run_id, records=records)
+        print(f"LinkedIn posts route summary: {route_output_dir / 'summary.md'}")
+        _send_telegram(
+            render_compact_telegram_summary(
+                run_id=route_run_id,
+                records=records,
+                summary_path=route_output_dir / "summary.md",
+            )
+        )
 
 
 if __name__ == "__main__":

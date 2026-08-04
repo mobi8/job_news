@@ -160,12 +160,6 @@ source_metadata:
   group: LinkedIn
   country: Gibraltar
   aliases: []
-- id: linkedin_isle_of_man
-  label: LinkedIn Isle of Man
-  kind: jobs
-  group: LinkedIn
-  country: Isle of Man
-  aliases: []
 - id: linkedin_estonia
   label: LinkedIn Estonia
   kind: jobs

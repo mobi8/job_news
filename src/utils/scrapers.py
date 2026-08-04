@@ -54,6 +54,7 @@ from .collection_config import (
     RECRUITER_SEARCH_URLS,
 )
 from .models import JobPosting, NewsItem
+from .route_observability import append_jsonl, classify_health, run_dir
 from .scoring import evaluate_fit
 from .logger import scraper_logger, setup_logger
 from .utils import clean_text, normalize_linkedin_identifier, normalize_linkedin_url, utc_now
@@ -68,6 +69,17 @@ BROWSER_GLASSDOOR_BATCH_SIZE = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_SIZ
 BROWSER_GLASSDOOR_BATCH_WORKERS = max(1, int(os.getenv("BROWSER_GLASSDOOR_BATCH_WORKERS", "1")))
 BROWSER_PROBE_TIMEOUT_SECONDS = max(1, int(os.getenv("BROWSER_PROBE_TIMEOUT_SECONDS", "180")))
 BROWSER_GLASSDOOR_URL_TIMEOUT_SECONDS = max(1, int(os.getenv("BROWSER_GLASSDOOR_URL_TIMEOUT_SECONDS", "180")))
+
+
+def _collection_filter_phase() -> str:
+    raw = os.getenv("COLLECTION_TARGET_FILTER_JSON", "").strip()
+    if not raw:
+        return ""
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return ""
+    return str(payload.get("phase") or "")
 BROWSER_PROBE_HEARTBEAT_SECONDS = max(10, int(os.getenv("BROWSER_PROBE_HEARTBEAT_SECONDS", "30")))
 NODE_BIN = os.getenv("JOBHUNT_NODE_BIN") or os.getenv("NODE_BIN") or "node"
 
@@ -1254,7 +1266,8 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
     fetch_linkedin_jobs_via_browser.last_parsed_count = 0
     fetch_linkedin_jobs_via_browser.last_errors = []
     fetch_linkedin_jobs_via_browser.last_page_count = 0
-    all_urls = [*LINKEDIN_SEARCH_URLS, *RECRUITER_SEARCH_URLS]
+    fetch_linkedin_jobs_via_browser.last_route_records = []
+    all_urls = RECRUITER_SEARCH_URLS if _collection_filter_phase() == "recruiters" else LINKEDIN_SEARCH_URLS
     if not all_urls:
         return []
 
@@ -1293,8 +1306,13 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
     skipped_duplicate_count = 0
     skipped_location_count = 0
     skipped_excluded_region_count = 0
+    route_records: list[dict] = []
 
     for search_url, page in zip(all_urls, pages):
+        target_metadata = LINKEDIN_SEARCH_URL_METADATA.get(search_url, {})
+        route_raw_count = len(page.get("jobs", []) or [])
+        route_parsed_count = 0
+        route_error = clean_text(str(page.get("error", "")))[:500] or None
         for item in page.get("jobs", []):
             url = item.get("url", "").strip()
             title = clean_text(item.get("title", ""))
@@ -1310,8 +1328,6 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
 
             location_str = clean_text(item.get("location", "")).lower()
             search_lower = search_url.lower()
-            target_metadata = LINKEDIN_SEARCH_URL_METADATA.get(search_url, {})
-
             # Determine country from job location or search URL
             country = target_metadata.get("country")
             source_name = target_metadata.get("source")
@@ -1378,6 +1394,41 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                     collected_at=collected_at,
                 )
             )
+            route_parsed_count += 1
+        route_status = "failed" if route_error else "success"
+        route_records.append(
+            {
+                "source": "linkedin_jobs",
+                "target_source": target_metadata.get("source"),
+                "origin": target_metadata.get("origin") or "manual",
+                "location_id": target_metadata.get("location_id") or "",
+                "location": target_metadata.get("location") or target_metadata.get("country"),
+                "role_id": target_metadata.get("role_id") or target_metadata.get("keyword_group_id") or "",
+                "target_id": target_metadata.get("target_id") or "",
+                "keyword_group_id": target_metadata.get("keyword_group_id") or "",
+                "query": target_metadata.get("keyword_query") or "",
+                "url": search_url,
+                "final_url": page.get("href"),
+                "attempted": True,
+                "status": route_status,
+                "health": classify_health(
+                    attempted=True,
+                    status=route_status,
+                    raw=route_raw_count,
+                    parsed=route_parsed_count,
+                    filtered=None,
+                    error=route_error,
+                ),
+                "raw": route_raw_count,
+                "parsed": route_parsed_count,
+                "filtered": None,
+                "new": None,
+                "saved": None,
+                "duplicates": None,
+                "elapsed_ms": page.get("elapsed_ms"),
+                "error": route_error,
+            }
+        )
 
     logger.info(
         "LinkedIn browser counts: raw_parsed=%d normalized=%d skipped_missing=%d skipped_duplicate=%d skipped_location=%d skipped_excluded_region=%d",
@@ -1389,6 +1440,10 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
         skipped_excluded_region_count,
     )
     fetch_linkedin_jobs_via_browser.last_parsed_count = len(jobs)
+    fetch_linkedin_jobs_via_browser.last_route_records = route_records
+    run_id = os.getenv("COLLECTION_RUN_ID", "").strip()
+    if run_id and route_records:
+        append_jsonl(run_dir(run_id) / "targets.jsonl", route_records)
     if raw_parsed_count == 0 and not page_errors:
         logger.warning(
             "LinkedIn browser parsed 0 raw jobs from %d pages without page errors; possible login wall, rate limit, empty DOM, or selector mismatch.",

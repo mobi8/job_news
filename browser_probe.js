@@ -510,6 +510,7 @@ async function main() {
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       const searchContext = describeSearchUrl(url);
+      const routeStartedAt = Date.now();
       let page;
       try {
         progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | start ${i + 1}/${urls.length}`);
@@ -619,6 +620,8 @@ async function main() {
 
           const parseStartedAt = Date.now();
           const result = await evaluateLinkedInPage(page);
+          result.elapsed_ms = Date.now() - routeStartedAt;
+          result.status = 'success';
           const rawJobs = result.jobs?.length || 0;
           stepProgress(
             10,
@@ -644,7 +647,9 @@ async function main() {
       } catch (error) {
         progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | error ${error.message}`);
         console.error(`Error processing ${url}: ${error.message}`);
-        results.push(errorResult(url, error.message));
+        const result = errorResult(url, error.message);
+        result.elapsed_ms = Date.now() - routeStartedAt;
+        results.push(result);
         continue;
       }
 

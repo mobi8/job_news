@@ -271,25 +271,6 @@ locations:
       - payment_partnerships
       - igaming
 
-  isle_of_man:
-    id: isle_of_man
-    label: Isle of Man
-    enabled: true
-    country: Isle of Man
-    linkedin:
-      source: linkedin_isle_of_man
-      location: "Isle of Man"
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - account_manager
-      - compliance
-      - aml
-      - kyc
-      - igaming
-
   estonia:
     id: estonia
     label: Estonia

@@ -438,9 +438,14 @@ async function main() {
     }
 
     const selectedPlans = plans.slice(0, maxPlans);
+    const planResults = [];
     for (let planIndex = 0; planIndex < selectedPlans.length; planIndex += 1) {
       const plan = selectedPlans[planIndex];
       const url = searchUrl(plan.query);
+      const planStartedAt = Date.now();
+      let planRaw = 0;
+      let planError = null;
+      let planCompleted = false;
       console.error(`LinkedIn posts search: ${plan.query}`);
       let done = false;
       for (let attempt = 1; attempt <= 2 && !done; attempt += 1) {
@@ -453,8 +458,11 @@ async function main() {
           await autoScroll(page, scrollRounds);
           await expandSeeMore(page);
           const posts = await extractPosts(page, plan);
+          planRaw = posts.length;
           allPosts.push(...posts);
           completedPlans += 1;
+          planCompleted = true;
+          planError = null;
           done = true;
           await sleepSeconds(randomBetween(queryPauseMin, queryPauseMax));
         } catch (error) {
@@ -467,10 +475,19 @@ async function main() {
             continue;
           }
           console.error(`LinkedIn posts search failed: ${plan.query} attempt ${attempt}: ${message}`);
+          planError = message;
           errors.push({ query: plan.query, error: message });
           done = true;
         }
       }
+      planResults.push({
+        ...plan,
+        attempted: true,
+        completed: planCompleted,
+        raw: planRaw,
+        elapsed_ms: Date.now() - planStartedAt,
+        error: planError,
+      });
 
       const hasMorePlans = planIndex < selectedPlans.length - 1;
       if (hasMorePlans && batchSize > 0 && (planIndex + 1) % batchSize === 0) {
@@ -497,6 +514,7 @@ async function main() {
     posts: unique,
     completed_plans: completedPlans,
     attempted_plans: Math.min(maxPlans, plans.length),
+    plan_results: planResults,
     errors,
     recoveries,
     reconnects,

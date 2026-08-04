@@ -92,6 +92,12 @@ from utils.notifications import (
     source_total_counts,
 )
 from utils.reporter import save_csv, save_dashboard, save_dashboard_data, save_json, save_markdown, save_news_dashboard
+from utils.route_observability import (
+    new_run_id,
+    render_compact_telegram_summary,
+    run_dir,
+    write_markdown_summary,
+)
 from utils.scoring import (
     annotate_records,
     calculate_match_score,
@@ -914,6 +920,9 @@ def scrape_glassdoor_via_browserless() -> list:
 def run(mode: str = "collect") -> Dict[str, Any]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     run_started_at = utc_now()
+    route_run_id = os.getenv("COLLECTION_RUN_ID") or new_run_id("collect")
+    os.environ["COLLECTION_RUN_ID"] = route_run_id
+    route_output_dir = run_dir(route_run_id)
     _console_step(f"Scrape run started (mode={mode})")
     db = Database(DB_PATH)
     initial_job_total = db.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
@@ -1069,6 +1078,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 linkedin_raw_count = int(getattr(fetch_linkedin_jobs_via_browser, "last_raw_count", 0))
                 linkedin_parsed_count = int(getattr(fetch_linkedin_jobs_via_browser, "last_parsed_count", len(browser_linkedin_jobs)))
                 linkedin_errors = list(getattr(fetch_linkedin_jobs_via_browser, "last_errors", []) or [])
+                linkedin_route_records = list(getattr(fetch_linkedin_jobs_via_browser, "last_route_records", []) or [])
+                linkedin_route_meta = {
+                    "route_count": len(linkedin_route_records),
+                    "route_output": str(route_output_dir / "targets.jsonl"),
+                }
                 linkedin_detail = "; ".join(linkedin_errors[:2])
                 if linkedin_raw_count == 0 and linkedin_parsed_count == 0:
                     stage_results["linkedin"] = _stage(
@@ -1078,6 +1092,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                         raw_count=linkedin_raw_count,
                         parsed_count=linkedin_parsed_count,
                         new_count=0,
+                        **linkedin_route_meta,
                     )
                 elif linkedin_errors:
                     stage_results["linkedin"] = _stage(
@@ -1087,6 +1102,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                         raw_count=linkedin_raw_count,
                         parsed_count=linkedin_parsed_count,
                         new_count=0,
+                        **linkedin_route_meta,
                     )
                 else:
                     stage_results["linkedin"] = _stage(
@@ -1096,6 +1112,7 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                         raw_count=linkedin_raw_count,
                         parsed_count=linkedin_parsed_count,
                         new_count=0,
+                        **linkedin_route_meta,
                     )
             except Exception as exc:
                 logger.warning("Skipping LinkedIn browser phase after error: %s", exc, exc_info=True)
@@ -1106,6 +1123,8 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                     raw_count=0,
                     parsed_count=0,
                     new_count=0,
+                    route_count=0,
+                    route_output=str(route_output_dir / "targets.jsonl"),
                 )
         browser_indeed_jobs = []
         if skip_indeed_browser or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
@@ -1355,6 +1374,9 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         )
         payload = {
             "collection_metadata": {
+                "route_run_id": route_run_id,
+                "route_targets_path": str(route_output_dir / "targets.jsonl"),
+                "route_summary_path": str(route_output_dir / "summary.md"),
                 "collected_at": run_completed_at.isoformat(),
                 "batch_started_at": run_started_at.isoformat(),
                 "next_batch_at": next_batch_at,
@@ -1485,6 +1507,21 @@ def run(mode: str = "collect") -> Dict[str, Any]:
             except Exception as exc:
                 logger.warning("Failed to refresh jobs_analysis.json metadata: %s", exc, exc_info=True)
 
+        route_records = []
+        route_targets_path = route_output_dir / "targets.jsonl"
+        if route_targets_path.exists():
+            try:
+                import json
+
+                route_records = [
+                    json.loads(line)
+                    for line in route_targets_path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                ]
+                write_markdown_summary(route_output_dir / "summary.md", run_id=route_run_id, records=route_records)
+            except Exception as exc:
+                logger.warning("Failed to write route observability summary: %s", exc, exc_info=True)
+
         _console_step("Saving outputs")
         if mode == "collect":
             batch_jobs = [job.to_dict() for job in inserted_jobs]
@@ -1493,6 +1530,14 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 if not skip_news:
                     send_news_summary(inserted_news_items, db=db)
                 _send_run_stage_summary(stage_results, inserted, news_inserted, final_run_status)
+                if route_records:
+                    send_telegram_text(
+                        render_compact_telegram_summary(
+                            run_id=route_run_id,
+                            records=route_records,
+                            summary_path=route_output_dir / "summary.md",
+                        )
+                    )
         elif mode == "incremental":
             send_incremental_summary(db, hours=watch_hours, allowed_sources=allowed_sources)
 

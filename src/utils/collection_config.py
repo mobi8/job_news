@@ -41,6 +41,9 @@ class SearchTarget:
     source: str
     country: str
     location: str
+    location_id: str = ""
+    role_id: str = ""
+    origin: str = "manual"
     region: str = ""
     location_terms: tuple[str, ...] = ()
     exclude_terms: tuple[str, ...] = ()
@@ -410,6 +413,9 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
             target = {
                 "id": target_id,
                 "enabled": True,
+                "origin": "matrix",
+                "location_id": location_id,
+                "role_id": role_id,
                 "source": source,
                 "country": location_config.get("country", ""),
                 "location": location_str,
@@ -766,6 +772,9 @@ def _search_target(
         target_id=str(target.get("id") or ""),
         source=str(target.get("source") or ""),
         country=str(target.get("country") or ""),
+        location_id=str(target.get("location_id") or ""),
+        role_id=str(target.get("role_id") or ""),
+        origin=str(target.get("origin") or "manual"),
         region=str(target.get("region") or ""),
         location=str(target.get("location") or target.get("display_location") or ""),
         location_terms=_location_terms(target),
@@ -1051,10 +1060,13 @@ def _filter_post_plans(plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return plans
     location_ids = {str(item) for item in payload.get("target_ids", []) or []}
     role_ids = {str(item) for item in payload.get("keyword_group_ids", []) or []}
+    lead_ids = {str(item) for item in payload.get("lead_ids", []) or []}
     if location_ids:
         plans = [plan for plan in plans if str(plan.get("location_id") or "") in location_ids]
     if role_ids:
         plans = [plan for plan in plans if str(plan.get("role_id") or plan.get("domain") or "") in role_ids]
+    if lead_ids:
+        plans = [plan for plan in plans if str(plan.get("lead_id") or "") in lead_ids]
     return plans
 
 
@@ -1121,6 +1133,9 @@ def target_metadata_by_url(targets: list[SearchTarget]) -> dict[str, dict[str, A
             "target_id": target.target_id,
             "source": target.source,
             "country": target.country,
+            "location_id": target.location_id,
+            "role_id": target.role_id,
+            "origin": target.origin,
             "region": target.region,
             "location": target.location,
             "location_terms": list(target.location_terms),
