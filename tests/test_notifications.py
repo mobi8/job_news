@@ -290,6 +290,29 @@ class TestMaybeSendTelegram:
         mock_cards.assert_not_called()
 
     @patch("utils.notifications.send_telegram_text")
+    @patch("utils.notifications.send_job_analysis_cards")
+    @patch("utils.notifications.evaluate_fit", return_value={"score": 42, "qualifies": False})
+    def test_maybe_send_telegram_requires_scoring_qualification(self, mock_fit, mock_cards, mock_send):
+        """High score alone is not enough for Scoring v2 Telegram recommendations."""
+        job = JobPosting(
+            source="linkedin_malta",
+            source_job_id="123",
+            title="Business Development Manager",
+            company="Apcopay",
+            location="Malta",
+            url="https://linkedin.com/jobs/view/123",
+            match_score=42,
+        )
+
+        maybe_send_telegram(1, [job])
+
+        assert mock_fit.called
+        assert mock_send.called
+        message = mock_send.call_args[0][0]
+        assert "0 new" in message
+        mock_cards.assert_not_called()
+
+    @patch("utils.notifications.send_telegram_text")
     def test_maybe_send_telegram_negative_inserted(self, mock_send):
         """Test with negative inserted count"""
         jobs = []
@@ -348,15 +371,16 @@ class TestMaybeSendTelegram:
             message = call_args[0][0] if call_args else ""
             assert isinstance(message, str)
 
+    @patch("utils.notifications.evaluate_fit", return_value={"score": 85, "qualifies": True})
     @patch("utils.notifications.send_telegram_text")
-    def test_maybe_send_telegram_deduplicates_same_job_signature(self, mock_send):
+    def test_maybe_send_telegram_deduplicates_same_job_signature(self, mock_send, mock_fit):
         """Test that repeated rows with the same title/company/location collapse to one alert item"""
         jobs = [
             JobPosting(
                 source="indeed_uae",
                 source_job_id="1",
-                title="Product Manager",
-                company="TechCorp",
+                title="Payments Product Manager",
+                company="Airwallex",
                 location="Dubai",
                 url="https://indeed.com/1",
                 match_score=85,
@@ -364,8 +388,8 @@ class TestMaybeSendTelegram:
             JobPosting(
                 source="indeed_uae",
                 source_job_id="2",
-                title="Product Manager",
-                company="TechCorp",
+                title="Payments Product Manager",
+                company="Airwallex",
                 location="Dubai",
                 url="https://indeed.com/2",
                 match_score=85,

@@ -1,0 +1,73 @@
+company_groups:
+  payments:
+    score: 10
+    companies:
+      - Airwallex
+      - Brite Payments
+      - FYST
+      - payabl.
+      - PGWAY
+      - Stripe
+      - TPF
+      - The Payments Factory
+  fintech:
+    score: 8
+    companies:
+      - Revolut
+      - Siemens
+  crypto:
+    score: 10
+    companies:
+      - Binance
+      - Bitget
+      - Bybit
+      - Coinbase
+      - Crypto.com
+      - Gate.io
+      - HTX
+      - Kraken
+      - KuCoin
+      - MEXC
+      - OKX
+  digital_assets:
+    score: 10
+    companies:
+      - EPS Consultants Singapore
+  igaming:
+    score: 12
+    companies:
+      - ARRISE
+      - Art of Spin
+      - BettingJobs
+      - Betclic Group
+      - Casino Industry News
+      - Evolution
+      - GamblingCareers.com
+      - iGamingRecruitment.io
+      - JobMatchingPartner
+      - Kaizen Gaming
+      - LeoVegas Group
+      - Pentasia
+      - Platin Gaming Ltd.
+      - Pragmatic Play
+      - Push Gaming
+      - Relax Gaming Ltd
+      - SkillOnNet
+      - SOFTSWISS
+      - TaDa Gaming
+  video_games:
+    score: 10
+    companies:
+      - NetEase Games
+      - Riot Games
+      - Roblox
+      - Supercell
+      - Voodoo
+  weak_company_context_requires_intent:
+    companies:
+      - Binance
+      - Bybit
+      - Coinbase
+      - Crypto.com
+      - Kraken
+      - OKX

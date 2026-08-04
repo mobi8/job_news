@@ -1,0 +1,137 @@
+intent_groups:
+  product:
+    score: 14
+    terms:
+      - product lead
+      - product manager
+      - product owner
+      - product operations
+      - product compliance
+  payments:
+    score: 16
+    terms:
+      - payment operations
+      - payments operations
+      - payment orchestration
+      - payments orchestration
+      - payment central
+      - payment network
+      - payment networks
+      - payment systems supervision
+      - payment systems
+      - payments architect
+      - payments engineer
+      - payment processing engineer
+      - solutions architect - payments
+      - payments contract
+      - payment contract
+      - payment specialist
+      - payment support
+  wallet:
+    score: 14
+    terms:
+      - wallet operations
+      - wallet specialist
+  custody:
+    score: 14
+    terms:
+      - custody operations
+      - asset custody
+      - vault operations
+  treasury:
+    score: 14
+    terms:
+      - treasury operations
+      - cash management
+      - liquidity operations
+  settlement:
+    score: 14
+    terms:
+      - settlement operations
+      - reconciliation
+      - transaction reconciliation
+  fraud:
+    score: 12
+    terms:
+      - fraud operations
+      - fraud prevention
+      - transaction monitoring
+  compliance:
+    score: 14
+    terms:
+      - compliance
+      - regulatory compliance
+      - product compliance
+      - customer due diligence
+      - due diligence operations
+      - kyb
+      - kyc
+      - aml
+      - financial crime
+      - fincrime
+  crm:
+    score: 10
+    terms:
+      - customer success
+      - vip account manager
+      - retention
+  live_ops:
+    score: 16
+    terms:
+      - live operations
+      - live ops
+      - games delivery
+      - game operations
+  publishing:
+    score: 14
+    terms:
+      - game publishing
+      - game publisher
+      - publishing manager
+      - publisher partnerships
+  account_management:
+    score: 12
+    terms:
+      - account manager
+      - account management
+      - technical account management
+      - relationship manager
+  partnerships:
+    score: 12
+    terms:
+      - partnerships manager
+      - partnership manager
+      - partner manager
+      - payment partnerships
+      - acquiring partnerships
+      - business growth manager
+  integration:
+    score: 14
+    terms:
+      - integration manager
+      - integration engineer
+      - API integration
+      - solutions engineer
+  implementation:
+    score: 14
+    terms:
+      - implementation manager
+      - implementation specialist
+      - merchant onboarding
+  operations:
+    score: 12
+    terms:
+      - operations senior associate
+      - operations associate
+      - operations manager
+      - business operations
+      - platform operations
+  video_game_product:
+    score: 18
+    terms:
+      - game producer
+      - producer - slots
+      - portfolio midcore games
+      - mobile games product
+      - game economy
+      - game monetization

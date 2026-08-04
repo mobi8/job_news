@@ -55,7 +55,7 @@ from .collection_config import (
 )
 from .models import JobPosting, NewsItem
 from .route_observability import append_jsonl, classify_health, run_dir
-from .scoring import evaluate_fit
+from .scoring import active_search_location_terms, evaluate_fit
 from .logger import scraper_logger, setup_logger
 from .utils import clean_text, normalize_linkedin_identifier, normalize_linkedin_url, utc_now
 
@@ -1022,7 +1022,15 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
             # Validate location doesn't contain excluded countries (USA, UK, etc.)
             configured_excludes = target_metadata.get("exclude_terms") or []
             default_excludes = ["united states", "usa", "united kingdom", "uk", "canada", "california", "new york", "texas", "ohio", "oh", "florida", "fl", "remote - usa"]
-            if any(x in location_str for x in [*configured_excludes, *default_excludes]):
+            active_location_excludes = {
+                term for term in active_search_location_terms()
+                if term in {"united kingdom", "uk", "london", "영국", "런던", "netherlands", "amsterdam"}
+            }
+            effective_default_excludes = [
+                term for term in default_excludes
+                if term not in active_location_excludes
+            ]
+            if any(x in location_str for x in [*configured_excludes, *effective_default_excludes]):
                 logger.debug("Skipping Indeed job from excluded region: %s", location_str)
                 continue
 
@@ -1375,7 +1383,15 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
                 "미국", "뉴욕", "샌프란시스코", "영국", "런던", "맨체스터", "버밍엄",
                 "캐나다", "중국", "일본", "홍콩", "싱가포르",
             ]
-            if any(x in location_str for x in [*configured_excludes, *default_excludes]):
+            active_location_excludes = {
+                term for term in active_search_location_terms()
+                if term in {"united kingdom", "uk", "london", "영국", "런던", "netherlands", "amsterdam"}
+            }
+            effective_default_excludes = [
+                term for term in default_excludes
+                if term not in active_location_excludes
+            ]
+            if any(x in location_str for x in [*configured_excludes, *effective_default_excludes]):
                 skipped_excluded_region_count += 1
                 logger.debug("Skipping LinkedIn job from excluded region: %s", location_str)
                 continue

@@ -13,10 +13,14 @@ from typing import Any, Dict, List, Optional
 
 from .db import Database
 from .models import JobPosting
-from .scoring import focus_records, is_hard_excluded_job, source_label
+from .scoring import evaluate_fit, focus_records, is_hard_excluded_job, source_label
+from .scoring import load_scoring_config
 from .utils import (
     dedupe_records_for_display,
+    load_telegram_sent_history,
     load_resume_text,
+    prune_telegram_sent_history,
+    save_telegram_sent_history,
     utc_now,
 )
 from .collection_config import SOURCE_COUNTRIES, SOURCE_LABELS
@@ -343,14 +347,75 @@ def send_job_analysis_cards(jobs: List[Any], min_score: int = 70) -> None:
         logger.warning("Failed to save Telegram URL map: %s", exc)
 
 
-def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> None:
-    prepared_jobs = _prepare_notification_jobs(jobs)
-    qualifying_jobs = [job for job in prepared_jobs if _job_score(job) >= min_score]
+def configured_minimum_score(default: int = 30) -> int:
+    config = load_scoring_config()
+    try:
+        return int(config.get("minimum_score", default))
+    except (TypeError, ValueError):
+        return default
 
-    if not qualifying_jobs:
+
+def configured_telegram_limits() -> Dict[str, int | None]:
+    config = load_scoring_config()
+    telegram_config = config.get("telegram", {}) if isinstance(config, dict) else {}
+
+    def _limit(name: str) -> int | None:
+        try:
+            value = int(telegram_config.get(name, 0))
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    return {
+        "recommendation_limit": _limit("recommendation_limit"),
+        "per_country_limit": _limit("per_country_limit"),
+        "per_company_limit": _limit("per_company_limit"),
+    }
+
+
+def cap_telegram_recommendations(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    limits = configured_telegram_limits()
+    total_limit = limits["recommendation_limit"]
+    per_country_limit = limits["per_country_limit"]
+    per_company_limit = limits["per_company_limit"]
+    if total_limit is None and per_country_limit is None and per_company_limit is None:
+        return list(jobs)
+
+    selected: List[Dict[str, Any]] = []
+    country_counts: Dict[str, int] = {}
+    company_counts: Dict[str, int] = {}
+    for job in jobs:
+        country = country_label_for_job(job) or "Other"
+        company = _job_attr(job, "company").strip().lower() or "unknown"
+        if per_country_limit is not None and country_counts.get(country, 0) >= per_country_limit:
+            continue
+        if per_company_limit is not None and company_counts.get(company, 0) >= per_company_limit:
+            continue
+        selected.append(job)
+        country_counts[country] = country_counts.get(country, 0) + 1
+        company_counts[company] = company_counts.get(company, 0) + 1
+        if total_limit is not None and len(selected) >= total_limit:
+            break
+    return selected
+
+
+def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int | None = None) -> None:
+    if min_score is None:
+        min_score = configured_minimum_score(30)
+    prepared_jobs = _prepare_notification_jobs(jobs)
+    resume_text = load_resume_text()
+    qualifying_jobs: List[Dict[str, Any]] = []
+    for job in prepared_jobs:
+        fit = evaluate_fit(job, resume_text)
+        job["match_score"] = fit["score"]
+        if fit["qualifies"] and _job_score(job) >= min_score:
+            qualifying_jobs.append(job)
+    notification_jobs = cap_telegram_recommendations(qualifying_jobs)
+
+    if not notification_jobs:
         message_text = (
             "<b>Job Watch 완료</b>\n\n"
-            "새로 알림 보낼 추천 공고는 0건입니다.\n"
+            "알림 조건을 통과한 신규 공고는 0 new 입니다.\n"
             "source별 수집 상태는 이어지는 /run 요약을 확인하세요."
         )
         if send_telegram_text(message_text):
@@ -364,11 +429,11 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
             logger.info("No new jobs to send via Telegram at score >= %s.", min_score)
         return
 
-    country_line = country_line_for_jobs(qualifying_jobs)
-    job_items = build_job_template_items(qualifying_jobs)
+    country_line = country_line_for_jobs(notification_jobs)
+    job_items = build_job_template_items(notification_jobs)
     country_groups = group_job_items_by_country(job_items)
     context = {
-        "new_count": len(qualifying_jobs),
+        "new_count": len(notification_jobs),
         "country_line": country_line,
         "country_groups": country_groups,
     }
@@ -387,7 +452,7 @@ def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int = 30) -> 
             return
 
     try:
-        send_job_analysis_cards(qualifying_jobs, min_score=30)
+        send_job_analysis_cards(notification_jobs, min_score=30)
     except Exception as exc:
         logger.warning("Telegram analysis cards failed; main job alert was already sent: %s", exc, exc_info=True)
 

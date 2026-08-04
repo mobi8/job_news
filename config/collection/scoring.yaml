@@ -1,0 +1,402 @@
+scoring:
+  minimum_score: 30
+  telegram:
+    recommendation_limit: 30
+    per_country_limit: 8
+    per_company_limit: 3
+  caps:
+    score_min: 0
+    score_max: 100
+    strong_domain: 48
+    generic_payment: 8
+    focus_role: 24
+    commercial_role: 28
+    product_role: 26
+    telegram_remote_role: 16
+    recruiter_company: 16
+    resume_skill: 20
+  increments:
+    strong_domain: 16
+    generic_payment: 4
+    focus_role: 8
+    commercial_role: 14
+    product_role: 13
+    telegram_remote_role: 8
+    recruiter_company: 8
+    resume_skill: 5
+    manager_title: 4
+    lead_head_title: 4
+    igaming_source: 6
+  location_bonuses:
+    dubai:
+      score: 32
+      terms: [dubai]
+    abu_dhabi:
+      score: 28
+      terms: [abu dhabi, adgm]
+    ras_al_khaimah:
+      score: 24
+      terms: [ras al-khaimah, ras al khaimah]
+    uae:
+      score: 22
+      terms: [united arab emirates, uae]
+    georgia:
+      score: 20
+      terms: [georgia, tbilisi, batumi, 조지아]
+    malta:
+      score: 20
+      terms: [malta, valletta, 몰타]
+    active_search_location:
+      score: 12
+    remote_gcc:
+      score: 16
+    telegram_remote:
+      score: 14
+  location_aliases:
+    united_kingdom:
+      - uk
+      - london
+      - 영국
+      - 런던
+    netherlands:
+      - netherlands
+      - amsterdam
+  domain_groups:
+    payments:
+      score: 16
+      terms:
+        - payment orchestration
+        - payments orchestration
+        - payment gateway
+        - payment integration
+        - payments integration
+        - merchant payments
+        - merchant operations
+        - payment operations
+        - payments operations
+        - cash management
+        - billing
+        - acquiring
+        - payment central
+        - payment network
+        - payment networks
+        - payment systems
+        - payment supervision
+        - psp
+        - payment
+        - payments
+    fintech:
+      score: 14
+      terms:
+        - fintech
+        - neobank
+        - neobanking
+    crypto:
+      score: 16
+      terms:
+        - crypto
+        - web3
+        - stablecoin
+        - stable coin
+        - blockchain
+        - cex
+        - tokenization
+    digital_assets:
+      score: 16
+      terms:
+        - digital asset
+        - digital assets
+        - virtual assets
+        - custody
+        - wallet
+        - crypto exchange
+        - digital asset exchange
+    igaming:
+      score: 18
+      terms:
+        - casino
+        - crypto casino
+        - live casino
+        - sportsbook
+        - casino tech
+        - gaming platform
+        - betting
+        - sports betting
+        - gaming resort
+        - gambling
+        - igaming
+        - rng
+        - slot provider
+        - game provider
+    video_games:
+      score: 16
+      terms:
+        - game studio
+        - game publishing
+        - game publisher
+        - game producer
+        - live operations
+        - live ops
+        - game economy
+        - game platform
+        - mobile games
+        - portfolio midcore games
+    strong:
+      include_groups:
+        - payments
+        - fintech
+        - crypto
+        - digital_assets
+        - igaming
+        - video_games
+    generic_payment:
+      terms: [payment, payments]
+    crypto_payments:
+      include_groups: [payments, fintech, crypto, digital_assets]
+    target:
+      include_groups:
+        - payments
+        - fintech
+        - crypto
+        - digital_assets
+        - igaming
+        - video_games
+  role_groups:
+    focus:
+      terms:
+        - product
+        - compliance
+        - risk
+        - fraud
+        - payments
+        - payment
+        - backend
+        - engineering
+        - engineer
+        - integration
+        - technical
+        - ops
+        - operations
+        - implementation
+        - onboarding
+        - orchestration
+        - architect
+        - billing
+        - treasury
+        - merchant operations
+        - cash management
+        - ai
+        - machine learning
+        - ml
+        - llm
+        - genai
+        - prompt
+    commercial:
+      terms:
+        - account manager
+        - key account
+        - technical account
+        - technical account management
+        - customer success
+        - business development
+        - business development specialist
+        - bd manager
+        - sales manager
+        - head of sales
+        - director of sales
+        - country manager
+        - partnership
+        - partnerships manager
+        - partner manager
+        - account executive
+        - affiliate
+        - affiliate manager
+        - business consultant
+        - sales engineer
+        - field sales
+        - lead generation
+        - network builder
+        - growth manager
+        - commercial manager
+        - manager
+        - director
+        - lead
+        - head of
+        - specialist
+    product:
+      terms:
+        - product manager
+        - product owner
+        - head of product
+        - product lead
+        - payments product
+        - growth product
+        - ai product manager
+        - genai product manager
+        - machine learning product manager
+        - solutions architect
+        - payments architect
+    technical_taxonomy:
+      score: 16
+      terms:
+        - technical account
+        - technical account management
+        - implementation manager
+        - integration manager
+        - solutions architect
+        - payments architect
+        - payments engineer
+        - payment processing engineer
+        - payment orchestration
+        - payments orchestration
+        - payment operations
+        - payments operations
+        - payment contract
+        - payments contract
+        - merchant operations
+        - cash management
+        - treasury operations
+        - payment central
+        - payment network
+        - payment networks
+        - payment systems
+        - payment supervision
+    broad_requires_domain:
+      terms:
+        - account manager
+        - customer success
+        - marketing manager
+        - compliance
+        - regulatory
+        - partnership
+        - partnerships manager
+        - partner manager
+        - business consultant
+        - sales engineer
+        - field sales
+        - affiliate manager
+        - lead generation
+  combination_rules:
+    - id: igaming_role_pair
+      domain_group: igaming
+      any_role_group: [commercial, product]
+      score: 8
+    - id: crypto_payments_product_pair
+      domain_group: crypto_payments
+      any_role_group: [product]
+      score: 10
+    - id: taxonomy_role_with_target_domain
+      role_group: technical_taxonomy
+      domain_group: target
+      score: 10
+    - id: compliance_with_target_domain
+      title_terms: [compliance, regulatory]
+      domain_group: target
+      score: 18
+    - id: broad_role_with_target_domain
+      role_group: broad_requires_domain
+      domain_group: target
+      score: 15
+    - id: intent_with_target_domain
+      intent_group: any
+      domain_group: target
+      score: 8
+    - id: video_games_product_intent
+      intent_group: video_game_product
+      domain_group: video_games
+      score: 14
+  negative_groups:
+    hard_exclude_title:
+      terms:
+        - devops
+    weak_commercial_noise:
+      terms:
+        - marine/oilfield
+        - oilfield
+        - after-sales
+        - field sales
+        - credit control
+        - accounts receivable
+        - invoice collection
+        - treasury accounting
+        - lead generation
+        - paid social
+        - software engineer
+        - voice engineer
+        - qa tester
+        - graphic designer
+        - human resources
+        - hr manager
+    generic_payment_noise:
+      terms:
+        - credit control
+        - accounts receivable
+        - invoice collection
+        - treasury accounting
+    weak_broad_role:
+      terms:
+        - business consultant
+        - sales engineer
+        - field sales
+        - affiliate manager
+        - lead generation
+    healthcare:
+      terms:
+        - hospital
+        - clinic
+        - medical
+        - medicine
+        - healthcare
+        - health care
+        - medical center
+        - medical centre
+        - nurse
+        - nursing
+        - doctor
+        - physician
+        - surgeon
+        - patient
+        - dental
+        - pharma
+        - pharmaceutical
+        - wellness
+        - therapy
+        - therapist
+        - rehabilitation
+        - oncology
+        - radiology
+        - immunology
+  penalties:
+    missing_location: -35
+    missing_domain: -20
+    generic_payment_without_strong_domain_or_role: -12
+    generic_finance_without_strong_domain: -18
+    generic_finance_non_compliance_risk: -8
+    healthcare: -30
+    missing_commercial_or_product_role: -22
+    non_commercial_without_commercial_or_product: -24
+    negative_role: -24
+    broad_role_without_target_domain: -18
+    weak_company_domain_engineering: -22
+    generic_game_role_without_intent: -20
+    domain_without_role_or_intent: -24
+    company_context_without_role_intent: -30
+    broad_role_without_title_description_domain: -35
+    generic_payment_noise: -35
+    weak_commercial_noise: -30
+  broad_role_safeguards:
+    require_domain_for:
+      - account manager
+      - customer success
+      - marketing manager
+      - compliance
+      - regulatory
+      - partnership
+      - partnerships manager
+      - partner manager
+      - product manager
+      - product lead
+    allow_domain_fields:
+      - title
+      - description
+    company_context_requires_title_description_intent: true
