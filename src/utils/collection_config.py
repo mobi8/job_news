@@ -358,8 +358,9 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
 
     generated_targets = []
 
-    # Iterate over locations and roles in deterministic order
-    for location_id in sorted(matrix_config.get("locations", [])):
+    # Iterate over enabled locations from locations.yaml
+    enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
+    for location_id in sorted(enabled_location_ids):
         location_config = locations.get(location_id)
         if not location_config or not location_config.get("enabled"):
             continue
@@ -463,7 +464,8 @@ def generate_indeed_matrix_targets(registry: dict[str, Any]) -> list[dict[str, A
     generated_targets: list[dict[str, Any]] = []
 
     configured_roles = [str(role_id) for role_id in matrix_config.get("roles", []) or []]
-    for location_id in sorted(matrix_config.get("locations", [])):
+    enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
+    for location_id in sorted(enabled_location_ids):
         location_config = locations.get(location_id)
         if not isinstance(location_config, dict) or not location_config.get("enabled"):
             continue
@@ -537,7 +539,8 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
     locations = registry.get("locations", {})
     role_profiles = registry.get("role_profiles", {})
     groups: list[dict[str, Any]] = []
-    for location_id in sorted(matrix_config.get("locations", [])):
+    enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
+    for location_id in sorted(enabled_location_ids):
         location = locations.get(location_id)
         if not isinstance(location, dict) or not _enabled(location):
             continue
@@ -997,10 +1000,9 @@ def _linkedin_post_locations(config: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(posts, dict) or not _enabled(posts):
             continue
         locations.append(_linkedin_post_location_from_shared(location_ref, shared, posts))
-    location_refs = config.get("matrix", {}).get("locations") or []
-    if not location_refs:
-        return locations
-    for location_id in sorted(location_refs):
+    # Add Posts for all enabled locations from locations.yaml
+    enabled_location_ids = [loc_id for loc_id, loc_cfg in shared_locations.items() if loc_cfg.get("enabled")]
+    for location_id in sorted(enabled_location_ids):
         shared = shared_locations.get(location_id)
         if not isinstance(shared, dict) or not _enabled(shared):
             continue

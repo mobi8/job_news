@@ -5,18 +5,12 @@ sources:
     fetch_method: browser
     source: linkedin_post
     leads:
-    - id: hire
-      query: hire
-      category: hiring_post
     - id: hiring
       query: hiring
       category: hiring_post
     - id: job
       query: job
       category: job_post
-    - id: job_alert
-      query: job alert
-      category: recruiter_post
     roles:
     - id: crypto
       query: crypto
@@ -27,15 +21,9 @@ sources:
     - id: igaming
       query: igaming
       domain: igaming
-    - id: web3
-      query: web3
-      domain: web3
     - id: digital_asset
       query: digital asset
       domain: digital_asset
-    - id: backlog
-      query: backlog
-      domain: backlog
     - id: game
       query: game
       domain: game
@@ -44,43 +32,9 @@ sources:
       domain: payments
       aliases:
       - payment
-    - id: custody
-      query: custody OR asset custody OR settlement
-      domain: custody_wallet
-    - id: product_ops
-      query: product manager OR product operations OR delivery manager
-      domain: product_delivery
-      aliases:
-      - product
-    - id: compliance
-      query: compliance OR risk management OR regulatory
-      domain: compliance_risk
-    locations:
-    - location_ref: uae
-    - id: posts_remote_mena
+    locations: []
+    matrix:
       enabled: true
-      country: Remote
-      store_country: Remote
-      label: MENA Remote
-      aliases:
-      - remote
-      - mena
-      query_location: remote MENA OR Middle East OR GCC OR UAE OR Dubai OR Saudi OR Qatar OR Bahrain OR Kuwait OR Oman
-      location_terms:
-      - remote
-      - mena
-      - middle east
-      - gcc
-      - uae
-      - dubai
-      - saudi
-      - qatar
-      - bahrain
-      - kuwait
-      - oman
-    - location_ref: amsterdam
-    - location_ref: australia
-    - location_ref: malta
     filters:
       hiring_terms:
       - hiring

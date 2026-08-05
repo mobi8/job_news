@@ -74,12 +74,6 @@ locations:
         - netherlands
         - nederland
         - holland
-    enabled_roles:
-      - payments
-      - custody
-      - settlement
-      - product
-      - igaming
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_amsterdam_payments
@@ -115,12 +109,6 @@ locations:
         - perth
         - adelaide
         - canberra
-    enabled_roles:
-      - payments
-      - custody
-      - settlement
-      - product
-      - igaming
     # Legacy target ID mappings for existing targets
     legacy_target_ids:
       payments: linkedin_australia_payments
@@ -132,7 +120,7 @@ locations:
   malta:
     id: malta
     label: Malta
-    enabled: true
+    enabled: false
     country: Malta
     linkedin:
       source: linkedin_malta
@@ -153,36 +141,11 @@ locations:
         - valletta
         - st julian
         - st. julian
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - custody
-      - wallet_operations
-      - crypto_operations
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - partner_manager
-      - business_development
-      - fraud
-      - risk
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
 
   cyprus:
     id: cyprus
     label: Cyprus
-    enabled: true
+    enabled: false
     country: Cyprus
     linkedin:
       source: linkedin_cyprus
@@ -190,31 +153,11 @@ locations:
     indeed:
       enabled: false
       unsupported_reason: "cy.indeed.com and indeed.com.cy could not be resolved during verification."
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - partner_manager
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
 
   united_kingdom:
     id: united_kingdom
     label: United Kingdom
-    enabled: true
+    enabled: false
     country: United Kingdom
     linkedin:
       source: linkedin_united_kingdom
@@ -224,111 +167,38 @@ locations:
     indeed:
       enabled: false
       unsupported_reason: "uk.indeed.com reached a Cloudflare security-check page in production browser verification."
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - custody
-      - wallet_operations
-      - crypto_operations
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - partner_manager
-      - business_development
-      - fraud
-      - risk
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
 
   gibraltar:
     id: gibraltar
     label: Gibraltar
-    enabled: true
+    enabled: false
     country: Gibraltar
     linkedin:
       source: linkedin_gibraltar
       location: "Gibraltar"
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - account_manager
-      - partner_manager
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - payment_partnerships
-      - igaming
 
   estonia:
     id: estonia
     label: Estonia
-    enabled: true
+    enabled: false
     country: Estonia
     linkedin:
       source: linkedin_estonia
       location: "Estonia"
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - wallet_operations
-      - crypto_operations
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - kyb
 
   lithuania:
     id: lithuania
     label: Lithuania
-    enabled: true
+    enabled: false
     country: Lithuania
     linkedin:
       source: linkedin_lithuania
       location: "Lithuania"
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
 
   ireland:
     id: ireland
     label: Ireland
-    enabled: true
+    enabled: false
     country: Ireland
     linkedin:
       source: linkedin_ireland
@@ -336,35 +206,11 @@ locations:
     indeed:
       enabled: false
       unsupported_reason: "ie.indeed.com reached a Cloudflare security-check page in production browser verification."
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - custody
-      - crypto_operations
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - partner_manager
-      - business_development
-      - fraud
-      - risk
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
 
   spain:
     id: spain
     label: Spain
-    enabled: true
+    enabled: false
     country: Spain
     linkedin:
       source: linkedin_spain
@@ -372,31 +218,11 @@ locations:
     indeed:
       enabled: false
       unsupported_reason: "es.indeed.com reached a Cloudflare security-check page in production browser verification."
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - partner_manager
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
 
   portugal:
     id: portugal
     label: Portugal
-    enabled: true
+    enabled: false
     country: Portugal
     linkedin:
       source: linkedin_portugal
@@ -404,22 +230,32 @@ locations:
     indeed:
       enabled: false
       unsupported_reason: "pt.indeed.com reached a Cloudflare security-check page in production browser verification."
-    enabled_roles:
-      - payments
-      - treasury
-      - settlement
-      - reconciliation
-      - product
-      - product_operations
-      - delivery
-      - implementation
-      - integration
-      - technical_account
-      - account_manager
-      - business_development
-      - compliance
-      - aml
-      - kyc
-      - kyb
-      - payment_partnerships
-      - igaming
+
+  remote:
+    id: remote
+    label: Remote / EMEA
+    enabled: true
+    country: Remote
+    linkedin:
+      source: linkedin_emea
+      location: "EMEA"
+      geo_id: '92000000'
+      remote: true
+
+  vietnam:
+    id: vietnam
+    label: Vietnam
+    enabled: true
+    country: Vietnam
+    linkedin:
+      source: linkedin_vietnam
+      location: "Vietnam"
+
+  malaysia:
+    id: malaysia
+    label: Malaysia
+    enabled: true
+    country: Malaysia
+    linkedin:
+      source: linkedin_malaysia
+      location: "Malaysia"
