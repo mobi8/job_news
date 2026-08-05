@@ -1743,35 +1743,6 @@ def get_enabled_job_source_ids() -> list[str]:
     return result
 
 
-def get_enabled_linkedin_source_ids() -> list[str]:
-    """Get all enabled LinkedIn source IDs from YAML config."""
-    linkedin_config = _sources().get("linkedin_jobs", {})
-    if not isinstance(linkedin_config, dict):
-        return []
-
-    seen: set[str] = set()
-    result: list[str] = []
-
-    targets = linkedin_config.get("targets", [])
-    if not targets:
-        return []
-
-    for target in targets:
-        if isinstance(target, dict) and _enabled(target):
-            source_id = target.get("source")
-            if source_id and source_id not in seen:
-                seen.add(source_id)
-                result.append(source_id)
-
-    for target in generate_linkedin_matrix_targets(REGISTRY):
-        source_id = target.get("source")
-        if source_id and source_id not in seen:
-            seen.add(source_id)
-            result.append(source_id)
-
-    return result
-
-
 def get_collection_target_metadata() -> dict[str, dict[str, str]]:
     """Get target metadata mapping (target_id -> {source, country, location}).
 
@@ -1994,9 +1965,6 @@ def get_enabled_linkedin_source_ids() -> list[str]:
     result: list[str] = []
 
     targets = linkedin_config.get("targets", [])
-    if not targets:
-        return []
-
     for target in targets:
         if isinstance(target, dict) and _enabled(target):
             source_id = target.get("source")

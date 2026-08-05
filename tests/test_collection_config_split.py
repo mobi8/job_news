@@ -371,3 +371,43 @@ class TestSourceMetadataConsistency:
         # Check that referenced sources actually exist or are referenced in config
         for source_id in metadata_ids:
             assert isinstance(source_id, str) and source_id
+
+
+class TestLinkedInJobsMatrixGeneration:
+    """Test LinkedIn Jobs source generation from matrix configuration."""
+
+    def test_get_enabled_linkedin_source_ids_with_empty_manual_targets(self):
+        """Regression test: ensure matrix-generated sources are returned even when manual targets are empty.
+
+        Previously, get_enabled_linkedin_source_ids() would return [] immediately if manual
+        targets were empty, preventing matrix-generated sources from being collected.
+        This caused LinkedIn Jobs to be skipped during /run execution.
+        """
+        from src.utils.collection_config import get_enabled_linkedin_source_ids
+
+        # Get enabled LinkedIn source IDs (from matrix generation since manual targets are empty)
+        enabled_ids = get_enabled_linkedin_source_ids()
+
+        # Should return non-empty list with matrix-generated source IDs
+        assert isinstance(enabled_ids, list), "Expected list of source IDs"
+        assert len(enabled_ids) > 0, (
+            "get_enabled_linkedin_source_ids() returned empty list. "
+            "Matrix-generated LinkedIn Jobs sources not being collected."
+        )
+
+        # Each source ID should be a string
+        for source_id in enabled_ids:
+            assert isinstance(source_id, str), f"Expected string source_id, got {type(source_id)}"
+            assert source_id.strip(), "Source ID cannot be empty string"
+
+    def test_linkedin_jobs_matrix_targets_count(self):
+        """Verify matrix generates expected number of LinkedIn Jobs targets."""
+        from src.utils.collection_config import generate_linkedin_matrix_targets
+
+        matrix_targets = generate_linkedin_matrix_targets(REGISTRY)
+
+        # Should generate targets from enabled locations × roles matrix
+        # Expect substantial count with current config (3+ locations × 10+ roles)
+        assert len(matrix_targets) >= 10, (
+            f"Expected 10+ LinkedIn Jobs matrix targets, got {len(matrix_targets)}"
+        )
