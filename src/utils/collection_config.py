@@ -148,7 +148,6 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
         "keyword_groups": {},
         "locations": {},
         "role_profiles": {},
-        "industries": {},
     }
 
     # Load all YAML files in collection/ directory (sorted for determinism)
@@ -260,17 +259,6 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
                         )
                     registry["role_profiles"][role_id] = role_config
 
-        # Merge industries (single ownership per industry id)
-        if "industries" in data:
-            industries_section = data["industries"]
-            if isinstance(industries_section, dict):
-                for industry_id, industry_config in industries_section.items():
-                    if industry_id in registry["industries"]:
-                        raise ValueError(
-                            f"Duplicate industry id '{industry_id}' found in {yaml_file.name}"
-                        )
-                    registry["industries"][industry_id] = industry_config
-
     # Validate loaded registry
     _validate_registry(registry)
 
@@ -349,15 +337,15 @@ REGISTRY = load_collection_registry()
 
 
 def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
-    """Generate LinkedIn targets from location × industry matrix.
+    """Generate LinkedIn targets from location × role matrix.
 
-    For each enabled location × industry combination, creates a target with:
-    - Industry ID-based target ID
+    For each enabled location × role combination, creates a target with:
+    - Preserved legacy target ID if it exists
     - Location-specific settings (source, location, geo_id, remote flag)
-    - Industry keywords combined with OR
+    - Role-specific keyword_group with merged queries
     - URL builder configuration
 
-    Returns list of generated target objects sorted by location then industry.
+    Returns list of generated target objects sorted by location then role.
     """
     linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
     matrix_config = linkedin_source.get("matrix", {})
@@ -365,31 +353,31 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
     if not matrix_config.get("enabled"):
         return []
 
-    return _generate_linkedin_industry_targets(registry, matrix_config)
-
-
-def _generate_linkedin_industry_targets(registry: dict[str, Any], matrix_config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Generate LinkedIn targets from location × industry matrix."""
     locations = registry.get("locations", {})
-    industries = registry.get("industries", {})
+    role_profiles = registry.get("role_profiles", {})
 
     generated_targets = []
 
+    # Iterate over enabled locations from locations.yaml
     enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
-    industry_ids = [ind_id for ind_id in matrix_config.get("industries", []) or []]
-
     for location_id in sorted(enabled_location_ids):
         location_config = locations.get(location_id)
         if not location_config or not location_config.get("enabled"):
             continue
         linkedin_location = location_config.get("linkedin", {})
+        location_role_additions = location_config.get("role_query_additions", {})
+        location_role_overrides = location_config.get("role_overrides", {})
+        role_ids = _matrix_role_ids_for_location(matrix_config, location_config)
 
-        for industry_id in industry_ids:
-            industry_config = industries.get(industry_id)
-            if not industry_config or not industry_config.get("enabled"):
+        for role_id in role_ids:
+            role_config = role_profiles.get(role_id)
+            if not role_config or not role_config.get("enabled"):
                 continue
 
-            target_id = f"linkedin_{location_id}_{industry_id}"
+            # Use legacy target ID if available, otherwise generate new ID
+            legacy_target_ids = location_config.get("legacy_target_ids", {})
+            target_id = legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}")
+
             source = linkedin_location.get("source", "")
             location_str = linkedin_location.get("location", "")
             url_location = linkedin_location.get("url_location", location_str)
@@ -397,22 +385,45 @@ def _generate_linkedin_industry_targets(registry: dict[str, Any], matrix_config:
             domain = linkedin_location.get("domain")
             remote = linkedin_location.get("remote", False)
 
-            keywords = industry_config.get("keywords", [])
-            query = " OR ".join(str(kw) for kw in keywords if str(kw).strip()) if keywords else ""
+            # Get role-specific LinkedIn settings
+            linkedin_role = role_config.get("linkedin", {})
+            role_override = (
+                location_role_overrides.get(role_id, {})
+                if isinstance(location_role_overrides, dict)
+                else {}
+            )
+            keyword_group_id = role_override.get("keyword_group_id") or linkedin_role.get("keyword_group_id", "")
+            legacy_location_queries = linkedin_role.get("location_queries", {})
+            if isinstance(legacy_location_queries, dict) and legacy_location_queries.get(location_id):
+                queries = legacy_location_queries.get(location_id) or []
+            else:
+                queries = list(linkedin_role.get("queries", []) or [])
+                additions = []
+                if isinstance(location_role_additions, dict):
+                    additions = location_role_additions.get(role_id, []) or []
+                queries.extend(str(item) for item in additions if str(item).strip())
+            if role_override.get("query"):
+                queries = [str(role_override.get("query"))]
+            elif role_override.get("queries"):
+                queries = [str(item) for item in role_override.get("queries") or [] if str(item).strip()]
 
+            # Merge queries into a single query string
+            query = " OR ".join(queries) if queries else ""
+
+            # Build the target object
             target = {
                 "id": target_id,
                 "enabled": True,
                 "origin": "matrix",
                 "location_id": location_id,
-                "industry_id": industry_id,
+                "role_id": role_id,
                 "source": source,
                 "country": location_config.get("country", ""),
                 "location": location_str,
                 "url_location": url_location,
                 "keyword_groups": [
                     {
-                        "id": industry_id,
+                        "id": keyword_group_id,
                         "query": query
                     }
                 ],
@@ -421,15 +432,19 @@ def _generate_linkedin_industry_targets(registry: dict[str, Any], matrix_config:
                 }
             }
 
+            # Add geo_id if present
             if geo_id:
                 target["geo_id"] = geo_id
             if domain:
                 target["domain"] = domain
+
+            # Add remote flag if True
             if remote:
                 target["remote"] = True
 
             generated_targets.append(target)
 
+    # Sort by target ID for deterministic ordering
     return sorted(generated_targets, key=lambda t: t["id"])
 
 
@@ -1015,50 +1030,29 @@ def _linkedin_post_location_from_shared(
     }
 
 
-def _quote_multi_word_phrase(phrase: str) -> str:
-    """Quote multi-word phrases; leave single-word phrases unquoted."""
-    p = str(phrase).strip()
-    return f'"{p}"' if ' ' in p else p
-
-
 def build_linkedin_post_plans() -> list[dict[str, Any]]:
     config = _sources().get("linkedin_posts", {})
     if not config.get("enabled", True):
         return []
-
     plans: list[dict[str, Any]] = []
-    industries = REGISTRY.get("industries", {})
-
     for location in _linkedin_post_locations(config):
-        for industry in config.get("industries", []):
-            industry_id = industry.get("id")
-            industry_config = industries.get(industry_id, {})
-            if not industry_config.get("enabled", True):
-                continue
-
-            lead = config.get("leads", [{}])[0] if config.get("leads") else {}
-            keywords = industry.get("keywords", [])
-            quoted_keywords = [_quote_multi_word_phrase(kw) for kw in keywords if str(kw).strip()]
-            industry_expr = "(" + " OR ".join(quoted_keywords) + ")" if quoted_keywords else ""
-
-            lead_expr = f"({lead.get('query', 'hiring OR job')})"
-            query = " AND ".join([lead_expr, industry_expr]).strip()
-
-            plans.append(
-                {
-                    "category": lead.get("category", "hiring_post"),
-                    "location_id": location.get("id"),
-                    "industry_id": industry_id,
-                    "lead_id": lead.get("id", "hiring"),
-                    "country": location.get("country"),
-                    "store_country": location.get("store_country", location.get("country")),
-                    "display_location": location.get("label", location.get("country")),
-                    "location_terms": location.get("location_terms", []),
-                    "source": config.get("source", "linkedin_post"),
-                    "query": query,
-                }
-            )
-
+        for role in config.get("roles", []):
+            for lead in config.get("leads", []):
+                plans.append(
+                    {
+                        "category": lead.get("category", "hiring_post"),
+                        "location_id": location.get("id"),
+                        "role_id": role.get("id"),
+                        "lead_id": lead.get("id"),
+                        "domain": role.get("domain", role.get("id", "")),
+                        "country": location.get("country"),
+                        "store_country": location.get("store_country", location.get("country")),
+                        "display_location": location.get("label", location.get("country")),
+                        "location_terms": location.get("location_terms", []),
+                        "source": config.get("source", "linkedin_post"),
+                        "query": f"{lead.get('query')} {role.get('query')} {location.get('query_location')}",
+                    }
+                )
     return _filter_post_plans(plans)
 
 

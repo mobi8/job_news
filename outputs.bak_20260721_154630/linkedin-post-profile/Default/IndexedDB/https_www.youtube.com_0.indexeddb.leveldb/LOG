@@ -1,6 +1,0 @@
-2026/05/20-10:23:57.762 18374 Creating DB /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/IndexedDB/https_www.youtube.com_0.indexeddb.leveldb since it was missing.
-2026/05/20-10:23:57.766 18374 Reusing MANIFEST /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/IndexedDB/https_www.youtube.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/05/20-11:44:20.566 18374 Level-0 table #5: started
-2026/05/20-11:44:20.574 18374 Level-0 table #5: 420013 bytes OK
-2026/05/20-11:44:20.577 18374 Delete type=0 #3
-2026/05/20-11:44:20.582 18374 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

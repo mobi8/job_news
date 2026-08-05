@@ -6,10 +6,29 @@ sources:
     target_groups: []
     matrix:
       enabled: true
-      industries:
-        - payments_fintech
-        - crypto_web3
+      roles:
+        - payments
+        - treasury
+        - custody
+        - settlement
+        - reconciliation
+        - wallet_operations
+        - crypto_operations
+        - product
+        - product_operations
+        - delivery
+        - implementation
+        - integration
+        - technical_account
+        - account_manager
+        - partner_manager
+        - business_development
+        - fraud
+        - risk
+        - compliance
+        - aml
+        - kyc
+        - kyb
+        - payment_partnerships
         - igaming
-        - video_games
-        - fx_trading
     targets: []

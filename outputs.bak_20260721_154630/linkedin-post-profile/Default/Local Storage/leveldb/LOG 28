@@ -1,6 +1,0 @@
-2026/05/29-19:54:55.407 1f27e Reusing MANIFEST /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/Local Storage/leveldb/MANIFEST-000001
-2026/05/29-19:54:55.409 1f27e Recovering log #3
-2026/05/29-19:54:55.410 1f27e Reusing old log /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/Local Storage/leveldb/000003.log 
-2026/05/29-19:55:55.418 1f283 Level-0 table #5: started
-2026/05/29-19:55:55.424 1f283 Level-0 table #5: 38663 bytes OK
-2026/05/29-19:55:55.433 1f283 Delete type=0 #3
