@@ -151,36 +151,38 @@ class TestLinkedInJobs:
     """Test linkedin_jobs source."""
 
     def test_linkedin_targets_count(self):
-        """Verify expected number of LinkedIn targets in registry (manual only).
+        """Verify expected number of generated LinkedIn targets from keywords.
 
-        Amsterdam and Australia targets are now generated from matrix, so manual count is 24.
+        Keywords-based system: 15 domain + 14 function keywords × 6 locations = 174 targets.
         """
-        linkedin = _sources().get("linkedin_jobs", {})
-        targets = linkedin.get("targets", [])
-        assert len(targets) == 24, f"Expected 24 manual targets, got {len(targets)}"
+        all_targets = build_linkedin_job_targets()
+        keyword_targets = [t for t in all_targets if t.origin == 'keyword']
+        assert len(keyword_targets) == 174, f"Expected 174 keyword-based targets, got {len(keyword_targets)}"
 
     def test_linkedin_urls_count(self):
-        """Verify expected number of generated LinkedIn URLs."""
-        assert len(LINKEDIN_SEARCH_URLS) == 206
+        """Verify expected number of generated LinkedIn URLs from keywords."""
+        assert len(LINKEDIN_SEARCH_URLS) == 174
 
     def test_no_duplicate_linkedin_target_ids(self):
         """Verify no duplicate target_ids in LinkedIn jobs."""
-        linkedin = _sources().get("linkedin_jobs", {})
-        targets = linkedin.get("targets", [])
-        ids = [t.get("target_id") for t in targets if t.get("target_id")]
-        assert len(ids) == len(set(ids)), f"Duplicate target IDs: {ids}"
+        all_targets = build_linkedin_job_targets()
+        ids = [t.target_id for t in all_targets]
+        assert len(ids) == len(set(ids)), f"Duplicate target IDs found"
 
     def test_linkedin_matrix_routes_disambiguated_locations(self):
-        """Verify runtime-validated matrix locations avoid ambiguous LinkedIn routing."""
+        """Verify keyword-based targets use correct location routing."""
         targets = {target.target_id: target for target in build_linkedin_job_targets()}
-        amsterdam = targets["linkedin_amsterdam_payments"]
-        malta = targets["linkedin_malta_payments"]
 
+        # Test Amsterdam routing
+        amsterdam = targets.get("linkedin_amsterdam_payments")
+        assert amsterdam is not None, "Expected linkedin_amsterdam_payments target"
         assert "location=Amsterdam%2C+Netherlands" in amsterdam.url
         assert "geoId=" not in amsterdam.url
 
-        assert malta.url.startswith("https://mt.linkedin.com/jobs/search/?")
-        assert "location=Malta" not in malta.url
+        # Test UAE routing
+        uae = targets.get("linkedin_uae_payments")
+        assert uae is not None, "Expected linkedin_uae_payments target"
+        assert "location=Dubai" in uae.url
 
 
 class TestIndeed:
@@ -358,6 +360,31 @@ class TestLinkedInPosts:
         # 5 locations * 10 roles * 4 leads = 200 (but some might be disabled)
         # At minimum, should have substantial count
         assert len(LINKEDIN_POST_SEARCH_PLANS) >= 100
+
+    def test_linkedin_posts_queries_no_trailing_none(self):
+        """Regression test: ensure no generated query contains trailing 'None' or null location strings.
+
+        Previously, locations without query_location defined (Malaysia, Vietnam)
+        would append None to the query string as "None", resulting in:
+        'hiring crypto None' instead of 'hiring crypto'
+        """
+        for plan in LINKEDIN_POST_SEARCH_PLANS:
+            query = plan.get('query', '')
+            # Check for literal "None" string (result of f-string with None value)
+            assert 'None' not in query, (
+                f"Query contains 'None' string: {plan.get('location_id')}_{plan.get('role_id')}: "
+                f"{repr(query)}"
+            )
+            # Check for null/empty location tokens
+            assert ' null' not in query.lower(), (
+                f"Query contains null location: {plan.get('location_id')}_{plan.get('role_id')}: "
+                f"{repr(query)}"
+            )
+            # Check for trailing spaces that indicate missing location
+            assert not query.endswith(' '), (
+                f"Query has trailing space: {plan.get('location_id')}_{plan.get('role_id')}: "
+                f"{repr(query)}"
+            )
 
 
 class TestSourceMetadataConsistency:

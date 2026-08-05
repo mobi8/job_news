@@ -148,6 +148,7 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
         "keyword_groups": {},
         "locations": {},
         "role_profiles": {},
+        "keywords": {},
     }
 
     # Load all YAML files in collection/ directory (sorted for determinism)
@@ -258,6 +259,27 @@ def load_collection_registry(path: Path = CONFIG_PATH) -> dict[str, Any]:
                             f"Duplicate role profile id '{role_id}' found in {yaml_file.name}"
                         )
                     registry["role_profiles"][role_id] = role_config
+
+        # Merge keywords (single ownership per namespace)
+        if "keywords" in data:
+            keywords_section = data["keywords"]
+            if isinstance(keywords_section, dict):
+                if registry["keywords"]:
+                    raise ValueError(
+                        f"Duplicate keywords section found in {yaml_file.name}"
+                    )
+                registry["keywords"] = keywords_section
+
+        # Merge posts_groups (part of keywords namespace)
+        if "posts_groups" in data:
+            if "posts_groups" not in registry.get("keywords", {}):
+                if not registry.get("keywords"):
+                    registry["keywords"] = {}
+                registry["keywords"]["posts_groups"] = data["posts_groups"]
+            else:
+                raise ValueError(
+                    f"Duplicate posts_groups found in {yaml_file.name}"
+                )
 
     # Validate loaded registry
     _validate_registry(registry)
@@ -795,54 +817,86 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
         return []
     source_config = _sources().get("linkedin_jobs", {})
     if source_config.get("enabled", True):
-        # Generate matrix targets if enabled
-        generated_matrix = generate_linkedin_matrix_targets(REGISTRY)
-        generated_ids = {t["id"] for t in generated_matrix}
+        # Generate keyword-based targets from keywords.yaml
+        keywords_config = REGISTRY.get("keywords", {})
+        if keywords_config:
+            locations = {loc_id: loc_cfg for loc_id, loc_cfg in REGISTRY.get("locations", {}).items()
+                        if loc_cfg.get("enabled")}
 
-        # Process manual targets, skipping those replaced by matrix generation
-        for target in source_config.get("targets", []):
-            if not _enabled(target):
-                continue
-            # Skip manual targets that have matrix equivalents
-            if target.get("id") in generated_ids:
-                continue
-            override = _url_config(target).get("explicit_override")
-            groups = _keyword_groups(target)
-            if override:
-                targets.append(_search_target(url=override, target=target))
-                continue
-            for group in groups:
-                targets.append(
-                    _search_target(
-                        url=build_linkedin_jobs_url(
-                            query=group["query"],
-                            location=target.get("location"),
-                            geo_id=target.get("geo_id"),
-                            remote=bool(target.get("remote")),
-                            domain=str(target.get("domain") or "www.linkedin.com"),
-                        ),
-                        target=target,
-                        keyword_group=group,
-                    )
-                )
+            # Generate targets for domain keywords (15)
+            for keyword in keywords_config.get("domain", []):
+                keyword_id = keyword.get("id")
+                keyword_label = keyword.get("label", keyword_id)
+                for location_id, location_cfg in locations.items():
+                    linkedin_loc = location_cfg.get("linkedin", {})
+                    source = linkedin_loc.get("source", "")
+                    if not source:
+                        continue
 
-        # Add generated matrix targets
-        for matrix_target in generated_matrix:
-            groups = matrix_target.get("keyword_groups", [])
-            for group in groups:
-                targets.append(
-                    _search_target(
-                        url=build_linkedin_jobs_url(
-                            query=group["query"],
-                            location=matrix_target.get("url_location", matrix_target.get("location")),
-                            geo_id=matrix_target.get("geo_id"),
-                            remote=bool(matrix_target.get("remote")),
-                            domain=str(matrix_target.get("domain") or "www.linkedin.com"),
-                        ),
-                        target=matrix_target,
-                        keyword_group=group,
+                    target_obj = {
+                        "id": f"linkedin_{location_id}_{keyword_id}",
+                        "source": source,
+                        "location": linkedin_loc.get("location", ""),
+                        "url_location": linkedin_loc.get("url_location", linkedin_loc.get("location", "")),
+                        "geo_id": linkedin_loc.get("geo_id"),
+                        "domain": linkedin_loc.get("domain"),
+                        "remote": linkedin_loc.get("remote", False),
+                        "keyword_id": keyword_id,
+                        "keyword_label": keyword_label,
+                        "origin": "keyword",
+                    }
+
+                    targets.append(
+                        _search_target(
+                            url=build_linkedin_jobs_url(
+                                query=keyword_id,
+                                location=target_obj.get("url_location"),
+                                geo_id=target_obj.get("geo_id"),
+                                remote=bool(target_obj.get("remote")),
+                                domain=str(target_obj.get("domain") or "www.linkedin.com"),
+                            ),
+                            target=target_obj,
+                            keyword_group={"id": keyword_id, "query": keyword_id},
+                        )
                     )
-                )
+
+            # Generate targets for function keywords (14)
+            for keyword in keywords_config.get("function", []):
+                keyword_id = keyword.get("id")
+                keyword_label = keyword.get("label", keyword_id)
+                for location_id, location_cfg in locations.items():
+                    linkedin_loc = location_cfg.get("linkedin", {})
+                    source = linkedin_loc.get("source", "")
+                    if not source:
+                        continue
+
+                    target_obj = {
+                        "id": f"linkedin_{location_id}_{keyword_id}",
+                        "source": source,
+                        "location": linkedin_loc.get("location", ""),
+                        "url_location": linkedin_loc.get("url_location", linkedin_loc.get("location", "")),
+                        "geo_id": linkedin_loc.get("geo_id"),
+                        "domain": linkedin_loc.get("domain"),
+                        "remote": linkedin_loc.get("remote", False),
+                        "keyword_id": keyword_id,
+                        "keyword_label": keyword_label,
+                        "origin": "keyword",
+                    }
+
+                    targets.append(
+                        _search_target(
+                            url=build_linkedin_jobs_url(
+                                query=keyword_label,
+                                location=target_obj.get("url_location"),
+                                geo_id=target_obj.get("geo_id"),
+                                remote=bool(target_obj.get("remote")),
+                                domain=str(target_obj.get("domain") or "www.linkedin.com"),
+                            ),
+                            target=target_obj,
+                            keyword_group={"id": keyword_id, "query": keyword_label},
+                        )
+                    )
+
     if include_recruiters:
         recruiters = _sources().get("recruiters", {})
         if recruiters.get("enabled", True):
@@ -1038,6 +1092,10 @@ def build_linkedin_post_plans() -> list[dict[str, Any]]:
     for location in _linkedin_post_locations(config):
         for role in config.get("roles", []):
             for lead in config.get("leads", []):
+                query_parts = [lead.get('query'), role.get('query')]
+                query_location = location.get('query_location')
+                if query_location:
+                    query_parts.append(query_location)
                 plans.append(
                     {
                         "category": lead.get("category", "hiring_post"),
@@ -1050,7 +1108,7 @@ def build_linkedin_post_plans() -> list[dict[str, Any]]:
                         "display_location": location.get("label", location.get("country")),
                         "location_terms": location.get("location_terms", []),
                         "source": config.get("source", "linkedin_post"),
-                        "query": f"{lead.get('query')} {role.get('query')} {location.get('query_location')}",
+                        "query": " ".join(str(p).strip() for p in query_parts if p),
                     }
                 )
     return _filter_post_plans(plans)

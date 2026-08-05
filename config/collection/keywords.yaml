@@ -1,0 +1,184 @@
+# Keyword-based search taxonomy
+# Split into Domain (industry) and Function (role) keywords
+# Each keyword generates one independent search
+
+keywords:
+  domain:
+    - id: payments
+      label: Payments
+      category: industry
+      aliases: [payment, fintech]
+    
+    - id: fintech
+      label: Fintech
+      category: industry
+    
+    - id: crypto
+      label: Cryptocurrency
+      category: industry
+    
+    - id: web3
+      label: Web3
+      category: industry
+      aliases: [web 3]
+    
+    - id: wallet
+      label: Wallet Operations
+      category: industry
+    
+    - id: custody
+      label: Custody
+      category: industry
+    
+    - id: treasury
+      label: Treasury
+      category: industry
+    
+    - id: settlement
+      label: Settlement
+      category: industry
+    
+    - id: reconciliation
+      label: Reconciliation
+      category: industry
+    
+    - id: igaming
+      label: iGaming
+      category: industry
+    
+    - id: casino
+      label: Casino
+      category: industry
+    
+    - id: sportsbook
+      label: Sportsbook
+      category: industry
+    
+    - id: game
+      label: Game / Gaming
+      category: industry
+      aliases: [gaming]
+    
+    - id: forex
+      label: Forex / Trading
+      category: industry
+      aliases: [trading]
+    
+    - id: brokerage
+      label: Brokerage
+      category: industry
+
+  function:
+    - id: product_manager
+      label: Product Manager
+      category: function
+      aliases: [product owner]
+    
+    - id: account_manager
+      label: Account Manager
+      category: function
+    
+    - id: technical_account_manager
+      label: Technical Account Manager
+      category: function
+      aliases: [TAM, technical account]
+    
+    - id: business_development
+      label: Business Development
+      category: function
+      aliases: [partnerships, BD]
+    
+    - id: operations_manager
+      label: Operations Manager
+      category: function
+      aliases: [operations]
+    
+    - id: implementation_manager
+      label: Implementation Manager
+      category: function
+    
+    - id: integration_engineer
+      label: Integration Engineer
+      category: function
+    
+    - id: delivery_manager
+      label: Delivery Manager
+      category: function
+    
+    - id: compliance_manager
+      label: Compliance Manager
+      category: function
+      aliases: [compliance]
+    
+    - id: risk_manager
+      label: Risk Manager
+      category: function
+      aliases: [risk]
+    
+    - id: fraud_analyst
+      label: Fraud Analyst
+      category: function
+      aliases: [fraud]
+    
+    - id: aml_analyst
+      label: AML Analyst
+      category: function
+      aliases: [AML]
+    
+    - id: kyc_analyst
+      label: KYC Analyst
+      category: function
+      aliases: [KYC]
+    
+    - id: kyb_analyst
+      label: KYB Analyst
+      category: function
+      aliases: [KYB]
+
+# LinkedIn Posts grouped OR searches
+# Keep current location routing, use these grouped queries
+posts_groups:
+  - id: payments
+    label: Payments
+    query: "payments OR fintech OR PSP OR gateway"
+  
+  - id: treasury
+    label: Treasury
+    query: "treasury OR settlement OR reconciliation"
+  
+  - id: wallet
+    label: Wallet & Custody
+    query: "wallet OR custody"
+  
+  - id: crypto
+    label: Crypto & Web3
+    query: "crypto OR web3 OR blockchain"
+  
+  - id: digital_assets
+    label: Digital Assets
+    query: "digital asset OR stablecoin"
+  
+  - id: igaming
+    label: iGaming & Gaming
+    query: "igaming OR casino OR sportsbook OR gaming"
+  
+  - id: trading
+    label: Trading & Forex
+    query: "forex OR brokerage OR trading"
+  
+  - id: product
+    label: Product
+    query: "product manager OR product owner"
+  
+  - id: commercial
+    label: Commercial
+    query: "account manager OR business development OR partnerships"
+  
+  - id: operations
+    label: Operations & Delivery
+    query: "operations manager OR implementation OR integration"
+  
+  - id: risk_compliance
+    label: Risk & Compliance
+    query: "compliance OR risk OR AML OR KYC OR KYB"
+
