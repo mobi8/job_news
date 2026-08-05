@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from utils.route_observability import (
     aggregate_location_role,
@@ -111,6 +112,24 @@ def test_linkedin_posts_lead_level_record_creation():
     assert record["filtered"] == 2
     assert record["new"] is None
     assert record["health"] == "healthy"
+
+
+def test_linkedin_posts_probe_plan_results_scope_is_global():
+    probe = Path("linkedin_posts_probe.js").read_text(encoding="utf-8")
+    declaration = probe.index("const planResults = [];")
+    try_block = probe.index("try {", declaration)
+    emission = probe.index("plan_results: planResults")
+
+    assert declaration < try_block < emission
+
+
+def test_linkedin_posts_probe_recovers_stale_cdp_session():
+    probe = Path("linkedin_posts_probe.js").read_text(encoding="utf-8")
+
+    assert "Browser\\.setDownloadBehavior" in probe
+    assert "context management is not supported" in probe
+    assert "existing session rejected Playwright attach" in probe
+    assert "Restarting Chrome once" in probe
 
 
 def test_matrix_aggregation_by_location_role():

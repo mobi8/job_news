@@ -359,44 +359,108 @@ def configured_telegram_limits() -> Dict[str, int | None]:
     config = load_scoring_config()
     telegram_config = config.get("telegram", {}) if isinstance(config, dict) else {}
 
-    def _limit(name: str) -> int | None:
-        try:
-            value = int(telegram_config.get(name, 0))
-        except (TypeError, ValueError):
-            return None
-        return value if value > 0 else None
+    aliases = {
+        "max_total": ("max_total", "recommendation_limit"),
+        "max_per_country": ("max_per_country", "per_country_limit"),
+        "max_per_company": ("max_per_company", "per_company_limit"),
+        "max_per_domain": ("max_per_domain", "per_domain_limit"),
+    }
+
+    def _limit(*names: str) -> int | None:
+        for name in names:
+            try:
+                value = int(telegram_config.get(name, 0))
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                return value
+        return None
 
     return {
-        "recommendation_limit": _limit("recommendation_limit"),
-        "per_country_limit": _limit("per_country_limit"),
-        "per_company_limit": _limit("per_company_limit"),
+        key: _limit(*names)
+        for key, names in aliases.items()
     }
 
 
-def cap_telegram_recommendations(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _ranking_domain(job: Dict[str, Any]) -> str:
+    for key in ("ranking_domain", "domain", "primary_domain", "category"):
+        value = str(job.get(key, "") or "").strip().lower()
+        if value:
+            return value
+    text = " ".join(
+        [
+            str(job.get("title", "") or ""),
+            str(job.get("company", "") or ""),
+            str(job.get("description", "") or ""),
+            " ".join(str(tag) for tag in (job.get("fit_tags") or []) if tag),
+        ]
+    ).lower()
+    domain_terms = (
+        ("payments", ("payment", "payments", "acquiring", "merchant", "psp")),
+        ("crypto", ("crypto", "blockchain", "stablecoin", "web3")),
+        ("digital_assets", ("digital asset", "digital assets", "wallet", "custody")),
+        ("igaming", ("igaming", "casino", "sportsbook", "gambling")),
+        ("video_games", ("video game", "game producer", "live ops", "game studio")),
+        ("fintech", ("fintech", "neobank")),
+    )
+    for domain, terms in domain_terms:
+        if any(term in text for term in terms):
+            return domain
+    return "unknown"
+
+
+def rank_telegram_recommendations(jobs: List[Dict[str, Any]]) -> Dict[str, Any]:
     limits = configured_telegram_limits()
-    total_limit = limits["recommendation_limit"]
-    per_country_limit = limits["per_country_limit"]
-    per_company_limit = limits["per_company_limit"]
-    if total_limit is None and per_country_limit is None and per_company_limit is None:
-        return list(jobs)
+    total_limit = limits["max_total"]
+    per_country_limit = limits["max_per_country"]
+    per_company_limit = limits["max_per_company"]
+    per_domain_limit = limits["max_per_domain"]
 
     selected: List[Dict[str, Any]] = []
+    rejected: List[Dict[str, Any]] = []
     country_counts: Dict[str, int] = {}
     company_counts: Dict[str, int] = {}
+    domain_counts: Dict[str, int] = {}
     for job in jobs:
         country = country_label_for_job(job) or "Other"
         company = _job_attr(job, "company").strip().lower() or "unknown"
+        domain = _ranking_domain(job)
+        rejection_reason = None
         if per_country_limit is not None and country_counts.get(country, 0) >= per_country_limit:
-            continue
+            rejection_reason = f"max_per_country:{country}"
         if per_company_limit is not None and company_counts.get(company, 0) >= per_company_limit:
+            rejection_reason = f"max_per_company:{company}"
+        if per_domain_limit is not None and domain_counts.get(domain, 0) >= per_domain_limit:
+            rejection_reason = f"max_per_domain:{domain}"
+        if total_limit is not None and len(selected) >= total_limit:
+            rejection_reason = "max_total"
+        if rejection_reason:
+            job["ranking_rejection_reason"] = rejection_reason
+            rejected.append(job)
             continue
         selected.append(job)
         country_counts[country] = country_counts.get(country, 0) + 1
         company_counts[company] = company_counts.get(company, 0) + 1
-        if total_limit is not None and len(selected) >= total_limit:
-            break
-    return selected
+        domain_counts[domain] = domain_counts.get(domain, 0) + 1
+        job["ranking_reason"] = (
+            f"selected:rank={len(selected)} score={_job_score(job)} "
+            f"country={country} company={company} domain={domain}"
+        )
+        job["ranking_domain"] = domain
+    return {
+        "selected": selected,
+        "rejected": rejected,
+        "limits": limits,
+        "counts": {
+            "country": country_counts,
+            "company": company_counts,
+            "domain": domain_counts,
+        },
+    }
+
+
+def cap_telegram_recommendations(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return rank_telegram_recommendations(jobs)["selected"]
 
 
 def maybe_send_telegram(inserted: int, jobs: List[Any], min_score: int | None = None) -> None:

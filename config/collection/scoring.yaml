@@ -4,6 +4,7 @@ scoring:
     recommendation_limit: 30
     per_country_limit: 8
     per_company_limit: 3
+    per_domain_limit: 10
   caps:
     score_min: 0
     score_max: 100

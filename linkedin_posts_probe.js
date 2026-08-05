@@ -365,9 +365,16 @@ async function main() {
     } catch (error) {
       connectError = error;
       const isConnRefused = /ECONNREFUSED|connect ECONNREFUSED|EPERM|EACCES/.test(String(error));
+      const isStaleCdpSession = /Browser\.setDownloadBehavior|context management is not supported|Protocol error/i.test(String(error));
       if (isConnRefused) {
         console.error(`LinkedIn Chrome CDP: immediate connection failed after CDP check: ${error.message}. Chrome may have exited. Retrying...`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
+        browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+      } else if (isStaleCdpSession && !restart) {
+        console.error(`LinkedIn Chrome CDP: existing session rejected Playwright attach: ${error.message}. Restarting Chrome once...`);
+        killProfileChrome(profileDir);
+        await new Promise((resolve) => setTimeout(resolve, 1400));
+        await ensureChromeCdp(profileDir, port);
         browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
       } else {
         throw error;
@@ -397,6 +404,8 @@ async function main() {
     }
   };
 
+  const selectedPlans = plans.slice(0, maxPlans);
+  const planResults = [];
   try {
     await connectBrowser();
     let feedReady = false;
@@ -437,8 +446,6 @@ async function main() {
       }
     }
 
-    const selectedPlans = plans.slice(0, maxPlans);
-    const planResults = [];
     for (let planIndex = 0; planIndex < selectedPlans.length; planIndex += 1) {
       const plan = selectedPlans[planIndex];
       const url = searchUrl(plan.query);

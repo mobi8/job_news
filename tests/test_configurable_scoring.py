@@ -10,7 +10,7 @@ from utils.scoring import (
     evaluate_fit_legacy,
     load_scoring_config,
 )
-from utils.notifications import cap_telegram_recommendations
+from utils.notifications import cap_telegram_recommendations, rank_telegram_recommendations
 
 
 RESUME_TEXT = "payments igaming crypto account management product operations implementation"
@@ -213,3 +213,24 @@ def test_telegram_recommendations_are_capped_and_diversified():
     assert len(capped) <= 30
     assert sum(1 for job in capped if job["country"] == "United Kingdom") <= 8
     assert sum(1 for job in capped if job["company"] == "MegaPay") <= 3
+
+
+def test_telegram_ranking_applies_domain_limit_and_debug_reasons():
+    jobs = [
+        {
+            "title": f"Payments Product Manager {idx}",
+            "company": f"PayCo {idx}",
+            "country": ["Malta", "UAE", "Georgia", "Remote"][idx % 4],
+            "source": "",
+            "match_score": 100 - idx,
+            "domain": "payments",
+            "url": f"https://example.com/payments/{idx}",
+        }
+        for idx in range(12)
+    ]
+
+    result = rank_telegram_recommendations(jobs)
+
+    assert len([job for job in result["selected"] if job["ranking_domain"] == "payments"]) <= 10
+    assert all(job.get("ranking_reason", "").startswith("selected:rank=") for job in result["selected"])
+    assert any(job.get("ranking_rejection_reason") == "max_per_domain:payments" for job in result["rejected"])
