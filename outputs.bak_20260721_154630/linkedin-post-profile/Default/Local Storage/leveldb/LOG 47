@@ -1,0 +1,14 @@
+2026/06/02-11:29:00.229 e5641 Reusing MANIFEST /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/Local Storage/leveldb/MANIFEST-000001
+2026/06/02-11:29:00.232 e5641 Recovering log #14
+2026/06/02-11:29:00.233 e5641 Reusing old log /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/Local Storage/leveldb/000014.log 
+2026/06/02-11:29:51.726 e5641 Level-0 table #17: started
+2026/06/02-11:29:51.735 e5641 Level-0 table #17: 31422 bytes OK
+2026/06/02-11:29:51.747 e5641 Delete type=0 #14
+2026/06/02-11:29:51.748 e5644 Compacting 4@0 + 0@1 files
+2026/06/02-11:29:51.753 e5644 Generated table #18@0: 503 keys, 11777 bytes
+2026/06/02-11:29:51.753 e5644 Compacted 4@0 + 0@1 files => 11777 bytes
+2026/06/02-11:29:51.755 e5644 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/02-11:29:51.756 e5644 Delete type=2 #17
+2026/06/02-11:29:51.756 e5644 Delete type=2 #7
+2026/06/02-11:29:51.756 e5644 Delete type=2 #13
+2026/06/02-11:29:51.756 e5644 Delete type=2 #10

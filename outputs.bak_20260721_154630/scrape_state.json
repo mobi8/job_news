@@ -1,0 +1,161 @@
+{
+  "last_started_at": "2026-07-21T11:43:28.732720+00:00",
+  "last_completed_at": "2026-07-21T11:44:29.812486+00:00",
+  "last_scraped_at": "2026-07-21T11:44:30.271824+00:00",
+  "next_scrape_at": "2026-07-21T13:43:28.732720+00:00",
+  "mode": "collect",
+  "run_status": "failed",
+  "new_jobs_this_run": 0,
+  "new_news_this_run": 0,
+  "sources": {
+    "jobvite_pragmaticplay": {
+      "count": 248,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "smartrecruitment": {
+      "count": 40,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "igamingrecruitment": {
+      "count": 11,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "igaminghunt_bamboohr": {
+      "count": 14,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "drjobs": {
+      "count": 48,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "jobrapido_uae": {
+      "count": 27,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "jobleads": {
+      "count": 54,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "telegram_job_crypto_uae": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "telegram_cryptojobslist": {
+      "count": 54,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "telegram_hr1win": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "glassdoor_uae": {
+      "count": 528,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "indeed_uae": {
+      "count": 2429,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "indeed_georgia": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "indeed_malta": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "linkedin_public": {
+      "count": 5686,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "linkedin_emea": {
+      "count": 389,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "linkedin_georgia": {
+      "count": 822,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "linkedin_malta": {
+      "count": 347,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "linkedin_jobspy": {
+      "count": 22,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "google_uae": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "google_georgia": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "google_malta": {
+      "count": 0,
+      "count_this_batch": 0,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    }
+  },
+  "news_sources": {
+    "rss_igaming_business": {
+      "count": 93,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "rss_fintech_uae": {
+      "count": 20,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    },
+    "player_feed": {
+      "count": 8,
+      "added_this_batch": 0,
+      "last_scraped_at": "2026-07-21T11:44:30.271824+00:00"
+    }
+  }
+}

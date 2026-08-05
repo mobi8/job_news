@@ -1,0 +1,64 @@
+industries:
+  payments_fintech:
+    id: payments_fintech
+    label: Payments & Fintech
+    enabled: true
+    keywords:
+      - payments
+      - fintech
+      - psp
+      - gateway
+      - acquiring
+      - treasury
+      - settlement
+      - reconciliation
+
+  crypto_web3:
+    id: crypto_web3
+    label: Crypto & Web3
+    enabled: true
+    keywords:
+      - crypto
+      - blockchain
+      - web3
+      - digital assets
+      - custody
+      - wallet
+      - stablecoin
+
+  igaming:
+    id: igaming
+    label: iGaming
+    enabled: true
+    keywords:
+      - igaming
+      - casino
+      - sportsbook
+      - betting
+      - slots
+      - live casino
+      - game provider
+
+  video_games:
+    id: video_games
+    label: Video Games
+    enabled: true
+    keywords:
+      - games
+      - game producer
+      - game product
+      - live operations
+      - publishing
+      - monetization
+
+  fx_trading:
+    id: fx_trading
+    label: FX & Trading
+    enabled: true
+    keywords:
+      - forex
+      - fx
+      - trading
+      - brokerage
+      - liquidity
+      - dealing

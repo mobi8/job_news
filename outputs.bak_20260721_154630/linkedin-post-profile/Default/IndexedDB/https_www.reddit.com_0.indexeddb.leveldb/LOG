@@ -1,0 +1,6 @@
+2026/05/20-10:22:23.357 1838f Creating DB /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/IndexedDB/https_www.reddit.com_0.indexeddb.leveldb since it was missing.
+2026/05/20-10:22:23.362 1838f Reusing MANIFEST /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/IndexedDB/https_www.reddit.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/05/20-10:22:55.364 18374 Level-0 table #5: started
+2026/05/20-10:22:55.366 18374 Level-0 table #5: 1417 bytes OK
+2026/05/20-10:22:55.368 18374 Delete type=0 #3
+2026/05/20-10:22:55.369 18374 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

@@ -246,7 +246,8 @@
       "Bash(/Users/lewis/Desktop/agent/venv/bin/python3 *)",
       "Bash(pkill -f \"vite\")",
       "Bash(pkill -f \"uvicorn\\\\|vite\\\\|loop.py\")",
-      "Bash(bash /Users/lewis/Desktop/agent/run_dashboard.sh)"
+      "Bash(bash /Users/lewis/Desktop/agent/run_dashboard.sh)",
+      "Bash(/Users/lewis/Desktop/agent/venv312/bin/python3 *)"
     ]
   }
 }

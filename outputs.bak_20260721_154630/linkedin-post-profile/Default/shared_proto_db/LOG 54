@@ -1,0 +1,15 @@
+2026/06/09-15:10:41.096 ea3bf Reusing MANIFEST /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/shared_proto_db/MANIFEST-000001
+2026/06/09-15:10:41.103 ea3bf Recovering log #76
+2026/06/09-15:10:41.106 ea3bf Reusing old log /Users/lewis/Desktop/agent/outputs/linkedin-post-profile/Default/shared_proto_db/000076.log 
+2026/06/09-15:11:11.525 ea3c1 Level-0 table #80: started
+2026/06/09-15:11:11.531 ea3c1 Level-0 table #80: 112360 bytes OK
+2026/06/09-15:11:11.536 ea3c1 Delete type=0 #76
+2026/06/09-15:11:11.537 ea3c1 Compacting 4@0 + 1@1 files
+2026/06/09-15:11:11.557 ea3c1 Generated table #81@0: 4085 keys, 65637 bytes
+2026/06/09-15:11:11.557 ea3c1 Compacted 4@0 + 1@1 files => 65637 bytes
+2026/06/09-15:11:11.558 ea3c1 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/09-15:11:11.559 ea3c1 Delete type=2 #77
+2026/06/09-15:11:11.559 ea3c1 Delete type=2 #74
+2026/06/09-15:11:11.559 ea3c1 Delete type=2 #71
+2026/06/09-15:11:11.559 ea3c1 Delete type=2 #80
+2026/06/09-15:11:11.559 ea3c1 Delete type=2 #68

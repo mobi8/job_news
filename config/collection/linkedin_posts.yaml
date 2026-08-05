@@ -6,32 +6,53 @@ sources:
     source: linkedin_post
     leads:
     - id: hiring
-      query: hiring
+      query: hiring OR job
       category: hiring_post
-    - id: job
-      query: job
-      category: job_post
-    roles:
-    - id: crypto
-      query: crypto
-      domain: crypto_payments
-      aliases:
-      - payments
-      - payment
+    industries:
+    - id: payments_fintech
+      keywords:
+        - payments
+        - fintech
+        - psp
+        - gateway
+        - acquiring
+        - treasury
+        - settlement
+        - reconciliation
+    - id: crypto_web3
+      keywords:
+        - crypto
+        - blockchain
+        - web3
+        - digital assets
+        - custody
+        - wallet
+        - stablecoin
     - id: igaming
-      query: igaming
-      domain: igaming
-    - id: digital_asset
-      query: digital asset
-      domain: digital_asset
-    - id: game
-      query: game
-      domain: game
-    - id: payments
-      query: payment operations OR payments engineer OR payment product
-      domain: payments
-      aliases:
-      - payment
+      keywords:
+        - igaming
+        - casino
+        - sportsbook
+        - betting
+        - slots
+        - live casino
+        - game provider
+    - id: video_games
+      keywords:
+        - games
+        - game producer
+        - game product
+        - live operations
+        - publishing
+        - monetization
+    - id: fx_trading
+      keywords:
+        - forex
+        - fx
+        - trading
+        - brokerage
+        - liquidity
+        - dealing
     locations: []
     matrix:
       enabled: true

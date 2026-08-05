@@ -151,17 +151,18 @@ class TestLinkedInJobs:
     """Test linkedin_jobs source."""
 
     def test_linkedin_targets_count(self):
-        """Verify expected number of LinkedIn targets in registry (manual only).
+        """Verify expected number of LinkedIn targets (industry-based matrix model).
 
-        Amsterdam and Australia targets are now generated from matrix, so manual count is 24.
+        All targets now generated from location × industry matrix. Manual targets list is empty.
         """
         linkedin = _sources().get("linkedin_jobs", {})
-        targets = linkedin.get("targets", [])
-        assert len(targets) == 24, f"Expected 24 manual targets, got {len(targets)}"
+        manual_targets = linkedin.get("targets", [])
+        assert len(manual_targets) == 0, f"Expected 0 manual targets (all from matrix), got {len(manual_targets)}"
 
     def test_linkedin_urls_count(self):
-        """Verify expected number of generated LinkedIn URLs."""
-        assert len(LINKEDIN_SEARCH_URLS) == 206
+        """Verify expected number of generated LinkedIn URLs (industry-based model)."""
+        # 6 enabled locations × 5 industries = 30 matrix-generated targets
+        assert len(LINKEDIN_SEARCH_URLS) == 30, f"Expected 30 URLs (6 locations × 5 industries), got {len(LINKEDIN_SEARCH_URLS)}"
 
     def test_no_duplicate_linkedin_target_ids(self):
         """Verify no duplicate target_ids in LinkedIn jobs."""
@@ -170,17 +171,23 @@ class TestLinkedInJobs:
         ids = [t.get("target_id") for t in targets if t.get("target_id")]
         assert len(ids) == len(set(ids)), f"Duplicate target IDs: {ids}"
 
-    def test_linkedin_matrix_routes_disambiguated_locations(self):
-        """Verify runtime-validated matrix locations avoid ambiguous LinkedIn routing."""
+    def test_linkedin_matrix_industry_structure(self):
+        """Verify matrix targets use industry-based IDs and structure."""
         targets = {target.target_id: target for target in build_linkedin_job_targets()}
-        amsterdam = targets["linkedin_amsterdam_payments"]
-        malta = targets["linkedin_malta_payments"]
 
-        assert "location=Amsterdam%2C+Netherlands" in amsterdam.url
-        assert "geoId=" not in amsterdam.url
+        # Verify industry-based target ID format: linkedin_{location}_{industry}
+        amsterdam_payments = targets.get("linkedin_amsterdam_payments_fintech")
+        assert amsterdam_payments is not None, "Expected linkedin_amsterdam_payments_fintech target"
+        assert "payments" in amsterdam_payments.keyword_query or "fintech" in amsterdam_payments.keyword_query
+        assert "Amsterdam" in amsterdam_payments.location or "Amsterdam" in amsterdam_payments.url
 
-        assert malta.url.startswith("https://mt.linkedin.com/jobs/search/?")
-        assert "location=Malta" not in malta.url
+        # Verify no role_id in industry-based targets
+        assert not amsterdam_payments.role_id, "Industry-based targets should not have role_id"
+
+        # Verify enabled locations are represented
+        location_ids = {t.location_id for t in targets.values() if t.target_id.startswith("linkedin_")}
+        enabled_locations = {"amsterdam", "australia", "malaysia", "remote", "uae", "vietnam"}
+        assert location_ids == enabled_locations, f"Location mismatch: {location_ids} vs {enabled_locations}"
 
 
 class TestIndeed:
@@ -353,11 +360,45 @@ class TestLinkedInPosts:
         assert len(LINKEDIN_POST_SEARCH_PLANS) > 0
 
     def test_linkedin_posts_plan_count(self):
-        """Verify expected count of LinkedIn post plans."""
-        # Plans = enabled_locations * roles * leads
-        # 5 locations * 10 roles * 4 leads = 200 (but some might be disabled)
-        # At minimum, should have substantial count
-        assert len(LINKEDIN_POST_SEARCH_PLANS) >= 100
+        """Verify expected count of LinkedIn post plans (industry-based model)."""
+        # Plans = enabled_locations * industries * leads
+        # 6 locations * 5 industries * 1 lead = 30
+        expected_count = 30
+        assert len(LINKEDIN_POST_SEARCH_PLANS) == expected_count
+
+    def test_linkedin_posts_industry_structure(self):
+        """Verify LinkedIn post plans use industry-based structure."""
+        for plan in LINKEDIN_POST_SEARCH_PLANS:
+            # Must have industry_id, not role_id
+            assert "industry_id" in plan, "Plans must have industry_id"
+            assert plan.get("industry_id"), "industry_id must be non-empty"
+            assert "role_id" not in plan, "Plans must not have role_id"
+            # Must have location_id
+            assert "location_id" in plan, "Plans must have location_id"
+            assert plan.get("location_id"), "location_id must be non-empty"
+            # Query must have Boolean structure
+            query = plan.get("query", "")
+            assert "AND" in query, "Query must use AND operator"
+            assert "(hiring OR job)" in query, "Query must have lead expression"
+
+    def test_linkedin_posts_coverage(self):
+        """Verify all enabled locations and industries are represented."""
+        locations = {p["location_id"] for p in LINKEDIN_POST_SEARCH_PLANS}
+        industries = {p["industry_id"] for p in LINKEDIN_POST_SEARCH_PLANS}
+
+        # Verify enabled locations are present
+        registry = REGISTRY.get("locations", {})
+        enabled_locations = {
+            f"posts_{loc_id}"
+            for loc_id, loc_cfg in registry.items()
+            if loc_cfg.get("enabled") and loc_cfg.get("linkedin_posts", {}).get("enabled", True)
+        }
+        assert locations == enabled_locations, f"Location mismatch: {locations} vs {enabled_locations}"
+
+        # Verify expected industries are present
+        config = REGISTRY.get("sources", {}).get("linkedin_posts", {})
+        expected_industries = {ind.get("id") for ind in config.get("industries", [])}
+        assert industries == expected_industries, f"Industry mismatch: {industries} vs {expected_industries}"
 
 
 class TestSourceMetadataConsistency:
