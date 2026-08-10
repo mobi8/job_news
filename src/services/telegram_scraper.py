@@ -24,6 +24,15 @@ from utils.models import JobPosting
 from utils.db import Database
 from utils.notifications import send_telegram_text
 
+TELEGRAM_REJECT_REASONS = (
+    "missing_role",
+    "missing_external_url",
+    "excluded_content",
+    "parse_failure",
+    "duplicate",
+    "other_existing_gates",
+)
+
 TELEGRAM_CHANNELS = {
     "uaejobsdaily2025": "UAE Jobs Daily",
     "job_crypto_uae": "Crypto Jobs UAE",
@@ -187,65 +196,89 @@ def clean_description(text: str) -> str:
 
 def convert_to_job_posting(message: Dict, channel: str, channel_name: str) -> Optional[JobPosting]:
     """Convert Telegram message to JobPosting object"""
-    text = message.get("text", "")
-    if not text or len(text) < 10:
-        return None
+    job, _ = convert_to_job_posting_with_reason(message, channel, channel_name)
+    return job
 
-    # Extract basic info
-    extracted = extract_job_postings(text)
-    if not extracted:
-        return None
 
-    # Generate source job ID from timestamp and text hash
-    timestamp = message.get("timestamp", datetime.utcnow().isoformat())
-    text_hash = hashlib.md5(text.encode()).hexdigest()[:8]
-    source_job_id = f"{timestamp.replace('T', '-').replace(':', '')[:-6]}-{text_hash}"
+def convert_to_job_posting_with_reason(message: Dict, channel: str, channel_name: str) -> tuple[Optional[JobPosting], Optional[str]]:
+    """Convert Telegram message and return the existing rejection gate when it fails."""
+    try:
+        text = message.get("text", "")
+        if not text or len(text) < 10:
+            return None, "excluded_content"
 
-    # Get first link as job URL
-    links = message.get("links", [])
-    job_url = next((l for l in links if "http" in l and "t.me" not in l), "")
+        # Extract basic info
+        extracted = extract_job_postings(text)
+        if not extracted or not extracted.get("role"):
+            return None, "missing_role"
 
-    if not job_url:
-        return None
+        # Generate source job ID from timestamp and text hash
+        timestamp = message.get("timestamp", datetime.utcnow().isoformat())
+        text_hash = hashlib.md5(text.encode()).hexdigest()[:8]
+        source_job_id = f"{timestamp.replace('T', '-').replace(':', '')[:-6]}-{text_hash}"
 
-    # Parse company and title from extracted data
-    import re
-    role_line = extracted.get("role", "")
-    company = "Unknown"
-    company_match = re.search(r'(?:Company:\s*|@)([^📍🔗\n]+?)(?=📍|🔗|$)', text)
-    if company_match:
-        company_text = company_match.group(1).strip()
-        company = clean_description(company_text).title() or "Unknown"
+        # Get first external apply link, falling back only to the Telegram message permalink.
+        links = message.get("links", [])
+        job_url = next((l for l in links if "http" in l and "t.me" not in l), "")
+        if not job_url:
+            job_url = next((l for l in links if _is_telegram_message_permalink(l, channel)), "")
 
-    # Fallback: parse from role line if "at" pattern exists
-    if company == "Unknown" and "at " in role_line.lower():
-        parts = role_line.lower().split("at ")
-        if len(parts) > 1:
-            company = clean_description(parts[1].split(",")[0].strip()).title()
+        if not job_url:
+            return None, "missing_external_url"
 
-    title = role_line.split(" at ")[0].strip() if " at " in role_line else role_line
-    title = clean_description(title)
-    location = clean_description(extracted.get("location", "UAE"))
+        # Parse company and title from extracted data
+        import re
+        role_line = extracted.get("role", "")
+        company = "Unknown"
+        company_match = re.search(r'(?:Company:\s*|@)([^📍🔗\n]+?)(?=📍|🔗|$)', text)
+        if company_match:
+            company_text = company_match.group(1).strip()
+            company = clean_description(company_text).title() or "Unknown"
 
-    # Detect if job is remote
-    is_remote = 0
-    location_lower = location.lower().strip()
-    if location_lower.startswith('remote') or location_lower.startswith('anywhere') or '100% remote' in location_lower:
-        is_remote = 1
+        # Fallback: parse from role line if "at" pattern exists
+        if company == "Unknown" and "at " in role_line.lower():
+            parts = role_line.lower().split("at ")
+            if len(parts) > 1:
+                company = clean_description(parts[1].split(",")[0].strip()).title()
 
-    return JobPosting(
-        source=f"telegram_{channel}",
-        source_job_id=source_job_id,
-        title=title or "Job Posting",
-        company=company,
-        location=location,
-        url=job_url,
-        description=clean_description(text),
-        country="UAE",
-        remote=is_remote,
-        match_score=70,  # Default score for Telegram jobs
-        first_seen_at=timestamp,
-        last_seen_at=timestamp,
+        title = role_line.split(" at ")[0].strip() if " at " in role_line else role_line
+        title = clean_description(title)
+        location = clean_description(extracted.get("location", "UAE"))
+
+        # Detect if job is remote
+        is_remote = 0
+        location_lower = location.lower().strip()
+        if location_lower.startswith('remote') or location_lower.startswith('anywhere') or '100% remote' in location_lower:
+            is_remote = 1
+
+        return JobPosting(
+            source=f"telegram_{channel}",
+            source_job_id=source_job_id,
+            title=title or "Job Posting",
+            company=company,
+            location=location,
+            url=job_url,
+            description=clean_description(text),
+            country="UAE",
+            remote=is_remote,
+            match_score=70,  # Default score for Telegram jobs
+            first_seen_at=timestamp,
+            last_seen_at=timestamp,
+        ), None
+    except Exception:
+        watch_logger.warning("Telegram message parse failed for @%s", channel, exc_info=True)
+        return None, "parse_failure"
+
+
+def _is_telegram_message_permalink(url: str, channel: str) -> bool:
+    if not isinstance(url, str):
+        return False
+    normalized = url.strip().rstrip("/")
+    return (
+        normalized.startswith(f"https://t.me/{channel}/")
+        or normalized.startswith(f"http://t.me/{channel}/")
+        or normalized.startswith(f"https://telegram.me/{channel}/")
+        or normalized.startswith(f"http://telegram.me/{channel}/")
     )
 
 
@@ -265,35 +298,46 @@ def scrape_and_save(db_path: str) -> Dict[str, Any]:
 
     total_jobs = 0
     total_saved = 0
+    total_reject_counts = {reason: 0 for reason in TELEGRAM_REJECT_REASONS}
 
     for channel_username, channel_data in results.items():
         channel_name = channel_data.get("name", "")
         messages = channel_data.get("messages", [])
+        reject_counts = {reason: 0 for reason in TELEGRAM_REJECT_REASONS}
 
         watch_logger.info(f"Converting {len(messages)} messages from @{channel_username}...")
 
         # Convert messages to JobPosting objects
         jobs = []
         for msg in messages:
-            job = convert_to_job_posting(msg, channel_username, channel_name)
+            job, reason = convert_to_job_posting_with_reason(msg, channel_username, channel_name)
             if job:
                 jobs.append(job)
+            else:
+                reject_counts[reason or "other_existing_gates"] += 1
 
         # Save to database
         if jobs:
             saved = save_jobs_to_db(db_path, jobs)
+            reject_counts["duplicate"] += max(0, len(jobs) - saved)
             total_jobs += len(jobs)
             total_saved += saved
             watch_logger.info(f"  ✓ Saved {saved}/{len(jobs)} jobs from @{channel_username}")
         else:
             watch_logger.info(f"  - No valid jobs found in @{channel_username}")
+        channel_data["reject_counts"] = reject_counts
+        for reason, count in reject_counts.items():
+            total_reject_counts[reason] += count
+        watch_logger.info(f"  - Reject counts @{channel_username}: {reject_counts}")
 
     watch_logger.info(f"Telegram scraping complete: {total_saved}/{total_jobs} jobs saved to database")
+    watch_logger.info(f"Telegram reject counts: {total_reject_counts}")
 
     return {
         "total_messages": sum(c.get("count", 0) for c in results.values()),
         "total_jobs": total_jobs,
         "total_saved": total_saved,
+        "reject_counts": total_reject_counts,
         "channels": results,
     }
 

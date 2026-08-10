@@ -756,6 +756,21 @@ def _append_jobspy_rows(
     return added
 
 
+def _dedupe_jobspy_parent_results(jobs: list, existing_fingerprints: set[str]) -> list:
+    """Remove duplicates that arrive from separate JobSpy worker processes."""
+    seen = set(existing_fingerprints)
+    deduped = []
+    for job in jobs:
+        fp = getattr(job, "fingerprint", None)
+        if not fp:
+            continue
+        if fp in seen:
+            continue
+        seen.add(fp)
+        deduped.append(job)
+    return deduped
+
+
 def load_browser_lookback_hours() -> int:
     raw_value = os.getenv("BROWSER_LOOKBACK_HOURS")
     if raw_value is None:
@@ -845,6 +860,12 @@ def scrape_indeed_via_jobspy(db: Database) -> list:
                 except Exception:
                     failures += 1
                     logger.exception("JobSpy country bucket worker failed")
+
+        raw_count = len(indeed_jobs)
+        indeed_jobs = _dedupe_jobspy_parent_results(indeed_jobs, existing_fingerprints)
+        dropped_count = raw_count - len(indeed_jobs)
+        if dropped_count:
+            jobspy_logger.info("JobSpy parent dedupe removed %s duplicate Indeed jobs", dropped_count)
 
         _console_step(
             f"JobSpy phase finished: Indeed={len(indeed_jobs)}"
