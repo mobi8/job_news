@@ -84,6 +84,97 @@ def test_linkedin_jobs_route_record_creation(monkeypatch):
     assert record["error"] is None
 
 
+def test_linkedin_authwall_route_is_failed(monkeypatch):
+    from utils import scrapers
+
+    url = "https://www.linkedin.com/jobs/search/?keywords=payments&location=Dubai"
+    monkeypatch.setattr(scrapers, "LINKEDIN_SEARCH_URLS", [url])
+    monkeypatch.setattr(scrapers, "RECRUITER_SEARCH_URLS", [])
+    monkeypatch.setattr(
+        scrapers,
+        "LINKEDIN_SEARCH_URL_METADATA",
+        {
+            url: {
+                "target_id": "linkedin_uae_all_jobs_keywords",
+                "source": "linkedin_public",
+                "origin": "matrix",
+                "location_id": "uae",
+                "location": "Dubai, United Arab Emirates",
+                "country": "UAE",
+                "role_id": "all_jobs_keywords",
+                "keyword_group_id": "all_jobs_keywords",
+                "keyword_query": "payments OR crypto",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        scrapers,
+        "_batch_browser_fetch",
+        lambda urls, batch_size: [
+            {
+                "href": "https://www.linkedin.com/authwall?sessionRedirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch",
+                "elapsed_ms": 1000,
+                "jobs": [],
+            }
+        ],
+    )
+    monkeypatch.delenv("COLLECTION_RUN_ID", raising=False)
+
+    jobs = scrapers.fetch_linkedin_jobs_via_browser()
+
+    assert jobs == []
+    record = scrapers.fetch_linkedin_jobs_via_browser.last_route_records[0]
+    assert record["status"] == "failed"
+    assert record["health"] == "failed"
+    assert record["error"] == "linkedin_authwall"
+
+
+def test_linkedin_empty_page_without_error_stays_zero(monkeypatch):
+    from utils import scrapers
+
+    url = "https://www.linkedin.com/jobs/search/?keywords=unlikely&location=Dubai"
+    monkeypatch.setattr(scrapers, "LINKEDIN_SEARCH_URLS", [url])
+    monkeypatch.setattr(scrapers, "RECRUITER_SEARCH_URLS", [])
+    monkeypatch.setattr(
+        scrapers,
+        "LINKEDIN_SEARCH_URL_METADATA",
+        {
+            url: {
+                "target_id": "linkedin_uae_all_jobs_keywords",
+                "source": "linkedin_public",
+                "origin": "matrix",
+                "location_id": "uae",
+                "location": "Dubai, United Arab Emirates",
+                "country": "UAE",
+                "role_id": "all_jobs_keywords",
+                "keyword_group_id": "all_jobs_keywords",
+                "keyword_query": "unlikely",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        scrapers,
+        "_batch_browser_fetch",
+        lambda urls, batch_size: [
+            {
+                "href": url,
+                "elapsed_ms": 1000,
+                "jobs": [],
+                "pageTitle": "No matching jobs found",
+            }
+        ],
+    )
+    monkeypatch.delenv("COLLECTION_RUN_ID", raising=False)
+
+    jobs = scrapers.fetch_linkedin_jobs_via_browser()
+
+    assert jobs == []
+    record = scrapers.fetch_linkedin_jobs_via_browser.last_route_records[0]
+    assert record["status"] == "success"
+    assert record["health"] == "zero"
+    assert record["error"] is None
+
+
 def test_linkedin_posts_lead_level_record_creation():
     from watch.linkedin_posts import _post_plan_record
 

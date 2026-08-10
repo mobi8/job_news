@@ -29,6 +29,7 @@ from utils.collection_config import (
     REGISTRY,
     discovery_keyword_groups,
     discovery_target_groups,
+    get_enabled_linkedin_source_ids,
     keyword_phase_ids,
     phase_registry,
     resolve_phase_id,
@@ -312,9 +313,12 @@ def _run_subprocess(
 
 
 FIXED_SOURCES = "jobvite_pragmaticplay,smartrecruitment,igamingrecruitment,igaminghunt_bamboohr,jobrapido_uae,jobleads"
-LINKEDIN_SOURCES = "linkedin_public,linkedin_emea,linkedin_georgia,linkedin_malta"
 INDEED_SOURCES = "indeed_uae,indeed_georgia,indeed_malta"
 SELECTOR_PHASES = {"fixed", "drjobs", "linkedin", "indeed", "jobspy", "glassdoor", "rss", "player", "posts", "recruiters"}
+
+
+def _linkedin_sources_csv() -> str:
+    return ",".join(get_enabled_linkedin_source_ids())
 
 
 def _selector_target_ids(selection: SelectorResolution | None) -> list[str]:
@@ -438,7 +442,7 @@ def _scraper_env_for_phase(
         env["JOB_WATCH_SOURCES"] = selected_sources or "drjobs"
         env["SKIP_DRJOBS_BROWSER"] = "0"
     elif phase_id == "linkedin":
-        env["JOB_WATCH_SOURCES"] = selected_sources or LINKEDIN_SOURCES
+        env["JOB_WATCH_SOURCES"] = selected_sources or _linkedin_sources_csv()
         env["SKIP_LINKEDIN_BROWSER"] = "0"
     elif phase_id == "indeed":
         env["JOB_WATCH_SOURCES"] = selected_sources or INDEED_SOURCES

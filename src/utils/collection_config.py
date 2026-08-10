@@ -355,20 +355,21 @@ def _validate_registry(registry: dict[str, Any]) -> None:
         seen_role_ids.add(role_id)
 
 
+def unique_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            ordered.append(item)
+    return ordered
+
+
 REGISTRY = load_collection_registry()
 
 
 def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
-    """Generate LinkedIn targets from location × role matrix.
-
-    For each enabled location × role combination, creates a target with:
-    - Preserved legacy target ID if it exists
-    - Location-specific settings (source, location, geo_id, remote flag)
-    - Role-specific keyword_group with merged queries
-    - URL builder configuration
-
-    Returns list of generated target objects sorted by location then role.
-    """
+    """Generate one consolidated LinkedIn Jobs target per enabled location."""
     linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
     matrix_config = linkedin_source.get("matrix", {})
 
@@ -376,7 +377,20 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         return []
 
     locations = registry.get("locations", {})
-    role_profiles = registry.get("role_profiles", {})
+    keywords_config = registry.get("keywords", {})
+    keyword_terms: list[str] = []
+    for keyword in keywords_config.get("domain", []) or []:
+        if isinstance(keyword, dict) and keyword.get("id"):
+            keyword_terms.append(str(keyword["id"]))
+    for keyword in keywords_config.get("function", []) or []:
+        if isinstance(keyword, dict):
+            value = keyword.get("label") or keyword.get("id")
+            if value:
+                keyword_terms.append(str(value))
+
+    query = " OR ".join(unique_preserve_order(keyword_terms))
+    if not query:
+        return []
 
     generated_targets = []
 
@@ -387,84 +401,44 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         if not location_config or not location_config.get("enabled"):
             continue
         linkedin_location = location_config.get("linkedin", {})
-        location_role_additions = location_config.get("role_query_additions", {})
-        location_role_overrides = location_config.get("role_overrides", {})
-        role_ids = _matrix_role_ids_for_location(matrix_config, location_config)
+        source = linkedin_location.get("source", "")
+        if not source:
+            continue
+        location_str = linkedin_location.get("location", "")
+        url_location = linkedin_location.get("url_location", location_str)
+        geo_id = linkedin_location.get("geo_id")
+        domain = linkedin_location.get("domain")
+        remote = linkedin_location.get("remote", False)
 
-        for role_id in role_ids:
-            role_config = role_profiles.get(role_id)
-            if not role_config or not role_config.get("enabled"):
-                continue
-
-            # Use legacy target ID if available, otherwise generate new ID
-            legacy_target_ids = location_config.get("legacy_target_ids", {})
-            target_id = legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}")
-
-            source = linkedin_location.get("source", "")
-            location_str = linkedin_location.get("location", "")
-            url_location = linkedin_location.get("url_location", location_str)
-            geo_id = linkedin_location.get("geo_id")
-            domain = linkedin_location.get("domain")
-            remote = linkedin_location.get("remote", False)
-
-            # Get role-specific LinkedIn settings
-            linkedin_role = role_config.get("linkedin", {})
-            role_override = (
-                location_role_overrides.get(role_id, {})
-                if isinstance(location_role_overrides, dict)
-                else {}
-            )
-            keyword_group_id = role_override.get("keyword_group_id") or linkedin_role.get("keyword_group_id", "")
-            legacy_location_queries = linkedin_role.get("location_queries", {})
-            if isinstance(legacy_location_queries, dict) and legacy_location_queries.get(location_id):
-                queries = legacy_location_queries.get(location_id) or []
-            else:
-                queries = list(linkedin_role.get("queries", []) or [])
-                additions = []
-                if isinstance(location_role_additions, dict):
-                    additions = location_role_additions.get(role_id, []) or []
-                queries.extend(str(item) for item in additions if str(item).strip())
-            if role_override.get("query"):
-                queries = [str(role_override.get("query"))]
-            elif role_override.get("queries"):
-                queries = [str(item) for item in role_override.get("queries") or [] if str(item).strip()]
-
-            # Merge queries into a single query string
-            query = " OR ".join(queries) if queries else ""
-
-            # Build the target object
-            target = {
-                "id": target_id,
-                "enabled": True,
-                "origin": "matrix",
-                "location_id": location_id,
-                "role_id": role_id,
-                "source": source,
-                "country": location_config.get("country", ""),
-                "location": location_str,
-                "url_location": url_location,
-                "keyword_groups": [
-                    {
-                        "id": keyword_group_id,
-                        "query": query
-                    }
-                ],
-                "url": {
-                    "builder": "linkedin_jobs"
+        target = {
+            "id": f"linkedin_{location_id}_all_jobs_keywords",
+            "enabled": True,
+            "origin": "matrix",
+            "location_id": location_id,
+            "role_id": "all_jobs_keywords",
+            "source": source,
+            "country": location_config.get("country", ""),
+            "location": location_str,
+            "url_location": url_location,
+            "keyword_groups": [
+                {
+                    "id": "all_jobs_keywords",
+                    "query": query,
                 }
+            ],
+            "url": {
+                "builder": "linkedin_jobs"
             }
+        }
 
-            # Add geo_id if present
-            if geo_id:
-                target["geo_id"] = geo_id
-            if domain:
-                target["domain"] = domain
+        if geo_id:
+            target["geo_id"] = geo_id
+        if domain:
+            target["domain"] = domain
+        if remote:
+            target["remote"] = True
 
-            # Add remote flag if True
-            if remote:
-                target["remote"] = True
-
-            generated_targets.append(target)
+        generated_targets.append(target)
 
     # Sort by target ID for deterministic ordering
     return sorted(generated_targets, key=lambda t: t["id"])
@@ -559,7 +533,6 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
         return []
 
     locations = registry.get("locations", {})
-    role_profiles = registry.get("role_profiles", {})
     groups: list[dict[str, Any]] = []
     enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
     for location_id in sorted(enabled_location_ids):
@@ -567,29 +540,6 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
         if not isinstance(location, dict) or not _enabled(location):
             continue
         linkedin_location = location.get("linkedin") or {}
-        target_ids = []
-        keyword_groups_by_id: dict[str, dict[str, Any]] = {}
-        legacy_target_ids = location.get("legacy_target_ids", {})
-        role_overrides = location.get("role_overrides", {})
-        for role_id in _matrix_role_ids_for_location(matrix_config, location):
-            role = role_profiles.get(role_id)
-            if not isinstance(role, dict) or not _enabled(role):
-                continue
-            target_ids.append(legacy_target_ids.get(role_id, f"linkedin_{location_id}_{role_id}"))
-            linkedin_role = role.get("linkedin") or {}
-            role_override = role_overrides.get(role_id, {}) if isinstance(role_overrides, dict) else {}
-            keyword_id = str(role_override.get("keyword_group_id") or linkedin_role.get("keyword_group_id") or role_id)
-            selector_id = str(role.get("selector_group_id") or role_id)
-            if selector_id not in keyword_groups_by_id:
-                keyword_groups_by_id[selector_id] = {
-                    "id": selector_id,
-                    "label": str(role.get("label") or selector_id),
-                    "aliases": [str(alias) for alias in role.get("aliases", []) or []],
-                    "keyword_group_ids": [keyword_id],
-                }
-            elif keyword_id not in keyword_groups_by_id[selector_id]["keyword_group_ids"]:
-                keyword_groups_by_id[selector_id]["keyword_group_ids"].append(keyword_id)
-
         aliases = [f"linkedin_{location_id}"]
         aliases.extend(str(alias) for alias in linkedin_location.get("aliases", []) or [])
         groups.append(
@@ -598,8 +548,15 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
                 "label": str(location.get("label") or location_id),
                 "aliases": aliases,
                 "country": str(location.get("country") or ""),
-                "target_ids": target_ids,
-                "keyword_groups": list(keyword_groups_by_id.values()),
+                "target_ids": [f"linkedin_{location_id}_all_jobs_keywords"],
+                "keyword_groups": [
+                    {
+                        "id": "all_jobs_keywords",
+                        "label": "All Jobs Keywords",
+                        "aliases": ["all", "keywords"],
+                        "keyword_group_ids": ["all_jobs_keywords"],
+                    }
+                ],
             }
         )
     return groups
@@ -817,85 +774,21 @@ def build_linkedin_job_targets(include_recruiters: bool = True) -> list[SearchTa
         return []
     source_config = _sources().get("linkedin_jobs", {})
     if source_config.get("enabled", True):
-        # Generate keyword-based targets from keywords.yaml
-        keywords_config = REGISTRY.get("keywords", {})
-        if keywords_config:
-            locations = {loc_id: loc_cfg for loc_id, loc_cfg in REGISTRY.get("locations", {}).items()
-                        if loc_cfg.get("enabled")}
-
-            # Generate targets for domain keywords (15)
-            for keyword in keywords_config.get("domain", []):
-                keyword_id = keyword.get("id")
-                keyword_label = keyword.get("label", keyword_id)
-                for location_id, location_cfg in locations.items():
-                    linkedin_loc = location_cfg.get("linkedin", {})
-                    source = linkedin_loc.get("source", "")
-                    if not source:
-                        continue
-
-                    target_obj = {
-                        "id": f"linkedin_{location_id}_{keyword_id}",
-                        "source": source,
-                        "location": linkedin_loc.get("location", ""),
-                        "url_location": linkedin_loc.get("url_location", linkedin_loc.get("location", "")),
-                        "geo_id": linkedin_loc.get("geo_id"),
-                        "domain": linkedin_loc.get("domain"),
-                        "remote": linkedin_loc.get("remote", False),
-                        "keyword_id": keyword_id,
-                        "keyword_label": keyword_label,
-                        "origin": "keyword",
-                    }
-
-                    targets.append(
-                        _search_target(
-                            url=build_linkedin_jobs_url(
-                                query=keyword_id,
-                                location=target_obj.get("url_location"),
-                                geo_id=target_obj.get("geo_id"),
-                                remote=bool(target_obj.get("remote")),
-                                domain=str(target_obj.get("domain") or "www.linkedin.com"),
-                            ),
-                            target=target_obj,
-                            keyword_group={"id": keyword_id, "query": keyword_id},
-                        )
+        for target in generate_linkedin_matrix_targets(REGISTRY):
+            for group in _keyword_groups(target):
+                targets.append(
+                    _search_target(
+                        url=build_linkedin_jobs_url(
+                            query=group["query"],
+                            location=str(target.get("url_location") or target.get("location") or ""),
+                            geo_id=target.get("geo_id"),
+                            remote=bool(target.get("remote")),
+                            domain=str(target.get("domain") or "www.linkedin.com"),
+                        ),
+                        target=target,
+                        keyword_group=group,
                     )
-
-            # Generate targets for function keywords (14)
-            for keyword in keywords_config.get("function", []):
-                keyword_id = keyword.get("id")
-                keyword_label = keyword.get("label", keyword_id)
-                for location_id, location_cfg in locations.items():
-                    linkedin_loc = location_cfg.get("linkedin", {})
-                    source = linkedin_loc.get("source", "")
-                    if not source:
-                        continue
-
-                    target_obj = {
-                        "id": f"linkedin_{location_id}_{keyword_id}",
-                        "source": source,
-                        "location": linkedin_loc.get("location", ""),
-                        "url_location": linkedin_loc.get("url_location", linkedin_loc.get("location", "")),
-                        "geo_id": linkedin_loc.get("geo_id"),
-                        "domain": linkedin_loc.get("domain"),
-                        "remote": linkedin_loc.get("remote", False),
-                        "keyword_id": keyword_id,
-                        "keyword_label": keyword_label,
-                        "origin": "keyword",
-                    }
-
-                    targets.append(
-                        _search_target(
-                            url=build_linkedin_jobs_url(
-                                query=keyword_label,
-                                location=target_obj.get("url_location"),
-                                geo_id=target_obj.get("geo_id"),
-                                remote=bool(target_obj.get("remote")),
-                                domain=str(target_obj.get("domain") or "www.linkedin.com"),
-                            ),
-                            target=target_obj,
-                            keyword_group={"id": keyword_id, "query": keyword_label},
-                        )
-                    )
+                )
 
     if include_recruiters:
         recruiters = _sources().get("recruiters", {})
@@ -1776,17 +1669,19 @@ def get_enabled_job_source_ids() -> list[str]:
         if not _enabled(source_config):
             continue  # Skip disabled sources
 
+        if source_key == "linkedin_jobs":
+            for target in generate_linkedin_matrix_targets(REGISTRY):
+                source_id = target.get("source")
+                if source_id and source_id not in seen:
+                    seen.add(source_id)
+                    result.append(source_id)
+            continue
+
         # For sources with targets (LinkedIn, Indeed, etc.), collect enabled target source IDs
         targets = source_config.get("targets", [])
         if targets:
             for target in targets:
                 if isinstance(target, dict) and _enabled(target):
-                    source_id = target.get("source")
-                    if source_id and source_id not in seen:
-                        seen.add(source_id)
-                        result.append(source_id)
-            if source_key == "linkedin_jobs":
-                for target in generate_linkedin_matrix_targets(REGISTRY):
                     source_id = target.get("source")
                     if source_id and source_id not in seen:
                         seen.add(source_id)

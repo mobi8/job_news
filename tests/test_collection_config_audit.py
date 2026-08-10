@@ -40,7 +40,7 @@ class TestEnabledJobSourceIds:
         """Verify LinkedIn target sources are collected."""
         enabled_ids = set(get_enabled_job_source_ids())
         # Should include linkedin sources
-        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_malta"}
+        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_vietnam", "linkedin_malaysia"}
         included = enabled_ids & linkedin_sources
         assert len(included) > 0, f"No LinkedIn sources found in {enabled_ids}"
 
@@ -51,19 +51,21 @@ class TestEnabledJobSourceIds:
         non_linkedin = {"jobvite_pragmaticplay", "smartrecruitment", "drjobs"}
         assert len(linkedin_ids & non_linkedin) == 0, "Non-LinkedIn sources in LinkedIn list"
         # Should include LinkedIn sources
-        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_malta"}
+        linkedin_sources = {"linkedin_public", "linkedin_emea", "linkedin_amsterdam", "linkedin_australia", "linkedin_vietnam", "linkedin_malaysia"}
         included = linkedin_ids & linkedin_sources
         assert len(included) > 0, f"No LinkedIn sources found in {linkedin_ids}"
 
     def test_amsterdam_and_australia_sources_enabled(self):
         """Verify matrix LinkedIn sources are available.
 
-        Note: Amsterdam, Australia, and Malta are generated through the linkedin_jobs matrix.
+        Note: Amsterdam, Australia, Vietnam, and Malaysia are generated through the linkedin_jobs matrix.
         """
         linkedin_ids = get_enabled_linkedin_source_ids()
         assert "linkedin_amsterdam" in linkedin_ids, "linkedin_amsterdam not in enabled sources"
         assert "linkedin_australia" in linkedin_ids, "linkedin_australia not in enabled sources"
-        assert "linkedin_malta" in linkedin_ids, "linkedin_malta not in enabled sources"
+        assert "linkedin_vietnam" in linkedin_ids, "linkedin_vietnam not in enabled sources"
+        assert "linkedin_malaysia" in linkedin_ids, "linkedin_malaysia not in enabled sources"
+        assert "linkedin_malta" not in linkedin_ids, "disabled linkedin_malta should not be enabled"
 
 
 class TestSourceMetadataLookup:
@@ -240,8 +242,8 @@ class TestSelectorResolution:
         # Should include amsterdam selector candidates
         amsterdam_candidates = [c for c in candidates if "amsterdam" in c.target_id.lower()]
         assert len(amsterdam_candidates) > 0, "No amsterdam selector candidates found"
-        # Should be 5 targets (payments, custody, settlement, product, igaming)
-        assert len(amsterdam_candidates) == 5, f"Expected 5 amsterdam targets, got {len(amsterdam_candidates)}"
+        # LinkedIn Jobs uses one consolidated keyword route per enabled location.
+        assert len(amsterdam_candidates) == 1, f"Expected 1 amsterdam target, got {len(amsterdam_candidates)}"
 
     def test_australia_selector_resolves(self):
         """Verify /collect linkedin australia resolves correctly."""
@@ -251,8 +253,8 @@ class TestSelectorResolution:
         # Should include australia selector candidates
         australia_candidates = [c for c in candidates if "australia" in c.target_id.lower()]
         assert len(australia_candidates) > 0, "No australia selector candidates found"
-        # Should be 5 targets (payments, custody, settlement, product, igaming)
-        assert len(australia_candidates) == 5, f"Expected 5 australia targets, got {len(australia_candidates)}"
+        # LinkedIn Jobs uses one consolidated keyword route per enabled location.
+        assert len(australia_candidates) == 1, f"Expected 1 australia target, got {len(australia_candidates)}"
 
 
 class TestYamlOnlyConfiguration:
@@ -268,7 +270,7 @@ class TestYamlOnlyConfiguration:
         metadata = get_collection_target_metadata()
         amsterdam_targets = [k for k in metadata.keys() if "amsterdam" in k.lower()]
         assert len(amsterdam_targets) > 0, "No amsterdam targets generated"
-        assert len(amsterdam_targets) == 5, f"Expected 5 amsterdam targets, got {len(amsterdam_targets)}"
+        assert len(amsterdam_targets) == 1, f"Expected 1 amsterdam target, got {len(amsterdam_targets)}"
 
         # 3. Source metadata has correct country
         meta = get_source_metadata_by_id("linkedin_amsterdam")

@@ -1084,7 +1084,20 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                     "route_output": str(route_output_dir / "targets.jsonl"),
                 }
                 linkedin_detail = "; ".join(linkedin_errors[:2])
-                if linkedin_raw_count == 0 and linkedin_parsed_count == 0:
+                linkedin_all_routes_failed = bool(linkedin_route_records) and all(
+                    record.get("status") == "failed" for record in linkedin_route_records
+                )
+                if linkedin_all_routes_failed:
+                    stage_results["linkedin"] = _stage(
+                        "failed",
+                        0,
+                        linkedin_detail or "all LinkedIn browser routes failed",
+                        raw_count=linkedin_raw_count,
+                        parsed_count=linkedin_parsed_count,
+                        new_count=0,
+                        **linkedin_route_meta,
+                    )
+                elif linkedin_raw_count == 0 and linkedin_parsed_count == 0:
                     stage_results["linkedin"] = _stage(
                         "failed",
                         0,
@@ -1127,12 +1140,15 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                     route_output=str(route_output_dir / "targets.jsonl"),
                 )
         browser_indeed_jobs = []
+        indeed_browser_errors = []
         if skip_indeed_browser or not _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta"):
             logger.info("Skipping Indeed browser phase.")
         else:
             try:
                 browser_indeed_jobs = scrape_indeed_via_browser()
+                indeed_browser_errors = list(getattr(fetch_indeed_jobs_via_browser, "last_errors", []) or [])
             except Exception as exc:
+                indeed_browser_errors = [repr(exc)]
                 logger.warning("Skipping Indeed browser phase after error: %s", exc, exc_info=True)
         _console_step(f"Indeed browser raw: {len(browser_indeed_jobs)} jobs {_source_counts(browser_indeed_jobs)}")
 
@@ -1194,6 +1210,19 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         indeed_total = len(browser_indeed_jobs) + len(jobspy_indeed_jobs)
         if skip_indeed_browser and skip_jobspy:
             stage_results["indeed"] = _stage("skipped", 0)
+        indeed_browser_all_failed = (
+            not skip_indeed_browser
+            and _any_source_allowed(allowed_sources, "indeed_uae", "indeed_georgia", "indeed_malta")
+            and bool(INDEED_SEARCH_KEYWORDS)
+            and bool(indeed_browser_errors)
+            and not browser_indeed_jobs
+        )
+        if indeed_browser_all_failed and skip_jobspy:
+            stage_results["indeed"] = _stage("failed", 0, "; ".join(indeed_browser_errors[:2]))
+        elif skip_indeed_browser and skip_jobspy:
+            stage_results["indeed"] = _stage("skipped", 0)
+        elif indeed_browser_all_failed and not jobspy_indeed_jobs:
+            stage_results["indeed"] = _stage("failed", 0, "; ".join(indeed_browser_errors[:2]))
         elif jobspy_failures:
             stage_results["indeed"] = _stage("partial" if indeed_total else "timeout", indeed_total, f"jobspy_failures={jobspy_failures}")
         else:

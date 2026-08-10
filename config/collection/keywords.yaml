@@ -68,6 +68,18 @@ keywords:
       label: Brokerage
       category: industry
 
+    - id: payment_operations
+      label: Payment Operations
+      category: industry
+
+    - id: settlement_operations
+      label: Settlement Operations
+      category: industry
+
+    - id: partnerships_manager
+      label: Partnerships Manager
+      category: industry
+
   function:
     - id: product_manager
       label: Product Manager

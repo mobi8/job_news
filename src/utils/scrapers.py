@@ -181,6 +181,35 @@ def _run_browser_probe_with_progress(command: List[str], timeout: int, label: st
     return proc.returncode, stdout, "\n".join(stderr_lines)
 
 
+def _browser_page_error(page: dict, *, source: str) -> str:
+    error = clean_text(str(page.get("error", "") or ""))
+    if error:
+        return error
+    joined = " ".join(
+        clean_text(str(value or ""))
+        for value in (
+            page.get("href"),
+            page.get("responseUrl"),
+            page.get("finalUrl"),
+            page.get("pageTitle"),
+            page.get("title"),
+            json.dumps(page.get("block_signals") or page.get("blockSignals") or {}, ensure_ascii=False),
+        )
+    ).lower()
+    if source == "linkedin":
+        checks = (
+            ("authwall", ("authwall",)),
+            ("checkpoint", ("checkpoint", "security verification", "verify you are human")),
+            ("login", ("login", "sign in", "로그인")),
+            ("rate_limit", ("429", "too many requests", "rate limit", "unusual activity")),
+            ("captcha", ("captcha",)),
+        )
+        for label, tokens in checks:
+            if any(token in joined for token in tokens):
+                return f"linkedin_{label}"
+    return ""
+
+
 def fetch_html(url: str) -> str:
     request = urllib.request.Request(
         url,
@@ -956,6 +985,7 @@ def fetch_drjobs_jobs_via_browser() -> List[JobPosting]:
 
 
 def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
+    fetch_indeed_jobs_via_browser.last_errors = []
     if not INDEED_SEARCH_URLS:
         return []
 
@@ -971,7 +1001,14 @@ def fetch_indeed_jobs_via_browser() -> List[JobPosting]:
     pages = _batch_browser_fetch(INDEED_SEARCH_URLS, batch_size=BROWSER_INDEED_BATCH_SIZE)
     if not pages:
         logger.warning("Indeed: no results from browser fetch")
+        fetch_indeed_jobs_via_browser.last_errors = ["browser fetch returned no pages"]
         return []
+    page_errors = [
+        _browser_page_error(page, source="indeed")
+        for page in pages
+        if _browser_page_error(page, source="indeed")
+    ]
+    fetch_indeed_jobs_via_browser.last_errors = page_errors
 
     for search_url, page in zip(INDEED_SEARCH_URLS, pages):
         for item in page.get("jobs", []):
@@ -1297,9 +1334,9 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
 
     raw_parsed_count = sum(len(page.get("jobs", []) or []) for page in pages)
     page_errors = [
-        clean_text(str(page.get("error", "")))[:240]
+        _browser_page_error(page, source="linkedin")[:240]
         for page in pages
-        if page.get("error")
+        if _browser_page_error(page, source="linkedin")
     ]
     fetch_linkedin_jobs_via_browser.last_raw_count = raw_parsed_count
     fetch_linkedin_jobs_via_browser.last_errors = page_errors
@@ -1320,7 +1357,7 @@ def fetch_linkedin_jobs_via_browser() -> List[JobPosting]:
         target_metadata = LINKEDIN_SEARCH_URL_METADATA.get(search_url, {})
         route_raw_count = len(page.get("jobs", []) or [])
         route_parsed_count = 0
-        route_error = clean_text(str(page.get("error", "")))[:500] or None
+        route_error = _browser_page_error(page, source="linkedin")[:500] or None
         for item in page.get("jobs", []):
             url = item.get("url", "").strip()
             title = clean_text(item.get("title", ""))

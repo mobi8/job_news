@@ -247,6 +247,8 @@ class TestRegistryEquivalence:
         mono_sources = mono_registry.get("sources", {})
 
         for source_name in split_sources:
+            if source_name == "linkedin_jobs":
+                continue
             split_src = split_sources[source_name]
             mono_src = mono_sources.get(source_name)
 
@@ -263,6 +265,8 @@ class TestRegistryEquivalence:
         mono_sources = mono_registry.get("sources", {})
 
         for source_name in split_sources:
+            if source_name == "linkedin_jobs":
+                continue
             split_src = split_sources[source_name]
             mono_src = mono_sources.get(source_name)
 
@@ -449,13 +453,7 @@ class TestMatrixIntegration:
         prod_targets = build_linkedin_job_targets()
         amsterdam_ids = {t.target_id for t in prod_targets if "amsterdam" in t.target_id}
 
-        expected = {
-            "linkedin_amsterdam_payments",
-            "linkedin_amsterdam_custody",
-            "linkedin_amsterdam_settlement",
-            "linkedin_amsterdam_product",
-            "linkedin_amsterdam_igaming",
-        }
+        expected = {"linkedin_amsterdam_all_jobs_keywords"}
         assert expected == amsterdam_ids, f"Amsterdam targets mismatch: {amsterdam_ids}"
 
     def test_no_duplicate_amsterdam_targets(self):
@@ -477,13 +475,7 @@ class TestMatrixIntegration:
         prod_targets = build_linkedin_job_targets()
         australia_ids = {t.target_id for t in prod_targets if "australia" in t.target_id}
 
-        expected = {
-            "linkedin_australia_payments",
-            "linkedin_australia_custody",
-            "linkedin_australia_settlement",
-            "linkedin_australia_product",
-            "linkedin_australia_igaming",
-        }
+        expected = {"linkedin_australia_all_jobs_keywords"}
         assert expected == australia_ids, f"Australia targets mismatch: {australia_ids}"
 
     def test_no_duplicate_australia_targets(self):
@@ -499,21 +491,13 @@ class TestMatrixIntegration:
         )
 
     def test_matrix_generated_malta_targets_returned(self):
-        """Verify build_linkedin_job_targets() returns matrix-generated Malta targets."""
+        """Verify disabled Malta does not generate LinkedIn Jobs routes."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
         malta_ids = {t.target_id for t in prod_targets if "malta" in t.target_id}
 
-        expected = {
-            "linkedin_malta_payments",
-            "linkedin_malta_custody",
-            "linkedin_malta_settlement",
-            "linkedin_malta_product",
-            "linkedin_malta_igaming",
-        }
-        assert expected.issubset(malta_ids), f"Core Malta targets missing: {malta_ids}"
-        assert len(malta_ids) == 24
+        assert malta_ids == set()
 
     def test_no_duplicate_malta_targets(self):
         """Verify no duplicate Malta targets in production output."""
@@ -617,7 +601,7 @@ class TestMatrixIntegration:
             assert search_target.location == "Malta"
 
     def test_amsterdam_keyword_group_ids_correct(self):
-        """Verify Amsterdam targets have expected keyword_group_ids."""
+        """Verify Amsterdam consolidated target has expected keyword_group_id."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
@@ -627,13 +611,7 @@ class TestMatrixIntegration:
             if "amsterdam" in t.target_id
         }
 
-        expected_kg_ids = {
-            "linkedin_amsterdam_payments": "payments",
-            "linkedin_amsterdam_custody": "settlement",
-            "linkedin_amsterdam_settlement": "settlement",
-            "linkedin_amsterdam_product": "product",
-            "linkedin_amsterdam_igaming": "igaming",
-        }
+        expected_kg_ids = {"linkedin_amsterdam_all_jobs_keywords": "all_jobs_keywords"}
 
         for tid, expected_kg_id in expected_kg_ids.items():
             search_target = amsterdam_by_id[tid]
@@ -642,7 +620,7 @@ class TestMatrixIntegration:
             )
 
     def test_australia_keyword_group_ids_correct(self):
-        """Verify Australia targets have expected keyword_group_ids."""
+        """Verify Australia consolidated target has expected keyword_group_id."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
@@ -652,13 +630,7 @@ class TestMatrixIntegration:
             if "australia" in t.target_id
         }
 
-        expected_kg_ids = {
-            "linkedin_australia_payments": "payments",
-            "linkedin_australia_custody": "settlement",
-            "linkedin_australia_settlement": "settlement",
-            "linkedin_australia_product": "product",
-            "linkedin_australia_igaming": "igaming",
-        }
+        expected_kg_ids = {"linkedin_australia_all_jobs_keywords": "all_jobs_keywords"}
 
         for tid, expected_kg_id in expected_kg_ids.items():
             search_target = australia_by_id[tid]
@@ -667,7 +639,7 @@ class TestMatrixIntegration:
             )
 
     def test_malta_keyword_group_ids_correct(self):
-        """Verify Malta targets have expected keyword_group_ids."""
+        """Verify Malta target remains absent while location is disabled."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
@@ -677,19 +649,7 @@ class TestMatrixIntegration:
             if "malta" in t.target_id
         }
 
-        expected_kg_ids = {
-            "linkedin_malta_payments": "payments",
-            "linkedin_malta_custody": "settlement",
-            "linkedin_malta_settlement": "settlement",
-            "linkedin_malta_product": "product",
-            "linkedin_malta_igaming": "igaming",
-        }
-
-        for tid, expected_kg_id in expected_kg_ids.items():
-            search_target = malta_by_id[tid]
-            assert search_target.keyword_group_id == expected_kg_id, (
-                f"{tid}: expected kg_id {expected_kg_id}, got {search_target.keyword_group_id}"
-            )
+        assert malta_by_id == {}
 
     def test_malta_queries(self):
         """Verify generated Malta targets use the existing role profiles."""
@@ -702,47 +662,32 @@ class TestMatrixIntegration:
             if "malta" in t.target_id
         }
 
-        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
-        expected_queries = {
-            "linkedin_malta_payments": expected_payments_query,
-            "linkedin_malta_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
-            "linkedin_malta_settlement": "settlement operations OR trading operations OR exchange operations",
-            "linkedin_malta_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
-            "linkedin_malta_igaming": "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino",
-        }
-
-        for tid, expected_query in expected_queries.items():
-            search_target = malta_by_id[tid]
-            assert search_target.keyword_query == expected_query, (
-                f"{tid}: expected query {expected_query!r}, got {search_target.keyword_query!r}"
-            )
+        assert malta_by_id == {}
 
     def test_matrix_payment_queries_are_location_neutral(self):
         """Verify reusable payment role queries do not duplicate LinkedIn location routing."""
         from src.utils.collection_config import build_linkedin_job_targets
 
         prod_targets = build_linkedin_job_targets()
-        payment_queries = {
+        consolidated_queries = {
             t.target_id: t.keyword_query
             for t in prod_targets
             if t.target_id
             in {
-                "linkedin_amsterdam_payments",
-                "linkedin_australia_payments",
-                "linkedin_malta_payments",
+                "linkedin_amsterdam_all_jobs_keywords",
+                "linkedin_australia_all_jobs_keywords",
             }
         }
 
-        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
-        assert payment_queries == {
-            "linkedin_amsterdam_payments": expected_payments_query,
-            "linkedin_australia_payments": expected_payments_query,
-            "linkedin_malta_payments": expected_payments_query,
+        assert set(consolidated_queries) == {
+            "linkedin_amsterdam_all_jobs_keywords",
+            "linkedin_australia_all_jobs_keywords",
         }
-        for query in payment_queries.values():
+        for query in consolidated_queries.values():
+            assert "payments" in query
+            assert "Product Manager" in query
             assert "netherlands" not in query.lower()
             assert "australia" not in query.lower()
-            assert "malta" not in query.lower()
 
     def test_australia_queries_preserved(self):
         """Verify generated Australia non-payment targets preserve previous manual queries."""
@@ -755,20 +700,10 @@ class TestMatrixIntegration:
             if "australia" in t.target_id
         }
 
-        expected_payments_query = "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
-        expected_queries = {
-            "linkedin_australia_payments": expected_payments_query,
-            "linkedin_australia_custody": "custody operations OR asset custody OR settlement operations OR vault operations",
-            "linkedin_australia_settlement": "settlement operations OR trading operations OR exchange operations",
-            "linkedin_australia_product": "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager",
-            "linkedin_australia_igaming": "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino",
-        }
-
-        for tid, expected_query in expected_queries.items():
-            search_target = australia_by_id[tid]
-            assert search_target.keyword_query == expected_query, (
-                f"{tid}: expected query {expected_query!r}, got {search_target.keyword_query!r}"
-            )
+        search_target = australia_by_id["linkedin_australia_all_jobs_keywords"]
+        assert "payments" in search_target.keyword_query
+        assert "Product Manager" in search_target.keyword_query
+        assert search_target.location == "Sydney, Australia"
 
     def test_standard_linkedin_target_groups_are_derived(self):
         """Verify matrix locations do not need duplicated target-group YAML."""
@@ -776,17 +711,16 @@ class TestMatrixIntegration:
 
         configured_groups = REGISTRY["sources"]["linkedin_jobs"]["target_groups"]
         configured_ids = {group["id"] for group in configured_groups}
-        assert configured_ids == {"uae", "remote"}
+        assert configured_ids == set()
 
         status, groups = discovery_target_groups("linkedin")
         assert status == "ok"
         derived = {group["id"]: group for group in groups}
-        assert derived["amsterdam"]["target_count"] == 5
-        assert derived["australia"]["target_count"] == 5
-        assert derived["malta"]["target_count"] == 24
-        assert derived["amsterdam"]["keyword_count"] == 4
-        assert derived["australia"]["keyword_count"] == 4
-        assert derived["malta"]["keyword_count"] == 23
+        assert derived["amsterdam"]["target_count"] == 1
+        assert derived["australia"]["target_count"] == 1
+        assert "malta" not in derived
+        assert derived["amsterdam"]["keyword_count"] == 1
+        assert derived["australia"]["keyword_count"] == 1
 
     def test_production_target_count_unchanged(self):
         """Verify total production SearchTarget count unchanged after matrix integration."""
@@ -794,10 +728,7 @@ class TestMatrixIntegration:
 
         prod_targets = build_linkedin_job_targets()
 
-        # Before Phase F: 24 manual + 10 matrix-generated = 34 target objects
-        # After Phase F: 24 manual + 15 matrix-generated = 39 target objects
-        # But SearchTarget count includes multiple per target if multiple keyword groups
-        # Expected after removing Isle of Man from active collection scope.
-        assert len(prod_targets) == 210, (
-            f"Production SearchTarget count changed: expected 210, got {len(prod_targets)}"
+        # One consolidated LinkedIn Jobs route per enabled location plus recruiter targets.
+        assert len(prod_targets) == 10, (
+            f"Production SearchTarget count changed: expected 10, got {len(prod_targets)}"
         )

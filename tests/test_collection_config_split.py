@@ -151,17 +151,14 @@ class TestLinkedInJobs:
     """Test linkedin_jobs source."""
 
     def test_linkedin_targets_count(self):
-        """Verify expected number of generated LinkedIn targets from keywords.
-
-        Keywords-based system: 15 domain + 14 function keywords × 6 locations = 174 targets.
-        """
+        """Verify LinkedIn Jobs generates one consolidated keyword target per enabled location."""
         all_targets = build_linkedin_job_targets()
-        keyword_targets = [t for t in all_targets if t.origin == 'keyword']
-        assert len(keyword_targets) == 174, f"Expected 174 keyword-based targets, got {len(keyword_targets)}"
+        matrix_targets = [t for t in all_targets if t.origin == "matrix"]
+        assert len(matrix_targets) == 6, f"Expected 6 consolidated matrix targets, got {len(matrix_targets)}"
 
     def test_linkedin_urls_count(self):
-        """Verify expected number of generated LinkedIn URLs from keywords."""
-        assert len(LINKEDIN_SEARCH_URLS) == 174
+        """Verify LinkedIn search URL count is consolidated per enabled location."""
+        assert len(LINKEDIN_SEARCH_URLS) == 6
 
     def test_no_duplicate_linkedin_target_ids(self):
         """Verify no duplicate target_ids in LinkedIn jobs."""
@@ -174,14 +171,14 @@ class TestLinkedInJobs:
         targets = {target.target_id: target for target in build_linkedin_job_targets()}
 
         # Test Amsterdam routing
-        amsterdam = targets.get("linkedin_amsterdam_payments")
-        assert amsterdam is not None, "Expected linkedin_amsterdam_payments target"
+        amsterdam = targets.get("linkedin_amsterdam_all_jobs_keywords")
+        assert amsterdam is not None, "Expected linkedin_amsterdam_all_jobs_keywords target"
         assert "location=Amsterdam%2C+Netherlands" in amsterdam.url
         assert "geoId=" not in amsterdam.url
 
         # Test UAE routing
-        uae = targets.get("linkedin_uae_payments")
-        assert uae is not None, "Expected linkedin_uae_payments target"
+        uae = targets.get("linkedin_uae_all_jobs_keywords")
+        assert uae is not None, "Expected linkedin_uae_all_jobs_keywords target"
         assert "location=Dubai" in uae.url
 
 
@@ -356,10 +353,8 @@ class TestLinkedInPosts:
 
     def test_linkedin_posts_plan_count(self):
         """Verify expected count of LinkedIn post plans."""
-        # Plans = enabled_locations * roles * leads
-        # 5 locations * 10 roles * 4 leads = 200 (but some might be disabled)
-        # At minimum, should have substantial count
-        assert len(LINKEDIN_POST_SEARCH_PLANS) >= 100
+        # Current config: 6 enabled post locations * 5 roles * 2 leads.
+        assert len(LINKEDIN_POST_SEARCH_PLANS) == 60
 
     def test_linkedin_posts_queries_no_trailing_none(self):
         """Regression test: ensure no generated query contains trailing 'None' or null location strings.
@@ -433,8 +428,7 @@ class TestLinkedInJobsMatrixGeneration:
 
         matrix_targets = generate_linkedin_matrix_targets(REGISTRY)
 
-        # Should generate targets from enabled locations × roles matrix
-        # Expect substantial count with current config (3+ locations × 10+ roles)
-        assert len(matrix_targets) >= 10, (
-            f"Expected 10+ LinkedIn Jobs matrix targets, got {len(matrix_targets)}"
+        # One consolidated target per enabled LinkedIn Jobs location.
+        assert len(matrix_targets) == 6, (
+            f"Expected 6 LinkedIn Jobs matrix targets, got {len(matrix_targets)}"
         )
