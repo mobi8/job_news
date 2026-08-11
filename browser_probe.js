@@ -603,7 +603,7 @@ async function main() {
           let previousHeight = 0;
           let scrolls = 0;
           // Keep LinkedIn pagination lighter; most runs do not need a deep scroll sweep.
-          const maxScrolls = 1;
+          const maxScrolls = 3;
           while (scrolls < maxScrolls) {
             const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
             if (newHeight === previousHeight) break;

@@ -353,8 +353,8 @@ class TestLinkedInPosts:
 
     def test_linkedin_posts_plan_count(self):
         """Verify expected count of LinkedIn post plans."""
-        # Current config: 6 enabled post locations * 5 roles * 2 leads.
-        assert len(LINKEDIN_POST_SEARCH_PLANS) == 60
+        # Current config: 6 enabled post locations * 4 roles * 2 leads.
+        assert len(LINKEDIN_POST_SEARCH_PLANS) == 48
 
     def test_linkedin_posts_queries_no_trailing_none(self):
         """Regression test: ensure no generated query contains trailing 'None' or null location strings.
@@ -380,6 +380,42 @@ class TestLinkedInPosts:
                 f"Query has trailing space: {plan.get('location_id')}_{plan.get('role_id')}: "
                 f"{repr(query)}"
             )
+
+    def test_country_specific_post_locations_require_terms(self):
+        """Country-specific post plans must have local evidence terms."""
+        for plan in LINKEDIN_POST_SEARCH_PLANS:
+            if plan.get("global_location"):
+                continue
+            assert plan.get("location_terms"), f"{plan.get('location_id')} has no location_terms"
+
+    def test_malaysia_and_vietnam_posts_include_location_signal(self):
+        """Malaysia/Vietnam post searches should not be global keyword-only searches."""
+        plans = [
+            plan for plan in LINKEDIN_POST_SEARCH_PLANS
+            if plan.get("location_id") in {"posts_malaysia", "posts_vietnam"}
+        ]
+        assert plans
+        for plan in plans:
+            query = plan.get("query", "").lower()
+            location_terms = set(plan.get("location_terms") or [])
+            if plan.get("location_id") == "posts_malaysia":
+                assert "malaysia" in query
+                assert {"malaysia", "kuala lumpur"} <= location_terms
+            if plan.get("location_id") == "posts_vietnam":
+                assert "vietnam" in query
+                assert {"vietnam", "ho chi minh", "hanoi"} <= location_terms
+
+    def test_remote_posts_are_explicitly_global_not_country_specific(self):
+        remote_plans = [
+            plan for plan in LINKEDIN_POST_SEARCH_PLANS
+            if plan.get("location_id") == "posts_remote"
+        ]
+        assert remote_plans
+        for plan in remote_plans:
+            assert plan.get("global_location") is True
+            assert plan.get("remote") is True
+            assert not plan.get("country")
+            assert not plan.get("store_country")
 
 
 class TestSourceMetadataConsistency:

@@ -968,12 +968,18 @@ def _linkedin_post_location_from_shared(
     return {
         "id": posts.get("id") or f"posts_{location_id}",
         "enabled": True,
-        "country": posts.get("country") or shared.get("label") or shared.get("country"),
-        "store_country": posts.get("store_country") or posts.get("country") or shared.get("label") or shared.get("country"),
+        "country": posts["country"] if "country" in posts else shared.get("label") or shared.get("country"),
+        "store_country": (
+            posts["store_country"]
+            if "store_country" in posts
+            else posts["country"] if "country" in posts else shared.get("label") or shared.get("country")
+        ),
         "label": posts.get("label") or shared.get("label") or location_id,
         "aliases": posts.get("aliases") or [location_id],
         "query_location": posts.get("query_location"),
         "location_terms": posts.get("location_terms") or [],
+        "global_location": bool(posts.get("global_location")),
+        "remote": bool(posts.get("remote")),
     }
 
 
@@ -1000,6 +1006,8 @@ def build_linkedin_post_plans() -> list[dict[str, Any]]:
                         "store_country": location.get("store_country", location.get("country")),
                         "display_location": location.get("label", location.get("country")),
                         "location_terms": location.get("location_terms", []),
+                        "global_location": bool(location.get("global_location")),
+                        "remote": bool(location.get("remote")),
                         "source": config.get("source", "linkedin_post"),
                         "query": " ".join(str(p).strip() for p in query_parts if p),
                     }

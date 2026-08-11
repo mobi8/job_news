@@ -214,6 +214,19 @@ def test_linkedin_posts_probe_plan_results_scope_is_global():
     assert declaration < try_block < emission
 
 
+def test_linkedin_jobs_probe_scroll_depth_is_three():
+    probe = Path("browser_probe.js").read_text(encoding="utf-8")
+
+    assert "const maxScrolls = 3;" in probe
+
+
+def test_linkedin_posts_probe_no_empty_location_fallback():
+    probe = Path("linkedin_posts_probe.js").read_text(encoding="utf-8")
+
+    assert "dubai|uae|georgia|tbilisi|malta" not in probe
+    assert "const isGlobalLocation = Boolean(plan.global_location || plan.remote);" in probe
+
+
 def test_linkedin_posts_probe_recovers_stale_cdp_session():
     probe = Path("linkedin_posts_probe.js").read_text(encoding="utf-8")
 

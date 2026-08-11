@@ -241,6 +241,18 @@ locations:
       location: "EMEA"
       geo_id: '92000000'
       remote: true
+    linkedin_posts:
+      id: posts_remote
+      country: ""
+      store_country: ""
+      label: Remote / EMEA
+      aliases:
+        - remote
+        - emea
+      query_location: remote EMEA
+      location_terms: []
+      global_location: true
+      remote: true
 
   vietnam:
     id: vietnam
@@ -250,6 +262,19 @@ locations:
     linkedin:
       source: linkedin_vietnam
       location: "Vietnam"
+    linkedin_posts:
+      id: posts_vietnam
+      country: Vietnam
+      store_country: Vietnam
+      label: Vietnam
+      aliases:
+        - vietnam
+      query_location: in Vietnam
+      location_terms:
+        - vietnam
+        - ho chi minh
+        - hanoi
+        - da nang
 
   malaysia:
     id: malaysia
@@ -259,3 +284,16 @@ locations:
     linkedin:
       source: linkedin_malaysia
       location: "Malaysia"
+    linkedin_posts:
+      id: posts_malaysia
+      country: Malaysia
+      store_country: Malaysia
+      label: Malaysia
+      aliases:
+        - malaysia
+      query_location: in Malaysia
+      location_terms:
+        - malaysia
+        - kuala lumpur
+        - selangor
+        - penang

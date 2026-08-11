@@ -534,9 +534,12 @@ def _passes_filters(post: Dict[str, Any]) -> bool:
     text = f"{body} {post.get('text', '')}".lower()
     if not _has_job_post_signal(body, post.get("outbound_links") or []):
         return False
-    country = post.get("country") or "UAE"
-    location_terms = post.get("location_terms") or LOCATION_TERMS_BY_COUNTRY.get(country, LOCATION_TERMS_BY_COUNTRY["UAE"])
-    if not any(term in text for term in location_terms):
+    is_global_location = bool(post.get("global_location") or post.get("remote"))
+    country = post.get("country") or ""
+    location_terms = post.get("location_terms") or LOCATION_TERMS_BY_COUNTRY.get(country, [])
+    if not is_global_location and not location_terms:
+        return False
+    if location_terms and not any(term in text for term in location_terms):
         return False
     if not any(term in text for term in DOMAIN_TERMS):
         return False
@@ -566,8 +569,9 @@ def _to_job(post: Dict[str, Any]) -> JobPosting:
 
     outbound = post.get("outbound_links") or []
     source = post.get("source") or "linkedin_post"
-    location = post.get("display_location") or post.get("country") or "UAE"
-    country = post.get("store_country") or post.get("country") or "UAE"
+    is_global_location = bool(post.get("global_location") or post.get("remote"))
+    location = post.get("display_location") or ("Remote / Global" if is_global_location else post.get("country") or "")
+    country = "" if is_global_location else post.get("store_country") or post.get("country") or ""
     metadata = [
         "[LinkedIn Post Lead]",
         f"Category: {post.get('category', '')}",

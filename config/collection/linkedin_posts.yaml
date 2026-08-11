@@ -27,11 +27,6 @@ sources:
     - id: game
       query: game
       domain: game
-    - id: payments
-      query: payment operations OR payments engineer OR payment product
-      domain: payments
-      aliases:
-      - payment
     locations: []
     matrix:
       enabled: true

@@ -225,11 +225,11 @@ async function extractPosts(page, plan) {
       const text = clean(card?.innerText || '');
       if (!text || text.length < 80) continue;
       const locationTerms = Array.isArray(plan.location_terms) ? plan.location_terms : [];
+      const isGlobalLocation = Boolean(plan.global_location || plan.remote);
       const hasHiringSignal = /(#hiring\b|we.?re hiring|we are hiring|is hiring|actively hiring|hiring for|job alert|open (role|roles|position|positions|vacancy|vacancies)|vacanc(y|ies)|join our team|apply (now|here|today)|job title\s*:|(^|\s)(role|position)\s*:|looking for .{0,50}(manager|engineer|developer|lead|specialist|candidate|talent|product|sales|business development|bd))/i.test(text);
-      const hasLocationSignal = locationTerms.length
-        ? locationTerms.some((term) => term && text.toLowerCase().includes(String(term).toLowerCase()))
-        : /(dubai|uae|georgia|tbilisi|malta)/i.test(text);
+      const hasLocationSignal = isGlobalLocation || locationTerms.some((term) => term && text.toLowerCase().includes(String(term).toLowerCase()));
       if (!hasHiringSignal || !hasLocationSignal) continue;
+      const evidenceLocation = isGlobalLocation ? '' : (plan.display_location || plan.country || '');
 
       const lines = text.split('\n').map((line) => clean(line)).filter(Boolean);
       const authorProfile = Array.from(card.querySelectorAll('a[href*="/in/"], a[href*="/company/"]'))
@@ -278,10 +278,12 @@ async function extractPosts(page, plan) {
         query: plan.query,
         category: plan.category,
         domain: plan.domain,
-        country: plan.country || 'UAE',
-        store_country: plan.store_country || plan.country || 'UAE',
-        display_location: plan.display_location || plan.country || 'UAE',
+        country: isGlobalLocation ? '' : evidenceLocation,
+        store_country: isGlobalLocation ? '' : (plan.store_country || evidenceLocation),
+        display_location: isGlobalLocation ? (plan.display_location || 'Remote / Global') : evidenceLocation,
         location_terms: locationTerms,
+        global_location: isGlobalLocation,
+        location_evidence: isGlobalLocation ? 'global_location' : evidenceLocation,
       });
     }
     return cards;
