@@ -112,3 +112,29 @@ def test_telegram_message_permalink_is_url_fallback():
     assert reason is None
     assert job is not None
     assert job.url == "https://t.me/job_crypto_uae/1"
+
+
+def test_linkedin_enabled_route_filter_keeps_all_enabled_sources():
+    jobs = [
+        JobPosting(source="linkedin_public", source_job_id="uae-1", title="UAE One", company="A", location="Dubai", url="https://example.com/uae-1"),
+        JobPosting(source="linkedin_public", source_job_id="uae-2", title="UAE Two", company="A", location="Dubai", url="https://example.com/uae-2"),
+        JobPosting(source="linkedin_amsterdam", source_job_id="ams-1", title="AMS One", company="B", location="Amsterdam", url="https://example.com/ams-1"),
+        JobPosting(source="linkedin_amsterdam", source_job_id="ams-2", title="AMS Two", company="B", location="Amsterdam", url="https://example.com/ams-2"),
+    ]
+
+    defective_before = [job for job in jobs if job.source in {"linkedin_public"}]
+    fixed_after = scraper._filter_linkedin_jobs_for_enabled_routes(
+        jobs,
+        {"linkedin_public"},
+        ["linkedin_public", "linkedin_amsterdam"],
+    )
+
+    assert len(defective_before) == 2
+    assert len(fixed_after) == 4
+    assert [job.source for job in fixed_after] == [
+        "linkedin_public",
+        "linkedin_public",
+        "linkedin_amsterdam",
+        "linkedin_amsterdam",
+    ]
+    assert [job.location for job in fixed_after] == ["Dubai", "Dubai", "Amsterdam", "Amsterdam"]

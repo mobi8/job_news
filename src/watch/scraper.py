@@ -256,6 +256,19 @@ def _any_source_allowed(allowed_sources: set[str] | None, *sources: str) -> bool
     return any(source in allowed_sources for source in sources)
 
 
+def _filter_linkedin_jobs_for_enabled_routes(
+    jobs: list,
+    allowed_sources: set[str] | None,
+    enabled_linkedin_sources: list[str],
+) -> list:
+    if allowed_sources is None:
+        return jobs
+    enabled_sources = set(enabled_linkedin_sources)
+    if allowed_sources & enabled_sources:
+        return [job for job in jobs if job.source in enabled_sources]
+    return [job for job in jobs if job.source in allowed_sources]
+
+
 def _is_indeed_source(source: str) -> bool:
     return source.startswith("indeed_")
 
@@ -1255,7 +1268,11 @@ def run(mode: str = "collect") -> Dict[str, Any]:
         jobspy_indeed_jobs_filtered = jobspy_indeed_jobs
 
         if allowed_sources is not None:
-            linkedin_jobs = [job for job in linkedin_jobs if job.source in allowed_sources]
+            linkedin_jobs = _filter_linkedin_jobs_for_enabled_routes(
+                linkedin_jobs,
+                allowed_sources,
+                enabled_linkedin_sources,
+            )
             glassdoor_jobs = [job for job in glassdoor_jobs if job.source in allowed_sources]
             browser_indeed_jobs_filtered = [job for job in browser_indeed_jobs_filtered if job.source in allowed_sources]
             jobspy_indeed_jobs_filtered = [job for job in jobspy_indeed_jobs_filtered if job.source in allowed_sources]
