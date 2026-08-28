@@ -6,13 +6,33 @@ LABEL="com.jobwatch.telegram-poller"
 DOMAIN="gui/$(id -u)"
 PLIST_TEMPLATE="${WORKDIR}/config/launchd/${LABEL}.plist.template"
 PLIST_DEST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
-PYTHON_BIN="${WORKDIR}/venv312/bin/python"
+PYTHON_BIN="${PYTHON_BIN:-}"
 POLLER_SCRIPT="${WORKDIR}/src/api/telegram_poller.py"
 
-if [[ ! -x "${PYTHON_BIN}" ]]; then
-  echo "Missing Python runtime: ${PYTHON_BIN}" >&2
-  exit 1
-fi
+select_python_bin() {
+  if [[ -n "${PYTHON_BIN}" ]]; then
+    if [[ -x "${PYTHON_BIN}" ]]; then
+      return 0
+    fi
+    if command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v "${PYTHON_BIN}")"
+      return 0
+    fi
+    echo "PYTHON_BIN is set but not executable: ${PYTHON_BIN}" >&2
+    exit 1
+  fi
+
+  if [[ -x "${WORKDIR}/venv312/bin/python" ]]; then
+    PYTHON_BIN="${WORKDIR}/venv312/bin/python"
+  elif [[ -x "${WORKDIR}/venv/bin/python" ]]; then
+    PYTHON_BIN="${WORKDIR}/venv/bin/python"
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+  else
+    echo "No usable Python found. Set PYTHON_BIN explicitly." >&2
+    exit 1
+  fi
+}
 
 if [[ ! -f "${PLIST_TEMPLATE}" ]]; then
   echo "Missing plist template: ${PLIST_TEMPLATE}" >&2
@@ -39,6 +59,7 @@ NODE_BIN="$(resolve_node_bin)" || {
   echo "ERROR: Node executable not found. Please install Node.js or set PATH." >&2
   exit 1
 }
+select_python_bin
 
 echo "Installing ${LABEL}"
 echo "  Python: ${PYTHON_BIN}"
@@ -46,7 +67,10 @@ echo "  Node: ${NODE_BIN}"
 echo "  Script: ${POLLER_SCRIPT}"
 
 mkdir -p "${HOME}/Library/LaunchAgents"
-sed "s|__NODE_BIN_PATH__|${NODE_BIN}|g" "${PLIST_TEMPLATE}" > "${PLIST_DEST}"
+sed \
+  -e "s|__PYTHON_BIN_PATH__|${PYTHON_BIN}|g" \
+  -e "s|__NODE_BIN_PATH__|${NODE_BIN}|g" \
+  "${PLIST_TEMPLATE}" > "${PLIST_DEST}"
 plutil -lint "${PLIST_DEST}"
 
 echo "Stopping existing launchd service if present..."

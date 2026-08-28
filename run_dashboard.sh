@@ -14,6 +14,7 @@ CLEANUP_IN_PROGRESS=0
 
 export WS_NO_BUFFER_UTIL="${WS_NO_BUFFER_UTIL:-1}"
 export WS_NO_UTF_8_VALIDATE="${WS_NO_UTF_8_VALIDATE:-1}"
+export PYDANTIC_DISABLE_PLUGINS="${PYDANTIC_DISABLE_PLUGINS:-1}"
 
 case "${1:-}" in
   --with-workers|--full)

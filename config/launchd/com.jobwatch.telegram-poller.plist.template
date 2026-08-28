@@ -8,7 +8,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/lewis/Desktop/agent/venv312/bin/python</string>
+    <string>__PYTHON_BIN_PATH__</string>
     <string>/Users/lewis/Desktop/agent/src/api/telegram_poller.py</string>
   </array>
 
@@ -30,6 +30,8 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+    <key>PYDANTIC_DISABLE_PLUGINS</key>
     <string>1</string>
     <key>NODE_BIN</key>
     <string>__NODE_BIN_PATH__</string>
