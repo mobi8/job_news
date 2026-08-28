@@ -6,30 +6,13 @@ LABEL="com.jobwatch.telegram-poller"
 DOMAIN="gui/$(id -u)"
 PLIST_TEMPLATE="${WORKDIR}/config/launchd/${LABEL}.plist.template"
 PLIST_DEST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
-PYTHON_BIN="${PYTHON_BIN:-}"
+PYTHON_BIN="${WORKDIR}/venv/bin/python"
 POLLER_SCRIPT="${WORKDIR}/src/api/telegram_poller.py"
 
 select_python_bin() {
-  if [[ -n "${PYTHON_BIN}" ]]; then
-    if [[ -x "${PYTHON_BIN}" ]]; then
-      return 0
-    fi
-    if command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-      PYTHON_BIN="$(command -v "${PYTHON_BIN}")"
-      return 0
-    fi
-    echo "PYTHON_BIN is set but not executable: ${PYTHON_BIN}" >&2
-    exit 1
-  fi
-
-  if [[ -x "${WORKDIR}/venv312/bin/python" ]]; then
-    PYTHON_BIN="${WORKDIR}/venv312/bin/python"
-  elif [[ -x "${WORKDIR}/venv/bin/python" ]]; then
-    PYTHON_BIN="${WORKDIR}/venv/bin/python"
-  elif command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="$(command -v python3)"
-  else
-    echo "No usable Python found. Set PYTHON_BIN explicitly." >&2
+  if [[ ! -x "${PYTHON_BIN}" ]]; then
+    echo "Missing project Python runtime: ${PYTHON_BIN}" >&2
+    echo "Create it with: python3 -m venv venv && venv/bin/python -m pip install -r requirements.txt" >&2
     exit 1
   fi
 }

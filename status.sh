@@ -2,6 +2,8 @@
 
 echo "🔍 서버 상태 확인..."
 echo ""
+WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_BIN="${WORKDIR}/venv/bin/python"
 
 # API 서버 (포트 8000)
 if lsof -i :8000 >/dev/null 2>&1; then
@@ -54,13 +56,13 @@ show_processes "LinkedIn jobs spot" "src/watch/linkedin_jobs_spot.py|browser_pro
 show_processes "Telegram poller" "src/api/telegram_poller.py"
 
 echo ""
-if [[ -f "/Users/lewis/Desktop/agent/outputs/scrape_state.json" ]]; then
+if [[ -f "${WORKDIR}/outputs/scrape_state.json" && -x "${PYTHON_BIN}" ]]; then
   echo "📄 scrape_state.json:"
-  python3 - <<'PY' 2>/dev/null || true
+  "${PYTHON_BIN}" - <<'PY' 2>/dev/null || true
 import json
 from pathlib import Path
 
-path = Path("/Users/lewis/Desktop/agent/outputs/scrape_state.json")
+path = Path("outputs/scrape_state.json")
 data = json.loads(path.read_text(encoding="utf-8"))
 for key in ("run_status", "started_at", "completed_at", "next_scrape_at", "new_jobs_this_run", "new_news_this_run"):
     if key in data:

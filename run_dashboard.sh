@@ -5,7 +5,7 @@ WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${WORKDIR}/frontend"
 START_WORKERS=0
 JOBS_DIR="${WORKDIR}/outputs"
-PYTHON_BIN="${PYTHON_BIN:-}"
+PYTHON_BIN="${WORKDIR}/venv/bin/python"
 
 UVICORN_PID=""
 VITE_PID=""
@@ -51,26 +51,9 @@ startup_cleanup() {
 trap startup_cleanup EXIT INT TERM
 
 select_python() {
-  if [[ -n "${PYTHON_BIN}" ]]; then
-    if [[ -x "${PYTHON_BIN}" ]]; then
-      return 0
-    fi
-    if command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-      PYTHON_BIN="$(command -v "${PYTHON_BIN}")"
-      return 0
-    fi
-    echo "  ✖ PYTHON_BIN not found or not executable: ${PYTHON_BIN}"
-    exit 1
-  fi
-
-  if [[ -x "${WORKDIR}/venv312/bin/python" ]]; then
-    PYTHON_BIN="${WORKDIR}/venv312/bin/python"
-  elif [[ -x "${WORKDIR}/venv/bin/python" ]]; then
-    PYTHON_BIN="${WORKDIR}/venv/bin/python"
-  elif command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="$(command -v python3)"
-  else
-    echo "  ✖ No usable python3 found"
+  if [[ ! -x "${PYTHON_BIN}" ]]; then
+    echo "  ✖ Missing project Python: ${PYTHON_BIN}"
+    echo "    Create it with: python3 -m venv venv && venv/bin/python -m pip install -r requirements.txt"
     exit 1
   fi
 }

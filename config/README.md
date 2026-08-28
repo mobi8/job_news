@@ -141,19 +141,19 @@ Add a role under `sources.linkedin_posts.roles`, or a location under `sources.li
 Run:
 
 ```bash
-python3 -m src.utils.collection_config --check
+venv/bin/python -m src.utils.collection_config --check
 ```
 
 Optional smoke checks can compare generated counts and metadata maps without running a real collection.
 
 ## Runner Python
 
-Operational shell runners prefer `PYTHON_BIN` first, then `venv312/bin/python`, then `venv/bin/python`, then system `python3`.
+Operational shell runners use the project virtual environment at `venv/bin/python`.
 
-Use the verified Python 3.12 environment explicitly when running collectors:
+Run collectors from the project root without activating the environment:
 
 ```bash
-PYTHON_BIN="$PWD/venv312/bin/python" ./run_collect_once.sh
+./run_collect_once.sh
 ```
 
 The runners print the selected Python path and version at startup. Python 3.14 or newer prints a dependency compatibility warning.
@@ -163,7 +163,7 @@ The runners print the selected Python path and version at startup. Python 3.14 o
 Collection phases are listed in `runtime.phases`. The phase runner is a thin dispatcher around the existing collectors and runners.
 
 ```bash
-PYTHON_BIN="$PWD/venv312/bin/python"
+PYTHON_BIN="$PWD/venv/bin/python"
 $PYTHON_BIN -m src.watch.phase_runner list
 $PYTHON_BIN -m src.watch.phase_runner status
 $PYTHON_BIN -m src.watch.phase_runner run rss --target igaming_business --dry-run

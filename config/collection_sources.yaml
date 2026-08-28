@@ -6,7 +6,7 @@
 # Key concepts:
 # - This file is the SOURCE OF TRUTH for external collection sources. All runtime collection
 #   behavior depends on settings here.
-# - Validation: `venv312/bin/python -m src.utils.collection_config --check` (run after edits)
+# - Validation: `venv/bin/python -m src.utils.collection_config --check` (run after edits)
 # - `enabled: false` means this source/target will be skipped during collection runs.
 # - Selector resolution priority: phase > target_id > keyword_group_id > alias
 #   (When referencing a target via Telegram, CLI, or API, the system searches in this order.)
@@ -341,7 +341,7 @@ sources:
   #   * source: links to source_metadata.id.
   #   * country: regional label.
   #   * location: geographic location string (e.g., "Dubai, United Arab Emirates").
-  #   * geo_id: LinkedIn geo ID (e.g., '90009603' for Dubai). Refine search geographically.
+  #   * geo_id: LinkedIn geo ID (e.g., '106204383' for Dubai). Refine search geographically.
   #   * remote: true if this is remote work; adds parameter to URL.
   #   * keyword_groups: list of queries that generate URLs.
   #     Each keyword_group has:

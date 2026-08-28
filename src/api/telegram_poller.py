@@ -88,17 +88,10 @@ def _send_collect_chunks(text: str, chat_id: object | None = None, *, limit: int
 
 
 def _select_collect_python_bin() -> str:
-    explicit = os.getenv("PYTHON_BIN")
-    if explicit:
-        return explicit
-
     workdir = Path(__file__).parent.parent.parent
-    for candidate in (
-        workdir / "venv312" / "bin" / "python",
-        workdir / "venv" / "bin" / "python",
-    ):
-        if candidate.exists():
-            return str(candidate)
+    python_bin = workdir / "venv" / "bin" / "python"
+    if python_bin.exists():
+        return str(python_bin)
     return sys.executable
 
 
@@ -107,7 +100,7 @@ def _collect_env() -> dict[str, str]:
     workdir = Path(__file__).parent.parent.parent
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = str(workdir) if not existing else f"{workdir}{os.pathsep}{existing}"
-    env.setdefault("PYTHON_BIN", _select_collect_python_bin())
+    env["PYTHON_BIN"] = _select_collect_python_bin()
     return env
 
 
@@ -1852,4 +1845,5 @@ def poll_messages() -> None:
 
 if __name__ == "__main__":
     print("🤖 Starting Telegram bot poller...")
+    print(f"Poller sys.executable: {sys.executable}", flush=True)
     poll_messages()

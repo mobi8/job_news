@@ -339,14 +339,13 @@ Accepts location-based or keyword-based filtering arguments passed through to Py
 
 ## Python Selection Algorithm
 
-All runners implement the same Python selection (function `select_python_bin()`):
+All operational runners use the project virtual environment:
 
-1. **Environment variable:** If `PYTHON_BIN` is set and executable, use it
-2. **Virtual environment (3.12):** If `./venv312/bin/python` exists and is executable, use it
-3. **Virtual environment (generic):** If `./venv/bin/python` exists and is executable, use it
-4. **System Python:** Use `python3` from PATH (fails if not found)
+```bash
+./venv/bin/python
+```
 
-Version warning: Issues warning if Python >= 3.14 is detected (current dependencies pinned to 3.12)
+The runner scripts compute this path from the project root, so callers do not need to activate the venv first.
 
 ---
 
