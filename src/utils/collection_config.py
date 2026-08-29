@@ -369,7 +369,7 @@ REGISTRY = load_collection_registry()
 
 
 def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str, Any]]:
-    """Generate one consolidated LinkedIn Jobs target per enabled location."""
+    """Generate LinkedIn Jobs targets from enabled locations."""
     linkedin_source = registry.get("sources", {}).get("linkedin_jobs", {})
     matrix_config = linkedin_source.get("matrix", {})
 
@@ -377,7 +377,10 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         return []
 
     locations = registry.get("locations", {})
+    role_profiles = registry.get("role_profiles", {})
     keywords_config = registry.get("keywords", {})
+    generated_targets = []
+
     keyword_terms: list[str] = []
     for keyword in keywords_config.get("domain", []) or []:
         if isinstance(keyword, dict) and keyword.get("id"):
@@ -387,18 +390,12 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
             value = keyword.get("label") or keyword.get("id")
             if value:
                 keyword_terms.append(str(value))
+    fallback_query = " OR ".join(unique_preserve_order(keyword_terms))
 
-    query = " OR ".join(unique_preserve_order(keyword_terms))
-    if not query:
-        return []
-
-    generated_targets = []
-
-    # Iterate over enabled locations from locations.yaml
     enabled_location_ids = [loc_id for loc_id, loc_cfg in locations.items() if loc_cfg.get("enabled")]
     for location_id in sorted(enabled_location_ids):
         location_config = locations.get(location_id)
-        if not location_config or not location_config.get("enabled"):
+        if not isinstance(location_config, dict) or not location_config.get("enabled"):
             continue
         linkedin_location = location_config.get("linkedin", {})
         source = linkedin_location.get("source", "")
@@ -409,38 +406,80 @@ def generate_linkedin_matrix_targets(registry: dict[str, Any]) -> list[dict[str,
         geo_id = linkedin_location.get("geo_id")
         domain = linkedin_location.get("domain")
         remote = linkedin_location.get("remote", False)
+        split_role_searches = bool(linkedin_location.get("split_role_searches"))
 
-        target = {
-            "id": f"linkedin_{location_id}_all_jobs_keywords",
-            "enabled": True,
-            "origin": "matrix",
-            "location_id": location_id,
-            "role_id": "all_jobs_keywords",
-            "source": source,
-            "country": location_config.get("country", ""),
-            "location": location_str,
-            "url_location": url_location,
-            "keyword_groups": [
-                {
-                    "id": "all_jobs_keywords",
-                    "query": query,
+        role_ids = _matrix_role_ids_for_location(matrix_config, location_config) if split_role_searches else []
+        for role_id in role_ids:
+            role_config = role_profiles.get(role_id)
+            if not isinstance(role_config, dict) or not role_config.get("enabled", True):
+                continue
+            linkedin_role = role_config.get("linkedin") or {}
+            queries = [str(item) for item in linkedin_role.get("queries", []) or [] if str(item).strip()]
+            if not queries:
+                continue
+            keyword_group_id = str(linkedin_role.get("keyword_group_id") or role_id)
+            target = {
+                "id": f"linkedin_{location_id}_{role_id}",
+                "enabled": True,
+                "origin": "matrix",
+                "location_id": location_id,
+                "role_id": role_id,
+                "source": source,
+                "country": location_config.get("country", ""),
+                "location": location_str,
+                "url_location": url_location,
+                "keyword_groups": [
+                    {
+                        "id": keyword_group_id,
+                        "query": query,
+                    }
+                    for query in queries
+                ],
+                "url": {
+                    "builder": "linkedin_jobs"
                 }
-            ],
-            "url": {
-                "builder": "linkedin_jobs"
             }
-        }
 
-        if geo_id:
-            target["geo_id"] = geo_id
-        if domain:
-            target["domain"] = domain
-        if remote:
-            target["remote"] = True
+            if geo_id:
+                target["geo_id"] = geo_id
+            if domain:
+                target["domain"] = domain
+            if remote:
+                target["remote"] = True
 
-        generated_targets.append(target)
+            generated_targets.append(target)
 
-    # Sort by target ID for deterministic ordering
+        if not split_role_searches and fallback_query:
+            target = {
+                "id": f"linkedin_{location_id}_all_jobs_keywords",
+                "enabled": True,
+                "origin": "matrix",
+                "location_id": location_id,
+                "role_id": "all_jobs_keywords",
+                "source": source,
+                "country": location_config.get("country", ""),
+                "location": location_str,
+                "url_location": url_location,
+                "keyword_groups": [
+                    {
+                        "id": "all_jobs_keywords",
+                        "query": fallback_query,
+                    }
+                ],
+                "url": {
+                    "builder": "linkedin_jobs"
+                }
+            }
+
+            if geo_id:
+                target["geo_id"] = geo_id
+            if domain:
+                target["domain"] = domain
+            if remote:
+                target["remote"] = True
+
+            generated_targets.append(target)
+
     return sorted(generated_targets, key=lambda t: t["id"])
 
 
@@ -542,21 +581,49 @@ def _matrix_target_groups_for_linkedin(registry: dict[str, Any]) -> list[dict[st
         linkedin_location = location.get("linkedin") or {}
         aliases = [f"linkedin_{location_id}"]
         aliases.extend(str(alias) for alias in linkedin_location.get("aliases", []) or [])
+        split_role_searches = bool(linkedin_location.get("split_role_searches"))
+        role_ids = _matrix_role_ids_for_location(matrix_config, location) if split_role_searches else []
+        target_ids = (
+            [f"linkedin_{location_id}_{role_id}" for role_id in role_ids]
+            if split_role_searches
+            else [f"linkedin_{location_id}_all_jobs_keywords"]
+        )
+        keyword_groups = [
+            {
+                "id": role_id,
+                "label": str((registry.get("role_profiles", {}).get(role_id) or {}).get("label") or role_id),
+                "aliases": list((registry.get("role_profiles", {}).get(role_id) or {}).get("aliases") or []),
+                "keyword_group_ids": [
+                    str(
+                        (
+                            (registry.get("role_profiles", {}).get(role_id) or {})
+                            .get("linkedin", {})
+                            .get("keyword_group_id")
+                        )
+                        or role_id
+                    )
+                ],
+            }
+            for role_id in role_ids
+            if isinstance(registry.get("role_profiles", {}).get(role_id), dict)
+        ]
+        if not keyword_groups:
+            keyword_groups = [
+                {
+                    "id": "all_jobs_keywords",
+                    "label": "All Jobs Keywords",
+                    "aliases": ["all", "keywords"],
+                    "keyword_group_ids": ["all_jobs_keywords"],
+                }
+            ]
         groups.append(
             {
                 "id": location_id,
                 "label": str(location.get("label") or location_id),
                 "aliases": aliases,
                 "country": str(location.get("country") or ""),
-                "target_ids": [f"linkedin_{location_id}_all_jobs_keywords"],
-                "keyword_groups": [
-                    {
-                        "id": "all_jobs_keywords",
-                        "label": "All Jobs Keywords",
-                        "aliases": ["all", "keywords"],
-                        "keyword_group_ids": ["all_jobs_keywords"],
-                    }
-                ],
+                "target_ids": target_ids,
+                "keyword_groups": keyword_groups,
             }
         )
     return groups

@@ -8,6 +8,7 @@ locations:
       source: linkedin_public
       location: "Dubai, United Arab Emirates"
       geo_id: '106204383'
+      split_role_searches: true
       # LinkedIn Dubai geo ID; keeps public search pinned to Dubai/UAE.
       aliases:
         - united_arab_emirates
