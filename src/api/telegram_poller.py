@@ -17,15 +17,53 @@ import signal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Load .env
-env_path = Path(__file__).parent.parent.parent / ".env"
-if env_path.exists():
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
+def _apply_env_text(text: str, *, override: bool) -> None:
+    for line in text.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            if override:
                 os.environ[key.strip()] = value.strip()
+            else:
+                os.environ.setdefault(key.strip(), value.strip())
+
+
+def _load_env_file() -> None:
+    env_path = Path(__file__).parent.parent.parent / ".env"
+    if not env_path.exists():
+        return
+    last_error: OSError | None = None
+    for attempt in range(3):
+        try:
+            _apply_env_text(env_path.read_text(encoding="utf-8"), override=True)
+            return
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2 * (attempt + 1))
+
+    keys = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_ALLOWED_CHAT_IDS", "ENABLE_TELEGRAM_COLLECT"]
+    script = "set -a; source \"$1\"; shift; for key in \"$@\"; do printf '%s=%s\\0' \"$key\" \"${!key}\"; done"
+    try:
+        result = subprocess.run(
+            ["/bin/bash", "-c", script, "load-env", str(env_path), *keys],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0:
+            for entry in result.stdout.decode("utf-8", errors="replace").split("\0"):
+                if "=" in entry:
+                    key, value = entry.split("=", 1)
+                    if key and value:
+                        os.environ[key] = value
+            return
+    except Exception as exc:
+        print(f"⚠️ .env fallback load failed: {exc}", file=sys.stderr)
+
+    print(f"⚠️ Failed to load .env after retries: {last_error}", file=sys.stderr)
+
+
+_load_env_file()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
