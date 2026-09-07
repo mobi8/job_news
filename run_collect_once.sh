@@ -179,6 +179,7 @@ export SKIP_INDEED_BROWSER="${SKIP_INDEED_BROWSER:-0}"
 export SKIP_DRJOBS_BROWSER="${SKIP_DRJOBS_BROWSER:-0}"
 export SKIP_GLASSDOOR_BROWSER="${SKIP_GLASSDOOR_BROWSER:-0}"
 export SKIP_JOBSPY="${SKIP_JOBSPY:-0}"
+export SKIP_NEWS="${SKIP_NEWS:-1}"
 export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
 export PYDANTIC_DISABLE_PLUGINS="${PYDANTIC_DISABLE_PLUGINS:-1}"
 export RUN_LINKEDIN_POSTS="${RUN_LINKEDIN_POSTS:-1}"
@@ -195,13 +196,14 @@ echo "  Indeed JobSpy: $([[ "${SKIP_JOBSPY}" == "1" ]] && echo off || echo on)"
 echo "  Glassdoor: $([[ "${SKIP_GLASSDOOR_BROWSER}" == "1" ]] && echo off || echo on)"
 echo "  DrJobs: $([[ "${SKIP_DRJOBS_BROWSER}" == "1" ]] && echo off || echo on)"
 echo "  Telegram channels: $([[ "${SKIP_TELEGRAM_SCRAPER:-0}" == "1" ]] && echo off || echo on)"
+echo "  News RSS: $([[ "${SKIP_NEWS}" == "1" ]] && echo off || echo on)"
 echo "  LinkedIn posts: $([[ "${RUN_LINKEDIN_POSTS}" == "1" ]] && echo on || echo off)"
 echo "  Queue export: $([[ "${RUN_QUEUE_EXPORT}" == "1" ]] && echo on || echo off)"
 echo "  Browser heartbeat: every ${BROWSER_PROBE_HEARTBEAT_SECONDS}s"
 echo "  Pydantic plugins: $([[ "${PYDANTIC_DISABLE_PLUGINS}" == "1" ]] && echo disabled || echo enabled)"
 
 echo ""
-echo "Running jobs/news scrape..."
+echo "Running jobs scrape..."
 acquire_glassdoor_lock_or_skip
 set +e
 env PYTHONUNBUFFERED=1 BROWSER_BATCH_WORKERS="${PRESET_BROWSER_BATCH_WORKERS:-${BROWSER_BATCH_WORKERS:-1}}" BROWSER_LINKEDIN_BATCH_SIZE="${PRESET_BROWSER_LINKEDIN_BATCH_SIZE:-${BROWSER_LINKEDIN_BATCH_SIZE:-3}}" BROWSER_INDEED_BATCH_SIZE="${PRESET_BROWSER_INDEED_BATCH_SIZE:-${BROWSER_INDEED_BATCH_SIZE:-2}}" "${PYTHON_BIN}" src/watch/scraper.py collect

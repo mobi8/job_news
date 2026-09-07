@@ -3,7 +3,97 @@ sources:
     enabled: true
     type: generated_search
     fetch_method: browser
-    target_groups: []
+    target_groups:
+      - id: uae
+        label: UAE
+        aliases:
+          - linkedin_uae
+          - united_arab_emirates
+        country: UAE
+        keyword_groups:
+          - id: account_manager
+            label: Account Manager
+            aliases: [account_management]
+            keyword_group_ids: [account_manager]
+          - id: aml
+            label: AML
+            keyword_group_ids: [aml]
+          - id: business_development
+            label: Business Development
+            aliases: [bd, sales]
+            keyword_group_ids: [business_development]
+          - id: compliance
+            label: Compliance
+            keyword_group_ids: [compliance]
+          - id: crypto
+            label: Crypto Operations
+            aliases: [web3, crypto_operations]
+            keyword_group_ids: [crypto_operations]
+          - id: custody
+            label: Custody
+            keyword_group_ids: [settlement]
+          - id: delivery
+            label: Delivery
+            keyword_group_ids: [delivery]
+          - id: fraud
+            label: Fraud
+            keyword_group_ids: [fraud]
+          - id: igaming
+            label: iGaming
+            keyword_group_ids: [igaming]
+          - id: implementation
+            label: Implementation
+            keyword_group_ids: [implementation]
+          - id: integration
+            label: Integration
+            keyword_group_ids: [integration]
+          - id: kyb
+            label: KYB
+            keyword_group_ids: [kyb]
+          - id: kyc
+            label: KYC
+            keyword_group_ids: [kyc]
+          - id: partner_manager
+            label: Partner Manager
+            aliases: [partnerships]
+            keyword_group_ids: [partner_manager]
+          - id: payment_partnerships
+            label: Payment Partnerships
+            aliases: [psp, psp_partnerships]
+            keyword_group_ids: [payment_partnerships]
+          - id: payments
+            label: Payments
+            aliases: [payment]
+            keyword_group_ids: [payments]
+          - id: product
+            label: Product Manager
+            aliases: [product_manager, product-manager]
+            keyword_group_ids: [product]
+          - id: product_operations
+            label: Product Operations
+            aliases: [product_ops]
+            keyword_group_ids: [product_operations]
+          - id: reconciliation
+            label: Reconciliation
+            aliases: [reconciliations]
+            keyword_group_ids: [reconciliation]
+          - id: risk
+            label: Risk
+            keyword_group_ids: [risk]
+          - id: settlement
+            label: Settlement
+            keyword_group_ids: [settlement]
+          - id: technical_account
+            label: Technical Account
+            aliases: [technical_account_manager, tam]
+            keyword_group_ids: [technical_account]
+          - id: treasury
+            label: Treasury
+            keyword_group_ids: [treasury]
+          - id: wallet
+            label: Wallet Operations
+            aliases: [wallet_operations, wallet_ops]
+            keyword_group_ids: [wallet_operations]
     matrix:
       enabled: true
       roles:

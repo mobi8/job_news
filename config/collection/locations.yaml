@@ -23,9 +23,30 @@ locations:
       routing_mode: domain
       sort: date
       enabled_roles:
+        - payments
+        - treasury
+        - custody
+        - settlement
+        - reconciliation
+        - wallet_operations
+        - crypto_operations
+        - product
+        - product_operations
+        - delivery
+        - implementation
+        - integration
+        - technical_account
         - account_manager
-      legacy_target_ids:
-        account_manager: indeed_uae
+        - partner_manager
+        - business_development
+        - fraud
+        - risk
+        - compliance
+        - aml
+        - kyc
+        - kyb
+        - payment_partnerships
+        - igaming
     linkedin_posts:
       id: posts_uae
       country: UAE
@@ -49,6 +70,92 @@ locations:
       igaming: linkedin_uae_igaming
       # Note: UAE has no existing "settlement" role target
       # linkedin_uae_custody_game is hybrid (custody_game role ID)
+
+  uae_all:
+    id: uae_all
+    label: UAE Wide
+    enabled: true
+    country: UAE
+    linkedin:
+      source: linkedin_public
+      location: "United Arab Emirates"
+      split_role_searches: true
+      aliases:
+        - uae_wide
+        - united_arab_emirates_wide
+    linkedin_posts:
+      id: posts_uae_wide
+      country: UAE
+      store_country: UAE
+      label: UAE Wide
+      aliases:
+        - uae_wide
+      query_location: in United Arab Emirates
+      location_terms:
+        - uae
+        - dubai
+        - abu dhabi
+        - sharjah
+        - ras al khaimah
+        - united arab emirates
+        - emirates
+
+  abu_dhabi:
+    id: abu_dhabi
+    label: Abu Dhabi
+    enabled: true
+    country: UAE
+    linkedin:
+      source: linkedin_public
+      location: "Abu Dhabi, United Arab Emirates"
+      split_role_searches: true
+      aliases:
+        - ad
+        - adgm
+    linkedin_posts:
+      id: posts_abu_dhabi
+      country: UAE
+      store_country: UAE
+      label: Abu Dhabi
+      aliases:
+        - abu_dhabi
+        - adgm
+      query_location: in Abu Dhabi UAE OR ADGM
+      location_terms:
+        - abu dhabi
+        - adgm
+        - uae
+        - united arab emirates
+
+  northern_emirates:
+    id: northern_emirates
+    label: Northern Emirates
+    enabled: true
+    country: UAE
+    linkedin:
+      source: linkedin_public
+      location: "Sharjah, United Arab Emirates"
+      split_role_searches: true
+      aliases:
+        - sharjah
+        - ras_al_khaimah
+        - rak
+    linkedin_posts:
+      id: posts_northern_emirates
+      country: UAE
+      store_country: UAE
+      label: Northern Emirates
+      aliases:
+        - sharjah
+        - rak
+      query_location: in Sharjah UAE OR Ras Al Khaimah OR RAK
+      location_terms:
+        - sharjah
+        - ras al khaimah
+        - ras al-khaimah
+        - rak
+        - uae
+        - united arab emirates
 
   amsterdam:
     id: amsterdam

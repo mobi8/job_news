@@ -13,15 +13,35 @@ sources:
       url_builder: glassdoor_uae
       keywords:
       - crypto
+      - cryptocurrency
+      - blockchain
+      - web3
+      - fintech
       - igaming
       - payment
       - payment operations
+      - payment gateway
+      - PSP
       - wallet
       - custody
       - digital asset
+      - virtual assets
+      - stablecoin
       - settlement
+      - reconciliation
       - product
       - product manager
+      - product operations
+      - account manager
+      - technical account manager
+      - implementation manager
+      - integration engineer
+      - business development
+      - partnerships
+      - fraud analyst
+      - risk analyst
+      - AML analyst
+      - KYC analyst
       - backlog
       - compliance
       explicit_urls: []

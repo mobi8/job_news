@@ -10,15 +10,6 @@ sources:
       - indeed_uae
       - united_arab_emirates
       country: UAE
-      target_ids:
-      - indeed_uae
-      keyword_groups:
-      - id: account_manager
-        label: Account Manager
-        aliases:
-        - account_management
-        keyword_group_ids:
-        - account_manager
     matrix:
       enabled: true
       locations:

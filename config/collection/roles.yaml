@@ -11,7 +11,8 @@ role_profiles:
         - "payment operations OR payment operations manager OR payments operations manager OR payment specialist OR payments analyst OR payments engineer OR payment integration OR payment implementation OR merchant payments OR acquiring OR payment gateway OR PSP manager"
     indeed:
       keyword_group_id: payments
-      queries: []
+      queries:
+        - "payment operations OR payments specialist OR payments analyst OR payment gateway OR PSP"
 
   treasury:
     id: treasury
@@ -21,12 +22,20 @@ role_profiles:
       keyword_group_id: treasury
       queries:
         - "treasury operations OR treasury analyst OR liquidity operations OR cash management"
+    indeed:
+      keyword_group_id: treasury
+      queries:
+        - "treasury operations OR liquidity operations OR cash management"
 
   settlement:
     id: settlement
     label: Settlement
     enabled: true
     linkedin:
+      keyword_group_id: settlement
+      queries:
+        - "settlement operations OR trading operations OR exchange operations"
+    indeed:
       keyword_group_id: settlement
       queries:
         - "settlement operations OR trading operations OR exchange operations"
@@ -41,6 +50,10 @@ role_profiles:
       keyword_group_id: reconciliation
       queries:
         - "reconciliation analyst OR reconciliations specialist OR payment reconciliation OR transaction reconciliation"
+    indeed:
+      keyword_group_id: reconciliation
+      queries:
+        - "reconciliation analyst OR payment reconciliation OR transaction reconciliation"
 
   custody:
     id: custody
@@ -51,6 +64,10 @@ role_profiles:
       keyword_group_id: settlement
       queries:
         - "custody operations OR asset custody OR settlement operations OR vault operations"
+    indeed:
+      keyword_group_id: custody
+      queries:
+        - "custody operations OR digital asset custody OR vault operations"
 
   wallet_operations:
     id: wallet_operations
@@ -63,6 +80,10 @@ role_profiles:
       keyword_group_id: wallet_operations
       queries:
         - "wallet operations OR wallet specialist OR digital asset operations OR blockchain operations"
+    indeed:
+      keyword_group_id: wallet_operations
+      queries:
+        - "wallet operations OR wallet specialist OR digital asset operations"
 
   crypto_operations:
     id: crypto_operations
@@ -75,6 +96,10 @@ role_profiles:
       keyword_group_id: crypto_operations
       queries:
         - "crypto operations OR web3 operations OR digital asset operations OR blockchain operations"
+    indeed:
+      keyword_group_id: crypto_operations
+      queries:
+        - "crypto operations OR web3 operations OR blockchain operations"
 
   product:
     id: product
@@ -87,6 +112,10 @@ role_profiles:
       keyword_group_id: product
       queries:
         - "payment product manager OR fintech product manager OR igaming product manager OR crypto product manager"
+    indeed:
+      keyword_group_id: product
+      queries:
+        - "product manager fintech OR product owner payments OR crypto product manager"
 
   product_operations:
     id: product_operations
@@ -98,6 +127,10 @@ role_profiles:
       keyword_group_id: product_operations
       queries:
         - "payment product operations OR fintech product operations OR igaming product operations OR product operations manager"
+    indeed:
+      keyword_group_id: product_operations
+      queries:
+        - "product operations manager OR fintech product operations OR payment product operations"
 
   delivery:
     id: delivery
@@ -107,6 +140,10 @@ role_profiles:
       keyword_group_id: delivery
       queries:
         - "payments delivery manager OR fintech delivery manager OR implementation delivery manager"
+    indeed:
+      keyword_group_id: delivery
+      queries:
+        - "delivery manager payments OR fintech delivery manager OR implementation delivery manager"
 
   implementation:
     id: implementation
@@ -118,7 +155,8 @@ role_profiles:
         - "payments implementation manager OR PSP implementation specialist OR merchant onboarding manager"
     indeed:
       keyword_group_id: implementation
-      queries: []
+      queries:
+        - "payments implementation OR implementation manager fintech OR merchant onboarding"
 
   integration:
     id: integration
@@ -128,6 +166,10 @@ role_profiles:
       keyword_group_id: integration
       queries:
         - "integration engineer OR solutions engineer OR payments integration OR API integration"
+    indeed:
+      keyword_group_id: integration
+      queries:
+        - "integration engineer payments OR solutions engineer fintech OR API integration"
 
   technical_account:
     id: technical_account
@@ -142,7 +184,8 @@ role_profiles:
         - "payments technical account manager OR PSP technical account manager OR fintech solutions engineer"
     indeed:
       keyword_group_id: technical_account
-      queries: []
+      queries:
+        - "technical account manager payments OR solutions engineer fintech OR PSP"
 
   account_manager:
     id: account_manager
@@ -169,6 +212,10 @@ role_profiles:
       keyword_group_id: partner_manager
       queries:
         - "payments partner manager OR igaming partner manager OR PSP partnership manager"
+    indeed:
+      keyword_group_id: partner_manager
+      queries:
+        - "partnership manager payments OR partner manager fintech OR PSP partnership"
 
   business_development:
     id: business_development
@@ -181,6 +228,10 @@ role_profiles:
       keyword_group_id: business_development
       queries:
         - "payments business development OR igaming business development OR PSP sales manager"
+    indeed:
+      keyword_group_id: business_development
+      queries:
+        - "business development payments OR igaming business development OR fintech sales"
 
   fraud:
     id: fraud
@@ -190,6 +241,10 @@ role_profiles:
       keyword_group_id: fraud
       queries:
         - "payments fraud analyst OR fraud operations OR fraud prevention OR transaction monitoring"
+    indeed:
+      keyword_group_id: fraud
+      queries:
+        - "fraud analyst payments OR fraud operations OR transaction monitoring"
 
   risk:
     id: risk
@@ -199,6 +254,10 @@ role_profiles:
       keyword_group_id: risk
       queries:
         - "payments risk analyst OR payments risk operations OR merchant risk analyst"
+    indeed:
+      keyword_group_id: risk
+      queries:
+        - "risk analyst payments OR merchant risk OR fintech risk"
 
   compliance:
     id: compliance
@@ -210,7 +269,8 @@ role_profiles:
         - "payments compliance analyst OR fintech compliance manager OR igaming compliance"
     indeed:
       keyword_group_id: compliance
-      queries: []
+      queries:
+        - "compliance analyst fintech OR payments compliance OR igaming compliance"
 
   aml:
     id: aml
@@ -220,6 +280,10 @@ role_profiles:
       keyword_group_id: aml
       queries:
         - "AML analyst payments OR AML analyst igaming OR financial crime analyst"
+    indeed:
+      keyword_group_id: aml
+      queries:
+        - "AML analyst payments OR AML analyst fintech OR financial crime"
 
   kyc:
     id: kyc
@@ -229,6 +293,10 @@ role_profiles:
       keyword_group_id: kyc
       queries:
         - "KYC analyst payments OR KYC specialist fintech OR customer due diligence analyst"
+    indeed:
+      keyword_group_id: kyc
+      queries:
+        - "KYC analyst fintech OR KYC specialist OR customer due diligence"
 
   kyb:
     id: kyb
@@ -238,6 +306,10 @@ role_profiles:
       keyword_group_id: kyb
       queries:
         - "KYB analyst OR KYB specialist OR merchant due diligence"
+    indeed:
+      keyword_group_id: kyb
+      queries:
+        - "KYB analyst OR merchant due diligence OR onboarding analyst"
 
   payment_partnerships:
     id: payment_partnerships
@@ -250,6 +322,10 @@ role_profiles:
       keyword_group_id: payment_partnerships
       queries:
         - "payment partnerships OR PSP partnerships OR acquiring partnerships OR banking partnerships"
+    indeed:
+      keyword_group_id: payment_partnerships
+      queries:
+        - "payment partnerships OR PSP partnerships OR acquiring partnerships"
 
   igaming:
     id: igaming
@@ -261,4 +337,5 @@ role_profiles:
         - "igaming operations OR casino operations OR sportsbook operations OR responsible gaming OR safer gaming OR gambling operations OR online casino"
     indeed:
       keyword_group_id: igaming
-      queries: []
+      queries:
+        - "igaming OR casino operations OR sportsbook OR gaming operations"
