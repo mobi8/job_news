@@ -409,6 +409,93 @@ async function evaluateDrJobsPage(page) {
   });
 }
 
+async function evaluateSigmaCareersPage(page) {
+  return page.evaluate(() => {
+    const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
+    const jobs = [];
+    const seenUrls = new Set();
+    const cards = Array.from(document.querySelectorAll('a.jobs-listing__card[href*="/projects/igaming-careers/"]'));
+
+    for (const card of cards) {
+      const url = card.href || '';
+      if (!url || seenUrls.has(url) || /\/page\/\d+\//.test(url)) {
+        continue;
+      }
+      seenUrls.add(url);
+
+      const title = clean(card.querySelector('.jobs-listing__job-title')?.innerText || '');
+      const department = clean(card.querySelector('.jobs-listing__department')?.innerText || '');
+      const description = clean(card.querySelector('.job-listing__description')?.innerText || '');
+      const tags = Array.from(card.querySelectorAll('.jobs-listing__tag'))
+        .map((node) => clean(node.innerText))
+        .filter(Boolean);
+      const locationText = tags[0] || '';
+      const level = tags[1] || '';
+      const dateText = clean(card.querySelector('.jobs-listing__date')?.innerText || '');
+      const sourceJobId = url.replace(/\/$/, '').split('/').slice(-2).join('/');
+
+      if (!title) {
+        continue;
+      }
+
+      jobs.push({
+        source: 'sigma_igaming',
+        source_job_id: sourceJobId || url,
+        title,
+        company: 'SiGMA iGaming Careers',
+        location: locationText,
+        url,
+        description: clean([department, description, level, dateText].filter(Boolean).join(' | ')),
+        remote: /remote/i.test(`${title} ${locationText} ${description}`),
+        country: /dubai|abu dhabi|united arab emirates|uae/i.test(locationText) ? 'UAE' : /korea/i.test(`${title} ${locationText} ${description}`) ? 'South Korea' : locationText,
+      });
+    }
+
+    const links = Array.from(document.querySelectorAll('a'))
+      .map((a) => ({
+        text: clean(a.innerText),
+        href: a.href || '',
+        testid: a.getAttribute('data-testid') || '',
+        cls: a.className || '',
+      }))
+      .filter((item) => item.text && item.href)
+      .slice(0, 160);
+
+    return {
+      pageTitle: document.title,
+      href: location.href,
+      links,
+      jobs,
+    };
+  });
+}
+
+async function waitForCloudflareChallenge(page, contextLabel, maxAttempts = 15) {
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    const signal = await page.evaluate(() => {
+      const text = (document.body?.innerText || document.body?.textContent || '').replace(/\s+/g, ' ').trim();
+      const title = document.title || '';
+      return {
+        title,
+        blocked:
+          /just a moment/i.test(title) ||
+          /잠시만 기다리십시오|checking your browser|cloudflare|verify you are human/i.test(text) ||
+          Boolean(document.querySelector('iframe[src*="challenges"], [class*="challenge"]')),
+      };
+    }).catch(() => ({ title: '', blocked: false }));
+
+    if (!signal.blocked) {
+      return false;
+    }
+
+    progress(`${contextLabel} | challenge ${attempts + 1}/${maxAttempts} title=${shorten(signal.title, 80)}`);
+    await page.waitForTimeout(2000);
+    attempts++;
+  }
+  return true;
+}
+
 async function evaluateTelegramPage(page) {
   return page.evaluate(() => ({
     pageTitle: document.title,
@@ -639,6 +726,19 @@ async function main() {
           await page.waitForLoadState('domcontentloaded').catch(() => {});
           await page.waitForTimeout(1200 + Math.random() * 800);
           const result = await evaluateDrJobsPage(page);
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
+          results.push(result);
+          await page.close().catch(() => {});
+          continue;
+        }
+
+        if (url.includes('sigma.world/projects/igaming-careers')) {
+          progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | load`);
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
+          await page.waitForTimeout(3000 + Math.random() * 1000);
+          await waitForCloudflareChallenge(page, `${searchContext.platform} ${searchContext.country} | ${searchContext.label}`);
+          const result = await evaluateSigmaCareersPage(page);
+          result.blocked = /just a moment/i.test(result.pageTitle || '') || /잠시만 기다리십시오/i.test(result.pageTitle || '');
           progress(`${searchContext.platform} ${searchContext.country} | ${searchContext.label} | jobs=${result.jobs?.length || 0}`);
           results.push(result);
           await page.close().catch(() => {});

@@ -44,6 +44,32 @@ source_metadata:
   country: UAE
   aliases:
   - joblead
+- id: jobsinforex
+  label: Jobs in Forex
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - forex_jobs
+  - jobs_in_forex
+  - fx_jobs
+- id: fintechcareers
+  label: FintechCareers
+  kind: jobs
+  group: Job Pages
+  country: UAE
+  aliases:
+  - fintech_careers
+  - fintechcareers_uae
+- id: sigma_igaming
+  label: SiGMA iGaming
+  kind: jobs
+  group: Job Pages
+  country: Other
+  aliases:
+  - sigma
+  - sigma_igaming_careers
+  - igaming_careers
 - id: drjobs
   label: DrJobs
   kind: jobs

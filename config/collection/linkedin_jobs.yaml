@@ -38,6 +38,10 @@ sources:
           - id: fraud
             label: Fraud
             keyword_group_ids: [fraud]
+          - id: forex
+            label: FX / Forex Brokerage
+            aliases: [fx, brokerage, cfd, trading]
+            keyword_group_ids: [forex]
           - id: igaming
             label: iGaming
             keyword_group_ids: [igaming]
@@ -53,6 +57,10 @@ sources:
           - id: kyc
             label: KYC
             keyword_group_ids: [kyc]
+          - id: korean
+            label: Korean Language
+            aliases: [korea, korean_language, korean_speaking, korean-language]
+            keyword_group_ids: [korean_language]
           - id: partner_manager
             label: Partner Manager
             aliases: [partnerships]
@@ -87,6 +95,18 @@ sources:
             label: Technical Account
             aliases: [technical_account_manager, tam]
             keyword_group_ids: [technical_account]
+          - id: trading_operations
+            label: Trading Operations
+            aliases: [dealing, broker_operations, trade_ops]
+            keyword_group_ids: [trading_operations]
+          - id: liquidity
+            label: Liquidity / Institutional FX
+            aliases: [institutional_fx, liquidity_manager, prime_brokerage]
+            keyword_group_ids: [liquidity]
+          - id: trading_platform
+            label: Trading Platform / MT5
+            aliases: [mt5, mt4, metatrader]
+            keyword_group_ids: [trading_platform]
           - id: treasury
             label: Treasury
             keyword_group_ids: [treasury]
@@ -121,4 +141,9 @@ sources:
         - kyb
         - payment_partnerships
         - igaming
+        - forex
+        - trading_operations
+        - liquidity
+        - trading_platform
+        - korean_language
     targets: []

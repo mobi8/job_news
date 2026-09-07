@@ -1089,6 +1089,9 @@ def save_dashboard(
             <option value="igaminghunt_bamboohr">IGAMINGHUNT</option>
             <option value="jobrapido_uae">Jobrapido</option>
             <option value="jobleads">JobLeads</option>
+            <option value="jobsinforex">Jobs in Forex</option>
+            <option value="fintechcareers">FintechCareers</option>
+            <option value="sigma_igaming">SiGMA iGaming</option>
             <option value="telegram_job_crypto_uae">TG Jobs UAE</option>
             <option value="telegram_cryptojobslist">TG Crypto</option>
           </select>

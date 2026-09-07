@@ -32,6 +32,26 @@ sources:
         - payment
         keyword_group_ids:
         - payments
+      - id: forex
+        label: FX / Forex Brokerage
+        aliases:
+        - fx
+        - cfd
+        - brokerage
+        - trading
+        keyword_group_ids:
+        - forex
+        - trading_operations
+        - liquidity
+        - trading_platform
+      - id: korean
+        label: Korean Language
+        aliases:
+        - korea
+        - korean_language
+        - korean_speaking
+        keyword_group_ids:
+        - korean_language
     targets:
     - id: jobspy_uae_indeed
       enabled: true
@@ -61,3 +81,14 @@ sources:
       - account manager
       - technical account manager
       - partnerships
+      - forex
+      - CFD
+      - brokerage
+      - online trading
+      - trading operations
+      - liquidity manager
+      - institutional FX
+      - MetaTrader
+      - MT5
+      - Korean
+      - Korean speaking

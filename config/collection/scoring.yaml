@@ -92,6 +92,27 @@ scoring:
         - fintech
         - neobank
         - neobanking
+    forex:
+      score: 18
+      terms:
+        - forex
+        - fx
+        - cfd
+        - broker
+        - brokerage
+        - multi-asset broker
+        - online trading
+        - trading platform
+        - metatrader
+        - mt4
+        - mt5
+        - fix api
+        - liquidity provider
+        - prime brokerage
+        - institutional fx
+        - dealing desk
+        - trade support
+        - sales trader
     crypto:
       score: 16
       terms:
@@ -146,6 +167,7 @@ scoring:
       include_groups:
         - payments
         - fintech
+        - forex
         - crypto
         - digital_assets
         - igaming
@@ -153,11 +175,12 @@ scoring:
     generic_payment:
       terms: [payment, payments]
     crypto_payments:
-      include_groups: [payments, fintech, crypto, digital_assets]
+      include_groups: [payments, fintech, forex, crypto, digital_assets]
     target:
       include_groups:
         - payments
         - fintech
+        - forex
         - crypto
         - digital_assets
         - igaming
@@ -186,6 +209,17 @@ scoring:
         - treasury
         - merchant operations
         - cash management
+        - forex
+        - fx
+        - cfd
+        - brokerage
+        - trading operations
+        - trade support
+        - dealing
+        - liquidity
+        - metatrader
+        - mt4
+        - mt5
         - ai
         - machine learning
         - ml

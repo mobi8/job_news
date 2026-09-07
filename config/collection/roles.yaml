@@ -339,3 +339,90 @@ role_profiles:
       keyword_group_id: igaming
       queries:
         - "igaming OR casino operations OR sportsbook OR gaming operations"
+
+  forex:
+    id: forex
+    label: FX / Forex Brokerage
+    enabled: true
+    aliases:
+      - fx
+      - brokerage
+      - cfd
+      - trading
+    linkedin:
+      keyword_group_id: forex
+      queries:
+        - "forex OR FX OR CFD OR online trading OR trading platform OR brokerage OR broker operations OR multi-asset broker"
+    indeed:
+      keyword_group_id: forex
+      queries:
+        - "forex OR FX OR CFD OR trading platform OR brokerage"
+
+  trading_operations:
+    id: trading_operations
+    label: Trading Operations
+    enabled: true
+    aliases:
+      - dealing
+      - broker_operations
+      - trade_ops
+    linkedin:
+      keyword_group_id: trading_operations
+      queries:
+        - "trading operations OR dealing operations OR broker operations OR trade support OR middle office trading"
+    indeed:
+      keyword_group_id: trading_operations
+      queries:
+        - "trading operations OR dealing operations OR broker operations OR trade support"
+
+  liquidity:
+    id: liquidity
+    label: Liquidity / Institutional FX
+    enabled: true
+    aliases:
+      - institutional_fx
+      - liquidity_manager
+      - prime_brokerage
+    linkedin:
+      keyword_group_id: liquidity
+      queries:
+        - "liquidity manager OR institutional FX OR prime brokerage OR liquidity provider OR market making OR sales trader"
+    indeed:
+      keyword_group_id: liquidity
+      queries:
+        - "liquidity manager OR institutional FX OR prime brokerage OR sales trader"
+
+  trading_platform:
+    id: trading_platform
+    label: Trading Platform / MT5
+    enabled: true
+    aliases:
+      - mt5
+      - mt4
+      - metatrader
+    linkedin:
+      keyword_group_id: trading_platform
+      queries:
+        - "MetaTrader OR MT4 OR MT5 OR trading platform operations OR trading systems OR FIX API"
+    indeed:
+      keyword_group_id: trading_platform
+      queries:
+        - "MetaTrader OR MT4 OR MT5 OR trading platform OR FIX API"
+
+  korean_language:
+    id: korean_language
+    label: Korean Language
+    enabled: true
+    aliases:
+      - korean
+      - korea
+      - korean_speaking
+      - korean-language
+    linkedin:
+      keyword_group_id: korean_language
+      queries:
+        - "Korean OR Korea OR Korean speaking OR Korean language"
+    indeed:
+      keyword_group_id: korean_language
+      queries:
+        - "Korean OR Korea OR Korean speaking OR Korean language"

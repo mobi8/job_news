@@ -47,6 +47,11 @@ locations:
         - kyb
         - payment_partnerships
         - igaming
+        - forex
+        - trading_operations
+        - liquidity
+        - trading_platform
+        - korean_language
     linkedin_posts:
       id: posts_uae
       country: UAE

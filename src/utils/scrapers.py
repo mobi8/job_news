@@ -21,11 +21,14 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import List
+
+from bs4 import BeautifulSoup
 
 scrape_jobs = None
 
@@ -217,11 +220,51 @@ def fetch_html(url: str) -> str:
             "User-Agent": (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-            )
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
         },
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        return response.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        if exc.code != 403:
+            raise
+        result = subprocess.run(
+            [
+                "curl",
+                "-L",
+                "--max-time",
+                "20",
+                "-A",
+                (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+                ),
+                url,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout
+
+
+def fetch_html_via_curl(url: str) -> str:
+    result = subprocess.run(
+        [
+            "curl",
+            "-L",
+            "--max-time",
+            "20",
+            url,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
 
 
 def parse_jobvite_jobs(raw_html: str) -> List[JobPosting]:
@@ -501,6 +544,145 @@ def parse_jobleads_jobs(raw_html: str) -> List[JobPosting]:
             )
         )
 
+    return jobs
+
+
+def _country_from_location(location: str, default: str = "UAE") -> str:
+    location_lower = location.lower()
+    if any(term in location_lower for term in ["dubai", "abu dhabi", "united arab emirates", "uae", "sharjah"]):
+        return "UAE"
+    if any(term in location_lower for term in ["cyprus", "limassol", "nicosia"]):
+        return "Cyprus"
+    if any(term in location_lower for term in ["malta", "sliema", "valletta"]):
+        return "Malta"
+    if any(term in location_lower for term in ["united kingdom", "london", "uk"]):
+        return "United Kingdom"
+    if "remote" in location_lower:
+        return "Remote"
+    return default
+
+
+def parse_jobsinforex_jobs(raw_html: str, *, source: str = "jobsinforex", default_country: str = "UAE") -> List[JobPosting]:
+    soup = BeautifulSoup(raw_html, "html.parser")
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    for card in soup.select("article.listing-item"):
+        title_link = card.select_one(".listing-item__title a[href]")
+        if not title_link:
+            continue
+        title = clean_text(title_link.get_text(" ", strip=True))
+        href = html.unescape(title_link.get("href", "")).strip()
+        url = urllib.parse.urljoin("https://www.jobsinforex.com", href)
+        company = clean_text(
+            (card.select_one(".listing-item__info--item-company") or card.select_one("[class*='company']")).get_text(" ", strip=True)
+            if (card.select_one(".listing-item__info--item-company") or card.select_one("[class*='company']"))
+            else ""
+        ) or "Jobs in Forex"
+        location = clean_text(
+            card.select_one(".listing-item__info--item-location").get_text(" ", strip=True)
+            if card.select_one(".listing-item__info--item-location")
+            else ""
+        )
+        description = clean_text(
+            " ".join(
+                filter(
+                    None,
+                    [
+                        card.select_one(".listing-item__desc").get_text(" ", strip=True)
+                        if card.select_one(".listing-item__desc")
+                        else "",
+                        card.select_one(".listing-item__date").get_text(" ", strip=True)
+                        if card.select_one(".listing-item__date")
+                        else "",
+                        card.select_one(".listing-item__employment-type").get_text(" ", strip=True)
+                        if card.select_one(".listing-item__employment-type")
+                        else "",
+                    ],
+                )
+            )
+        )
+        if not title or not url or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        source_job_id = urllib.parse.urlparse(url).path.rstrip("/").split("/")[-2:]
+        jobs.append(
+            JobPosting(
+                source=source,
+                source_job_id="/".join(source_job_id) or url,
+                title=title,
+                company=company,
+                location=location,
+                url=url,
+                description=description,
+                remote="remote" in f"{title} {location} {description}".lower(),
+                country=_country_from_location(location, default_country),
+            )
+        )
+    return jobs
+
+
+def parse_fintechcareers_jobs(raw_html: str, *, source: str = "fintechcareers", default_country: str = "UAE") -> List[JobPosting]:
+    soup = BeautifulSoup(raw_html, "html.parser")
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    for card in soup.select(".job-list.job_listing, article.job_listing"):
+        title_node = card.select_one("h2.job-title a[href], .job-title a[href]")
+        if not title_node:
+            continue
+        title = clean_text(title_node.get_text(" ", strip=True))
+        href = html.unescape(title_node.get("href", "")).strip()
+        url = urllib.parse.urljoin("https://www.fintechcareers.com", href)
+        company = clean_text(
+            card.select_one(".employer-title").get_text(" ", strip=True)
+            if card.select_one(".employer-title")
+            else ""
+        ) or "FintechCareers"
+        location = clean_text(
+            card.select_one(".job-location").get_text(" ", strip=True)
+            if card.select_one(".job-location")
+            else ""
+        )
+        description = clean_text(
+            " ".join(
+                filter(
+                    None,
+                    [
+                        card.select_one(".job-deadline").get_text(" ", strip=True)
+                        if card.select_one(".job-deadline")
+                        else "",
+                        card.select_one(".type-job").get_text(" ", strip=True)
+                        if card.select_one(".type-job")
+                        else "",
+                        card.select_one(".job-excerpt").get_text(" ", strip=True)
+                        if card.select_one(".job-excerpt")
+                        else "",
+                    ],
+                )
+            )
+        )
+        if not title or not url or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        source_job_id = ""
+        for class_name in card.get("class", []):
+            if str(class_name).startswith("post-"):
+                source_job_id = str(class_name).removeprefix("post-")
+                break
+        if not source_job_id:
+            source_job_id = urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+        jobs.append(
+            JobPosting(
+                source=source,
+                source_job_id=source_job_id,
+                title=title,
+                company=company,
+                location=location,
+                url=url,
+                description=description,
+                remote="remote" in f"{title} {location} {description}".lower(),
+                country=_country_from_location(location, default_country),
+            )
+        )
     return jobs
 
 
@@ -924,6 +1106,59 @@ def _drjobs_keyword_to_slug(keyword: str) -> str:
 
 def _build_drjobs_search_urls() -> List[str]:
     return list(DRJOBS_SEARCH_URLS)
+
+
+def fetch_sigma_igaming_jobs_via_browser(urls: List[str] | None = None) -> List[JobPosting]:
+    all_urls = list(urls or [])
+    if not all_urls:
+        return []
+
+    jobs: List[JobPosting] = []
+    seen_urls = set()
+    collected_at = utc_now().isoformat()
+    pages = _batch_browser_fetch(all_urls, batch_size=1)
+    for page in pages:
+        page_title = clean_text(page.get("pageTitle", ""))
+        for item in page.get("jobs", []):
+            url = clean_text(item.get("url", ""))
+            title = clean_text(item.get("title", ""))
+            description = clean_text(item.get("description", "")) or page_title
+            location = clean_text(item.get("location", ""))
+            text_blob = f"{title} {location} {description}".lower()
+            is_target = any(
+                term in text_blob
+                for term in [
+                    "dubai",
+                    "united arab emirates",
+                    "uae",
+                    "abu dhabi",
+                    "korean",
+                    "korea",
+                    "한국어",
+                    "한국",
+                ]
+            )
+            if not is_target or not url or not title or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            jobs.append(
+                JobPosting(
+                    source="sigma_igaming",
+                    source_job_id=clean_text(item.get("source_job_id", "")) or urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1],
+                    title=title,
+                    company=clean_text(item.get("company", "")) or "SiGMA iGaming Careers",
+                    location=location,
+                    url=url,
+                    description=description,
+                    remote=bool(item.get("remote")) or "remote" in text_blob,
+                    country=clean_text(item.get("country", "")) or _country_from_location(location, "Other"),
+                    collected_at=collected_at,
+                )
+            )
+
+    logger.info("Collected %s SiGMA iGaming entries from %s pages.", len(jobs), len(all_urls))
+    return jobs
 
 
 def fetch_drjobs_jobs_via_browser() -> List[JobPosting]:

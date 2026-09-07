@@ -54,3 +54,66 @@ sources:
     url: https://www.jobleads.com/search/jobs?keywords=igaming&location=las+al+kaima&location_country=AE&filter_by_daysReleased=31&location_radius=50&minSalary=120000&page=2
     parser: jobleads
     country: UAE
+  - id: jobsinforex_uae
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobsinforex
+    label: Jobs in Forex UAE
+    url: https://www.jobsinforex.com/jobs/?country=United%20Arab%20Emirates
+    parser: jobsinforex
+    country: UAE
+  - id: jobsinforex_dubai
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: jobsinforex
+    label: Jobs in Forex Dubai
+    url: https://www.jobsinforex.com/jobs/?city=Dubai
+    parser: jobsinforex
+    country: UAE
+  - id: fintechcareers_uae_forex
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: fintechcareers
+    label: FintechCareers UAE Forex
+    url: https://www.fintechcareers.com/jobs/?filter-location=united-arab-emirates&filter-title=forex
+    parser: fintechcareers
+    country: UAE
+  - id: fintechcareers_dubai_forex
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: fintechcareers
+    label: FintechCareers Dubai Forex
+    url: https://www.fintechcareers.com/jobs/?filter-location=dubai&filter-title=forex
+    parser: fintechcareers
+    country: UAE
+  - id: fintechcareers_dubai_trading
+    enabled: true
+    type: explicit_url
+    fetch_method: http
+    source: fintechcareers
+    label: FintechCareers Dubai Trading
+    url: https://www.fintechcareers.com/jobs/?filter-location=dubai&filter-title=trading
+    parser: fintechcareers
+    country: UAE
+  - id: sigma_igaming_dubai
+    enabled: true
+    type: explicit_url
+    fetch_method: browser
+    source: sigma_igaming
+    label: SiGMA iGaming Careers Dubai
+    url: https://sigma.world/projects/igaming-careers/?city%5B%5D=Dubai&order=DESC
+    parser: sigma_igaming
+    country: UAE
+  - id: sigma_igaming_seoul
+    enabled: true
+    type: explicit_url
+    fetch_method: browser
+    source: sigma_igaming
+    label: SiGMA iGaming Careers Seoul
+    url: https://sigma.world/projects/igaming-careers/?city%5B%5D=Seoul&order=DESC
+    parser: sigma_igaming
+    country: Other

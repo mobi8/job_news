@@ -76,6 +76,7 @@ from utils.config import (
 from utils.collection_config import (
     GOOGLE_SEARCH_KEYWORDS,
     INDEED_SEARCH_KEYWORDS,
+    JOB_PAGES,
     JOBSPY_COUNTRY_PLANS,
     LINKEDIN_SEARCH_KEYWORDS,
     get_source_metadata_by_id,
@@ -110,14 +111,18 @@ from utils.scrapers import (
     fetch_all_player_rss_news,
     fetch_all_rss_news,
     fetch_html,
+    fetch_html_via_curl,
     fetch_glassdoor_jobs_via_browserless,
     fetch_drjobs_jobs_via_browser,
     fetch_indeed_jobs_via_jobspy,
     fetch_indeed_jobs_via_browser,
     fetch_linkedin_jobs_via_browser,
+    fetch_sigma_igaming_jobs_via_browser,
     fetch_telegram_channel_jobs,
     parse_igaming_recruitment_jobs,
     parse_igaminghunt_bamboohr_jobs,
+    parse_fintechcareers_jobs,
+    parse_jobsinforex_jobs,
     parse_jobrapido_jobs,
     parse_jobvite_jobs,
     parse_jobleads_jobs,
@@ -1073,6 +1078,36 @@ def run(mode: str = "collect") -> Dict[str, Any]:
                 sources.append((JOBLEADS_URL, jobleads_jobs))
             except Exception as exc:
                 logger.warning("Skipping JobLeads for this run: %s", exc)
+
+        extra_fixed_parsers = {
+            "jobsinforex": parse_jobsinforex_jobs,
+            "fintechcareers": parse_fintechcareers_jobs,
+            "sigma_igaming": None,
+        }
+        for page in JOB_PAGES:
+            parser_id = str(page.get("parser") or "")
+            source_id = str(page.get("source") or "")
+            if parser_id not in extra_fixed_parsers:
+                continue
+            if allowed_sources is not None and source_id not in allowed_sources:
+                continue
+            label = page.get("label") or source_id
+            url = str(page.get("url") or "")
+            _console_step(f"Fetching {label} board")
+            logger.info("Fetching %s board...", label)
+            try:
+                if parser_id == "sigma_igaming":
+                    page_jobs = fetch_sigma_igaming_jobs_via_browser([url])
+                else:
+                    page_jobs = extra_fixed_parsers[parser_id](
+                        fetch_html_via_curl(url),
+                        source=source_id,
+                        default_country=str(page.get("country") or "UAE"),
+                    )
+                logger.info("Collected %s jobs from %s.", len(page_jobs), label)
+                sources.append((url, page_jobs))
+            except Exception as exc:
+                logger.warning("Skipping %s for this run: %s", label, exc, exc_info=True)
 
         if skip_drjobs_browser:
             logger.info("Skipping DrJobs browser phase.")

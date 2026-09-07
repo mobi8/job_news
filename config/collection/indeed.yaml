@@ -28,6 +28,11 @@ sources:
       - technical_account
       - implementation
       - compliance
+      - forex
+      - trading_operations
+      - liquidity
+      - trading_platform
+      - korean_language
     targets:
     - id: indeed_uae
       enabled: true
@@ -52,5 +57,13 @@ sources:
         query: adgm OR fsra OR vara
       - id: exchanges
         query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
+      - id: forex
+        query: forex OR FX OR CFD OR online trading OR trading platform OR brokerage
+      - id: trading_operations
+        query: trading operations OR dealing operations OR broker operations OR trade support
+      - id: liquidity
+        query: liquidity manager OR institutional FX OR prime brokerage OR sales trader
+      - id: trading_platform
+        query: MetaTrader OR MT4 OR MT5 OR trading platform OR FIX API
       url:
         builder: indeed
