@@ -285,6 +285,12 @@ DOMAIN_TERMS = list(LINKEDIN_POST_FILTERS.get("domain_terms") or [
     "gaming", "casino", "sportsbook", "product", "business development", "wallet",
     "backlog",
 ])
+EXCLUDED_TITLE_TERMS = [str(term).lower() for term in LINKEDIN_POST_FILTERS.get("excluded_title_terms") or [
+    "law enforcement",
+    "data scientist",
+    "ai scientist",
+    "machine learning engineer",
+]]
 LOCATION_TERMS_BY_COUNTRY = dict(LINKEDIN_POST_LOCATION_TERMS_BY_COUNTRY or {
     "UAE": ["uae", "dubai", "abu dhabi", "united arab emirates", "emirates"],
 })
@@ -532,6 +538,8 @@ def _passes_filters(post: Dict[str, Any]) -> bool:
         return False
     body = _post_body(post)
     text = f"{body} {post.get('text', '')}".lower()
+    if _is_excluded_post_title(post, body):
+        return False
     if not _has_job_post_signal(body, post.get("outbound_links") or []):
         return False
     is_global_location = bool(post.get("global_location") or post.get("remote"))
@@ -547,6 +555,12 @@ def _passes_filters(post: Dict[str, Any]) -> bool:
     if is_hard_excluded_job(post.get("text", "")[:160], "LinkedIn", hard_exclusion_location, post.get("text", "")):
         return False
     return True
+
+
+def _is_excluded_post_title(post: Dict[str, Any], body: str) -> bool:
+    title_text = _title_from_post(post).lower()
+    search_text = f"{title_text} {body[:300].lower()}"
+    return any(term in search_text for term in EXCLUDED_TITLE_TERMS)
 
 
 def _has_job_post_signal(body: str, outbound_links: List[str]) -> bool:
@@ -632,10 +646,14 @@ def _clean_linkedin_post_title(job: JobPosting) -> str:
     return text[:95].strip(" -•|") or "LinkedIn hiring post"
 
 
-def _send_linkedin_post_telegram(inserted_jobs: List[JobPosting], batch_index: int, limit: int = 6) -> int:
+def _send_linkedin_post_telegram(inserted_jobs: List[JobPosting], batch_index: int, limit: int = 6, min_score: int = 60) -> int:
     if not inserted_jobs:
         return 0
-    jobs = [job for job in sorted(inserted_jobs, key=lambda job: job.match_score, reverse=True) if _is_post_permalink(job.url)][:limit]
+    jobs = [
+        job
+        for job in sorted(inserted_jobs, key=lambda job: job.match_score, reverse=True)
+        if _is_post_permalink(job.url) and int(job.match_score or 0) >= min_score
+    ][:limit]
     if not jobs:
         return 0
     countries: Dict[str, int] = {}

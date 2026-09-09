@@ -69,3 +69,8 @@ sources:
       - business development
       - wallet
       - backlog
+      excluded_title_terms:
+      - law enforcement
+      - data scientist
+      - ai scientist
+      - machine learning engineer
