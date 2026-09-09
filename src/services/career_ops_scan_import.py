@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +22,22 @@ from utils.notifications import maybe_send_telegram
 
 CAREER_OPS_DIR = Path(os.getenv("CAREER_OPS_DIR", "/Users/lewis/Desktop/career/career-ops"))
 DB_PATH = Path(os.getenv("DB_PATH", "/Users/lewis/Desktop/agent/outputs/jobs.sqlite3"))
+
+
+def _select_node_bin() -> str:
+    candidates = [
+        os.getenv("NODE_BIN", ""),
+        os.getenv("JOBHUNT_NODE_BIN", ""),
+        shutil.which("node") or "",
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        str(Path.home() / ".nvm/versions/node/current/bin/node"),
+        str(Path.home() / ".nvm/versions/node/v23.5.0/bin/node"),
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    return "node"
 
 
 def _neutral_import_score() -> int:
@@ -66,7 +83,8 @@ def _to_job_posting(job: dict[str, Any]) -> JobPosting:
 
 
 def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
-    args = ["node", "scan.mjs", "--json"]
+    node_bin = _select_node_bin()
+    args = [node_bin, "scan.mjs", "--json"]
     if dry_run:
         args.append("--dry-run")
     watch_logger.info(
@@ -75,14 +93,22 @@ def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
         dry_run,
         notify,
     )
-    result = subprocess.run(
-        args,
-        cwd=CAREER_OPS_DIR,
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=int(os.getenv("CAREER_OPS_SCAN_TIMEOUT_SECONDS", "240")),
-    )
+    try:
+        result = subprocess.run(
+            args,
+            cwd=CAREER_OPS_DIR,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=int(os.getenv("CAREER_OPS_SCAN_TIMEOUT_SECONDS", "240")),
+        )
+    except Exception as exc:
+        watch_logger.warning("Career-Ops scan import failed before scan completed: %r", exc, exc_info=True)
+        return {
+            "status": "failed",
+            "error": repr(exc),
+            "node_bin": node_bin,
+        }
     if result.returncode != 0:
         watch_logger.warning(
             "Career-Ops scan import failed: returncode=%s stderr=%s",
