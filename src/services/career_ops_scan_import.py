@@ -14,6 +14,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.db import Database
+from utils.logger import watch_logger
 from utils.models import JobPosting
 from utils.notifications import maybe_send_telegram
 
@@ -68,6 +69,12 @@ def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
     args = ["node", "scan.mjs", "--json"]
     if dry_run:
         args.append("--dry-run")
+    watch_logger.info(
+        "Career-Ops scan import starting: cwd=%s dry_run=%s notify=%s",
+        CAREER_OPS_DIR,
+        dry_run,
+        notify,
+    )
     result = subprocess.run(
         args,
         cwd=CAREER_OPS_DIR,
@@ -77,6 +84,11 @@ def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
         timeout=int(os.getenv("CAREER_OPS_SCAN_TIMEOUT_SECONDS", "240")),
     )
     if result.returncode != 0:
+        watch_logger.warning(
+            "Career-Ops scan import failed: returncode=%s stderr=%s",
+            result.returncode,
+            result.stderr[-1000:],
+        )
         return {
             "status": "failed",
             "returncode": result.returncode,
@@ -85,6 +97,13 @@ def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
 
     payload = json.loads(result.stdout)
     postings = [_to_job_posting(job) for job in payload.get("offers", []) if job.get("title") and job.get("company")]
+    summary = {
+        "companies_scanned": payload.get("companies_scanned"),
+        "fetch_successes": payload.get("fetch_successes"),
+        "fetch_failures": payload.get("fetch_failures"),
+        "total_jobs_found": payload.get("total_jobs_found"),
+        "new_offers_added": payload.get("new_offers_added"),
+    }
     inserted = 0
     inserted_jobs: list[JobPosting] = []
     if not dry_run and postings:
@@ -96,16 +115,17 @@ def run_import(dry_run: bool = False, notify: bool = True) -> dict[str, Any]:
         if notify:
             maybe_send_telegram(inserted, [job.to_dict() for job in inserted_jobs], min_score=30)
 
+    watch_logger.info(
+        "Career-Ops scan import complete: summary=%s jobs_from_scan=%s db_inserted=%s telegram_candidates=%s",
+        summary,
+        len(postings),
+        inserted,
+        len(inserted_jobs),
+    )
     return {
         "status": "success",
         "dry_run": dry_run,
-        "scan_summary": {
-            "companies_scanned": payload.get("companies_scanned"),
-            "fetch_successes": payload.get("fetch_successes"),
-            "fetch_failures": payload.get("fetch_failures"),
-            "total_jobs_found": payload.get("total_jobs_found"),
-            "new_offers_added": payload.get("new_offers_added"),
-        },
+        "scan_summary": summary,
         "jobs_from_scan": len(postings),
         "db_inserted": inserted,
         "telegram_candidates": len(inserted_jobs),
