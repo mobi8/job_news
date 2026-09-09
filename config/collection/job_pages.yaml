@@ -109,7 +109,7 @@ sources:
     parser: sigma_igaming
     country: UAE
   - id: sigma_igaming_seoul
-    enabled: true
+    enabled: false
     type: explicit_url
     fetch_method: browser
     source: sigma_igaming

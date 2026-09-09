@@ -24,10 +24,12 @@ sources:
     - id: digital_asset
       query: digital asset
       domain: digital_asset
-    - id: game
-      query: game
-      domain: game
-    locations: []
+    - id: forex
+      query: forex OR FX OR brokerage OR MT4 OR MT5 OR wallet OR crypto OR payment
+      domain: forex
+    locations:
+    - uae
+    - uae_all
     matrix:
       enabled: true
     filters:

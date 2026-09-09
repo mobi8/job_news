@@ -108,7 +108,7 @@ locations:
   abu_dhabi:
     id: abu_dhabi
     label: Abu Dhabi
-    enabled: true
+    enabled: false
     country: UAE
     linkedin:
       source: linkedin_public
@@ -119,6 +119,7 @@ locations:
         - adgm
     linkedin_posts:
       id: posts_abu_dhabi
+      enabled: false
       country: UAE
       store_country: UAE
       label: Abu Dhabi
@@ -135,7 +136,7 @@ locations:
   northern_emirates:
     id: northern_emirates
     label: Northern Emirates
-    enabled: true
+    enabled: false
     country: UAE
     linkedin:
       source: linkedin_public
@@ -147,6 +148,7 @@ locations:
         - rak
     linkedin_posts:
       id: posts_northern_emirates
+      enabled: false
       country: UAE
       store_country: UAE
       label: Northern Emirates
@@ -348,7 +350,7 @@ locations:
   remote:
     id: remote
     label: Remote / EMEA
-    enabled: true
+    enabled: false
     country: Remote
     linkedin:
       source: linkedin_emea
