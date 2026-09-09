@@ -5,6 +5,6 @@ New job matches: {{ new_count }}
 {% for group in country_groups -%}
 {{ group.country }} 공고:
 {% for job in group.jobs -%}
-- <a href="{{ job.url }}">{{ job.label }}</a>
+- [{{ job.source_label }}] <a href="{{ job.url }}">{{ job.label }}</a>
 {% endfor %}
 {% endfor %}

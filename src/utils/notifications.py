@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import logging
 import os
+import re
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
@@ -30,6 +31,19 @@ from .reporter import read_text_safely, write_text_safely
 from .template_renderer import render_template
 
 logger = notifications_logger
+
+
+def _job_source_badge(job: Any) -> str:
+    source = _job_attr(job, "source")
+    label = source_label(source)
+    if source == "career_ops_scan":
+        description = _job_attr(job, "description")
+        match = re.search(r"\bProvider:\s*([A-Za-z0-9_-]+)\.", description or "")
+        provider = match.group(1) if match else ""
+        label = "Career-Ops Sites"
+        if provider:
+            label = f"{label} · {provider}"
+    return html.escape(label)
 
 
 
@@ -143,9 +157,10 @@ def build_job_template_items(jobs: List[Any], limit: int | None = None) -> List[
     items: List[Dict[str, str]] = []
     for job in trimmed:
         country = country_label_for_job(job) or "Other"
+        source_badge = _job_source_badge(job)
         label = html.escape(f"[{country}] {_job_attr(job, 'company')} | {_job_attr(job, 'title')}")
         url = html.escape(_job_attr(job, "url"), quote=True)
-        items.append({"label": label, "url": url, "country": country})
+        items.append({"label": label, "url": url, "country": country, "source_label": source_badge})
     return items
 
 
