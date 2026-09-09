@@ -19,7 +19,6 @@ sources:
       - ireland
       - spain
       - portugal
-      - malta
       - cyprus
       roles:
       - payments
@@ -58,12 +57,12 @@ sources:
       - id: exchanges
         query: binance OR bybit OR okx OR coinbase OR kraken OR bitget OR gate.io OR kucoin OR htx OR crypto.com OR mexc
       - id: forex
-        query: forex OR FX OR CFD OR online trading OR trading platform OR brokerage
+        query: forex OR FX OR CFD OR online trading OR trading platform OR brokerage OR MT4 OR MT5 OR M4 OR M5 OR wallet OR crypto OR payment
       - id: trading_operations
         query: trading operations OR dealing operations OR broker operations OR trade support
       - id: liquidity
         query: liquidity manager OR institutional FX OR prime brokerage OR sales trader
       - id: trading_platform
-        query: MetaTrader OR MT4 OR MT5 OR trading platform OR FIX API
+        query: MetaTrader OR MT4 OR MT5 OR M4 OR M5 OR trading platform OR FIX API OR wallet OR crypto OR payment
       url:
         builder: indeed

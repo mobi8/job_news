@@ -14,9 +14,6 @@ filters:
   - tbilisi
   - batumi
   - 조지아
-  - malta
-  - valletta
-  - 몰타
   remote_gcc_location_terms:
   - bahrain
   - qatar
@@ -68,6 +65,12 @@ filters:
   - marjan
   - payment
   - payments
+  - forex
+  - fx
+  - mt4
+  - mt5
+  - m4
+  - m5
   - adgm
   - vara
   - fsra
@@ -99,6 +102,13 @@ keyword_groups:
   - '"neobanking"'
   - '"payments engineer"'
   - '"wallet"'
+  - '"forex wallet"'
+  - '"forex crypto"'
+  - '"forex payment"'
+  - '"MT4"'
+  - '"MT5"'
+  - '"M4"'
+  - '"M5"'
   - '"custody"'
   - '"crypto product manager"'
   - '"product owner"'
@@ -114,6 +124,13 @@ keyword_groups:
   - Blockchain
   - crypto
   - crypto wallet
+  - forex wallet
+  - forex crypto
+  - forex payment
+  - MT4
+  - MT5
+  - M4
+  - M5
   - payment
   - digital asset
   - virtual assets
@@ -139,6 +156,7 @@ keyword_groups:
   - crypto payment OR stablecoin payment OR crypto payments OR neobanking
   - web3 OR stablecoin OR crypto OR neobanking
   - payments engineer OR payments developer OR crypto payments OR stablecoin OR wallet OR custody
+  - forex OR FX OR brokerage OR MT4 OR MT5 OR M4 OR M5 OR wallet OR crypto OR payment
   - crypto product manager OR product owner OR neobank OR digital asset OR stable coin
   - product manager OR product owner OR business development OR sales OR account manager OR backlog
   - ai engineer OR machine learning engineer OR llm engineer OR genai engineer

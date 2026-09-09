@@ -62,7 +62,7 @@ keywords:
     - id: forex
       label: Forex / Trading
       category: industry
-      aliases: [trading]
+      aliases: [fx, trading, mt4, mt5, m4, m5]
     
     - id: brokerage
       label: Brokerage
@@ -176,7 +176,7 @@ posts_groups:
   
   - id: trading
     label: Trading & Forex
-    query: "forex OR brokerage OR trading"
+    query: "forex OR FX OR brokerage OR trading OR MT4 OR MT5 OR M4 OR M5 OR wallet OR crypto OR payment"
   
   - id: product
     label: Product
@@ -193,4 +193,3 @@ posts_groups:
   - id: risk_compliance
     label: Risk & Compliance
     query: "compliance OR risk OR AML OR KYC OR KYB"
-

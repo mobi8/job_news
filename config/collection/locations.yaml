@@ -165,7 +165,7 @@ locations:
   amsterdam:
     id: amsterdam
     label: Amsterdam
-    enabled: true
+    enabled: false
     country: Netherlands
     linkedin:
       source: linkedin_amsterdam
@@ -199,7 +199,7 @@ locations:
   australia:
     id: australia
     label: Australia
-    enabled: true
+    enabled: false
     country: Australia
     linkedin:
       source: linkedin_australia
@@ -371,7 +371,7 @@ locations:
   vietnam:
     id: vietnam
     label: Vietnam
-    enabled: true
+    enabled: false
     country: Vietnam
     linkedin:
       source: linkedin_vietnam
@@ -393,7 +393,7 @@ locations:
   malaysia:
     id: malaysia
     label: Malaysia
-    enabled: true
+    enabled: false
     country: Malaysia
     linkedin:
       source: linkedin_malaysia

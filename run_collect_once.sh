@@ -183,6 +183,7 @@ export SKIP_NEWS="${SKIP_NEWS:-1}"
 export BROWSER_PROBE_HEARTBEAT_SECONDS="${BROWSER_PROBE_HEARTBEAT_SECONDS:-10}"
 export PYDANTIC_DISABLE_PLUGINS="${PYDANTIC_DISABLE_PLUGINS:-1}"
 export RUN_LINKEDIN_POSTS="${RUN_LINKEDIN_POSTS:-1}"
+export RUN_CAREER_OPS_SCAN="${RUN_CAREER_OPS_SCAN:-1}"
 export RUN_QUEUE_EXPORT="${RUN_QUEUE_EXPORT:-1}"
 
 RUN_INITIAL_JOBS="$(db_count "SELECT COUNT(*) FROM jobs")"
@@ -198,6 +199,7 @@ echo "  DrJobs: $([[ "${SKIP_DRJOBS_BROWSER}" == "1" ]] && echo off || echo on)"
 echo "  Telegram channels: $([[ "${SKIP_TELEGRAM_SCRAPER:-0}" == "1" ]] && echo off || echo on)"
 echo "  News RSS: $([[ "${SKIP_NEWS}" == "1" ]] && echo off || echo on)"
 echo "  LinkedIn posts: $([[ "${RUN_LINKEDIN_POSTS}" == "1" ]] && echo on || echo off)"
+echo "  Career-Ops careers scan: $([[ "${RUN_CAREER_OPS_SCAN}" == "1" ]] && echo on || echo off)"
 echo "  Queue export: $([[ "${RUN_QUEUE_EXPORT}" == "1" ]] && echo on || echo off)"
 echo "  Browser heartbeat: every ${BROWSER_PROBE_HEARTBEAT_SECONDS}s"
 echo "  Pydantic plugins: $([[ "${PYDANTIC_DISABLE_PLUGINS}" == "1" ]] && echo disabled || echo enabled)"
@@ -273,6 +275,24 @@ if isinstance(summary, dict) and summary:
         f"final_total={int(summary.get('final_total') or 0)}"
     )
 PY
+fi
+
+if [[ "${RUN_CAREER_OPS_SCAN}" == "1" ]]; then
+  echo ""
+  echo "Running Career-Ops careers scan import..."
+  set +e
+  career_ops_output="$("${PYTHON_BIN}" src/services/career_ops_scan_import.py)"
+  career_ops_code="$?"
+  set -e
+  echo "${career_ops_output}"
+  if [[ "${career_ops_code}" == "0" ]]; then
+    echo "Career-Ops careers scan stage finished."
+  else
+    echo "WARNING: Career-Ops careers scan failed with exit code ${career_ops_code}."
+    record_phase_failure "Career-Ops careers scan" "exit code ${career_ops_code}"
+  fi
+else
+  echo "Skipping Career-Ops careers scan (RUN_CAREER_OPS_SCAN=${RUN_CAREER_OPS_SCAN})."
 fi
 
 if [[ "${SKIP_TELEGRAM_SCRAPER:-0}" != "1" ]]; then

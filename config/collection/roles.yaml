@@ -352,11 +352,11 @@ role_profiles:
     linkedin:
       keyword_group_id: forex
       queries:
-        - "forex OR FX OR CFD OR online trading OR trading platform OR brokerage OR broker operations OR multi-asset broker"
+        - "forex OR FX OR CFD OR online trading OR trading platform OR brokerage OR broker operations OR multi-asset broker OR MT4 OR MT5 OR MetaTrader OR wallet OR crypto OR payment"
     indeed:
       keyword_group_id: forex
       queries:
-        - "forex OR FX OR CFD OR trading platform OR brokerage"
+        - "forex OR FX OR CFD OR trading platform OR brokerage OR MT4 OR MT5 OR MetaTrader OR wallet OR crypto OR payment"
 
   trading_operations:
     id: trading_operations
@@ -394,7 +394,7 @@ role_profiles:
 
   trading_platform:
     id: trading_platform
-    label: Trading Platform / MT5
+    label: Trading Platform / MT4/MT5
     enabled: true
     aliases:
       - mt5
@@ -403,11 +403,11 @@ role_profiles:
     linkedin:
       keyword_group_id: trading_platform
       queries:
-        - "MetaTrader OR MT4 OR MT5 OR trading platform operations OR trading systems OR FIX API"
+        - "MetaTrader OR MT4 OR MT5 OR M4 OR M5 OR trading platform operations OR trading systems OR FIX API OR wallet OR crypto OR payment"
     indeed:
       keyword_group_id: trading_platform
       queries:
-        - "MetaTrader OR MT4 OR MT5 OR trading platform OR FIX API"
+        - "MetaTrader OR MT4 OR MT5 OR M4 OR M5 OR trading platform OR FIX API OR wallet OR crypto OR payment"
 
   korean_language:
     id: korean_language

@@ -104,7 +104,7 @@ sources:
             aliases: [institutional_fx, liquidity_manager, prime_brokerage]
             keyword_group_ids: [liquidity]
           - id: trading_platform
-            label: Trading Platform / MT5
+            label: Trading Platform / MT4/MT5
             aliases: [mt5, mt4, metatrader]
             keyword_group_ids: [trading_platform]
           - id: treasury

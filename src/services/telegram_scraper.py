@@ -207,10 +207,16 @@ def convert_to_job_posting_with_reason(message: Dict, channel: str, channel_name
         if not text or len(text) < 10:
             return None, "excluded_content"
 
+        links = message.get("links", [])
+
         # Extract basic info
         extracted = extract_job_postings(text)
         if not extracted or not extracted.get("role"):
-            return None, "missing_role"
+            link_role = _role_from_job_detail_links(links)
+            if link_role:
+                extracted = {"role": link_role}
+            else:
+                return None, "missing_role"
 
         # Generate source job ID from timestamp and text hash
         timestamp = message.get("timestamp", datetime.utcnow().isoformat())
@@ -218,7 +224,6 @@ def convert_to_job_posting_with_reason(message: Dict, channel: str, channel_name
         source_job_id = f"{timestamp.replace('T', '-').replace(':', '')[:-6]}-{text_hash}"
 
         # Get first external apply link, falling back only to the Telegram message permalink.
-        links = message.get("links", [])
         job_url = next((l for l in links if "http" in l and "t.me" not in l), "")
         if not job_url:
             job_url = next((l for l in links if _is_telegram_message_permalink(l, channel)), "")
@@ -280,6 +285,26 @@ def _is_telegram_message_permalink(url: str, channel: str) -> bool:
         or normalized.startswith(f"https://telegram.me/{channel}/")
         or normalized.startswith(f"http://telegram.me/{channel}/")
     )
+
+
+def _role_from_job_detail_links(links: List[str]) -> str:
+    """Use a public job detail URL slug when a Telegram post omits a parseable title."""
+    import re
+    from urllib.parse import unquote, urlparse
+
+    for link in links:
+        if not isinstance(link, str):
+            continue
+        parsed = urlparse(link)
+        if parsed.netloc.lower() not in {"telegra.ph", "teletype.in"}:
+            continue
+        slug = unquote(parsed.path.strip("/").split("/")[-1])
+        slug = re.sub(r"-\d{2}-\d{2}(?:-\d+)?$", "", slug)
+        slug = re.sub(r"^(?:vakansiya|vacancy|job)-", "", slug, flags=re.I)
+        title = re.sub(r"[-_]+", " ", slug).strip()
+        if title:
+            return title[:120]
+    return ""
 
 
 def save_jobs_to_db(db_path: str, jobs: List[JobPosting]) -> int:
