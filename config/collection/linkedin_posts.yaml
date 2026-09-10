@@ -27,6 +27,18 @@ sources:
     - id: forex
       query: forex OR FX OR brokerage OR MT4 OR MT5 OR wallet OR crypto OR payment
       domain: forex
+    - id: payments
+      query: payments OR payment gateway OR PSP OR acquiring OR fintech
+      domain: crypto_payments
+    - id: partnerships
+      query: partnership OR partnerships OR business development OR account manager OR relationship manager
+      domain: crypto_payments
+    - id: operations
+      query: operations OR customer success OR client success OR implementation OR integration
+      domain: crypto_payments
+    - id: affiliate
+      query: affiliate manager OR affiliate marketing OR acquisition manager OR iGaming
+      domain: igaming
     locations:
     - uae
     - uae_all
@@ -67,6 +79,13 @@ sources:
       - sportsbook
       - product
       - business development
+      - customer success
+      - client success
+      - relationship manager
+      - affiliate
+      - affiliate manager
+      - operations
+      - operations manager
       - wallet
       - backlog
       excluded_title_terms:

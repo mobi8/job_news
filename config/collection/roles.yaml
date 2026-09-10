@@ -233,6 +233,87 @@ role_profiles:
       queries:
         - "business development payments OR igaming business development OR fintech sales"
 
+  customer_success:
+    id: customer_success
+    label: Customer Success
+    enabled: true
+    aliases:
+      - client_success
+      - customer_success_manager
+      - client_services
+    linkedin:
+      keyword_group_id: customer_success
+      queries:
+        - "customer success manager OR client success manager OR client services manager OR customer support manager OR merchant success manager"
+    indeed:
+      keyword_group_id: customer_success
+      queries:
+        - "customer success manager OR client success manager OR client services OR merchant success"
+
+  relationship_manager:
+    id: relationship_manager
+    label: Relationship Manager
+    enabled: true
+    aliases:
+      - client_relationship
+      - relationship
+    linkedin:
+      keyword_group_id: relationship_manager
+      queries:
+        - "relationship manager OR client relationship manager OR key account manager OR VIP account manager"
+    indeed:
+      keyword_group_id: relationship_manager
+      queries:
+        - "relationship manager OR client relationship manager OR key account manager OR VIP account manager"
+
+  operations:
+    id: operations
+    label: Operations
+    enabled: true
+    aliases:
+      - ops
+      - operations_manager
+    linkedin:
+      keyword_group_id: operations
+      queries:
+        - "operations manager OR business operations manager OR operations specialist OR platform operations OR live operations"
+    indeed:
+      keyword_group_id: operations
+      queries:
+        - "operations manager OR business operations OR operations specialist OR platform operations"
+
+  affiliate_manager:
+    id: affiliate_manager
+    label: Affiliate Manager
+    enabled: true
+    aliases:
+      - affiliate
+      - affiliate_marketing
+    linkedin:
+      keyword_group_id: affiliate_manager
+      queries:
+        - "affiliate manager OR affiliate marketing manager OR partnership marketing manager OR acquisition manager"
+    indeed:
+      keyword_group_id: affiliate_manager
+      queries:
+        - "affiliate manager OR affiliate marketing manager OR acquisition manager"
+
+  country_manager:
+    id: country_manager
+    label: Country Manager
+    enabled: true
+    aliases:
+      - market_manager
+      - regional_manager
+    linkedin:
+      keyword_group_id: country_manager
+      queries:
+        - "country manager OR market manager OR regional manager OR general manager UAE"
+    indeed:
+      keyword_group_id: country_manager
+      queries:
+        - "country manager OR market manager OR regional manager OR general manager UAE"
+
   fraud:
     id: fraud
     label: Fraud

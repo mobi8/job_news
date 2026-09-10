@@ -133,6 +133,11 @@ sources:
         - account_manager
         - partner_manager
         - business_development
+        - customer_success
+        - relationship_manager
+        - operations
+        - affiliate_manager
+        - country_manager
         - fraud
         - risk
         - compliance

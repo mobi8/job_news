@@ -25,6 +25,11 @@ sources:
       - igaming
       - account_manager
       - technical_account
+      - customer_success
+      - relationship_manager
+      - operations
+      - affiliate_manager
+      - country_manager
       - implementation
       - compliance
       - forex

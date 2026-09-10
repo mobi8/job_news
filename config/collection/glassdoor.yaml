@@ -1,6 +1,6 @@
 sources:
   glassdoor:
-    enabled: false
+    enabled: true
     type: generated_search
     fetch_method: browserless
     targets:
@@ -33,11 +33,19 @@ sources:
       - product manager
       - product operations
       - account manager
+      - customer success manager
+      - client success manager
+      - relationship manager
+      - key account manager
       - technical account manager
       - implementation manager
       - integration engineer
       - business development
       - partnerships
+      - affiliate manager
+      - operations manager
+      - country manager
+      - market manager
       - fraud analyst
       - risk analyst
       - AML analyst
